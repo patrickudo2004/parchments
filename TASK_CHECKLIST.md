@@ -28,25 +28,25 @@
 - [ ] Test theme switching between light and dark modes
 
 ### Week 2: Authentication & Layout
-- [ ] Build Login page with email and password inputs
-- [ ] Add social login placeholders (Google, Apple)
-- [ ] Build Signup page with full name, email, password, confirm password
-- [ ] Implement local authentication using bcryptjs for password hashing
-- [ ] Create AuthContext and protected route wrapper
-- [ ] Add session management using localStorage
-- [ ] Implement "Remember Me" functionality
-- [ ] Build TopBar component with logo and app name
-- [ ] Add current note title display in TopBar
-- [ ] Build user menu with thumbnail, name, and email
-- [ ] Add action buttons to TopBar (Note, Voice, Bible, Strong's)
-- [ ] Build MenuBar component with File, Edit, View, Insert, Format, Tools, Help menus
+- [x] Build Login page with email and password inputs
+- [/] Add social login placeholders (Google, Apple)
+- [x] Build Signup page with full name, email, password, confirm password
+- [x] Implement local authentication using bcryptjs for password hashing
+- [x] Create AuthContext and protected route wrapper
+- [x] Add session management using localStorage
+- [x] Implement "Remember Me" functionality
+- [x] Build TopBar component with logo and app name
+- [x] Add current note title display in TopBar
+- [x] Build user menu with thumbnail, name, and email
+- [x] Add action buttons to TopBar (Note, Voice, Bible, Strong's)
+- [x] Build MenuBar component with File, Edit, View, Insert, Format, Tools, Help menus
 - [ ] Implement menu keyboard shortcuts
-- [ ] Build StatusBar component with save status indicator
-- [ ] Add page count, word count, and zoom controls to StatusBar
-- [ ] Implement responsive layout grid for main application
+- [x] Build StatusBar component with save status indicator
+- [x] Add page count, word count, and zoom controls to StatusBar
+- [x] Implement responsive layout grid for main application
 - [ ] Create user profile editing modal
 - [ ] Add user thumbnail upload or initials display
-- [ ] Test authentication flow (signup → login → logout → session persistence)
+- [x] Test authentication flow (signup → login → logout → session persistence)
 
 ### Week 3: Rich Text Editor & Basic Note-Taking
 - [ ] Install TipTap and required extensions

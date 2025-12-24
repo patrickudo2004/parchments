@@ -7,6 +7,7 @@ import type {
     BibleVersion,
     StrongsEntry,
     Setting,
+    User,
 } from '@/types/database';
 
 export class ParchmentsDB extends Dexie {
@@ -17,6 +18,7 @@ export class ParchmentsDB extends Dexie {
     bibleVersions!: Table<BibleVersion>;
     strongsEntries!: Table<StrongsEntry>;
     settings!: Table<Setting>;
+    users!: Table<User>;
 
     constructor() {
         super('ParchmentsDB');
@@ -29,6 +31,7 @@ export class ParchmentsDB extends Dexie {
             bibleVersions: 'id, abbreviation, name, isDefault',
             strongsEntries: 'id, number, language, lemma',
             settings: 'key',
+            users: 'id, email',
         });
     }
 }
@@ -65,6 +68,9 @@ export const dbHelpers = {
     },
 
     async getNotesByFolder(folderId: string | null): Promise<Note[]> {
+        if (folderId === null) {
+            return await db.notes.filter(note => note.folderId === null).toArray();
+        }
         return await db.notes.where('folderId').equals(folderId).toArray();
     },
 
@@ -95,6 +101,9 @@ export const dbHelpers = {
     },
 
     async getFoldersByParent(parentId: string | null): Promise<Folder[]> {
+        if (parentId === null) {
+            return await db.folders.filter(f => f.parentId === null).sortBy('order');
+        }
         return await db.folders.where('parentId').equals(parentId).sortBy('order');
     },
 
@@ -104,7 +113,7 @@ export const dbHelpers = {
     },
 
     async getDefaultBibleVersion(): Promise<BibleVersion | undefined> {
-        return await db.bibleVersions.where('isDefault').equals(true).first();
+        return await db.bibleVersions.where('isDefault').equals(true as any).first();
     },
 
     async setDefaultBibleVersion(abbreviation: string): Promise<void> {
@@ -143,5 +152,24 @@ export const dbHelpers = {
 
     async setSetting<T = any>(key: string, value: T): Promise<void> {
         await db.settings.put({ key, value });
+    },
+
+    // Users
+    async createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+        const newUser: User = {
+            ...user,
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+        };
+        await db.users.add(newUser);
+        return newUser;
+    },
+
+    async getUserByEmail(email: string): Promise<User | undefined> {
+        return await db.users.where('email').equalsIgnoreCase(email).first();
+    },
+
+    async getUserById(id: string): Promise<User | undefined> {
+        return await db.users.get(id);
     },
 };

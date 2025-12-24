@@ -40,13 +40,17 @@
 - [x] Build user menu with thumbnail, name, and email
 - [x] Add action buttons to TopBar (Note, Voice, Bible, Strong's)
 - [x] Build MenuBar component with File, Edit, View, Insert, Format, Tools, Help menus
-- [ ] Implement menu keyboard shortcuts
+- [x] Implement menu keyboard shortcuts
 - [x] Build StatusBar component with save status indicator
 - [x] Add page count, word count, and zoom controls to StatusBar
 - [x] Implement responsive layout grid for main application
-- [ ] Create user profile editing modal
-- [ ] Add user thumbnail upload or initials display
+- [x] Create user profile editing modal
+- [x] Add user thumbnail upload or initials display
 - [x] Test authentication flow (signup → login → logout → session persistence)
+- [x] Finalize core application layout (`MainLayout`, `TopBar`, `MenuBar`, `StatusBar`)
+- [x] Ensure robust authentication (signup, login, logout, session persistence)
+- [x] Implement and verify dark mode integration
+- [x] Update project documentation and push to GitHub
 
 ### Week 3: Rich Text Editor & Basic Note-Taking
 - [ ] Install TipTap and required extensions

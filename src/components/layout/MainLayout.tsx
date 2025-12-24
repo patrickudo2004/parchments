@@ -2,12 +2,31 @@ import React from 'react';
 import { TopBar } from './TopBar';
 import { MenuBar } from './MenuBar';
 import { StatusBar } from './StatusBar';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 interface MainLayoutProps {
     children: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+    // Define global shortcuts
+    useKeyboardShortcuts({
+        'Ctrl+N': () => console.log('Shortcut: New Note'),
+        'Ctrl+Shift+N': () => console.log('Shortcut: New Folder'),
+        'Ctrl+P': () => console.log('Shortcut: Print'),
+        'Ctrl+Z': () => console.log('Shortcut: Undo'),
+        'Ctrl+Y': () => console.log('Shortcut: Redo'),
+        'Ctrl+X': () => console.log('Shortcut: Cut'),
+        'Ctrl+C': () => console.log('Shortcut: Copy'),
+        'Ctrl+V': () => console.log('Shortcut: Paste'),
+        'Ctrl+\\': () => console.log('Shortcut: Toggle Sidebar'),
+        'F11': () => console.log('Shortcut: Full Screen'),
+        'Ctrl+=': () => console.log('Shortcut: Zoom In'),
+        'Ctrl+-': () => console.log('Shortcut: Zoom Out'),
+        'Ctrl+B': () => console.log('Shortcut: Bible Verse'),
+        'Ctrl+K': () => console.log('Shortcut: Link'),
+    });
+
     return (
         <div className="h-screen flex flex-col bg-light-background dark:bg-dark-background transition-colors overflow-hidden">
             {/* Header section */}

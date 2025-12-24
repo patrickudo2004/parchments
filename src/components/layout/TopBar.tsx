@@ -8,10 +8,14 @@ import GTranslateIcon from '@mui/icons-material/GTranslate';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { ProfileModal } from '../profile/ProfileModal';
 
 export const TopBar: React.FC = () => {
     const { user, logout } = useAuthStore();
     const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
+
+
 
     return (
         <header className="h-12 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50">
@@ -68,7 +72,13 @@ export const TopBar: React.FC = () => {
                                     </p>
                                 </div>
 
-                                <button className="w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md hover:bg-light-background dark:hover:bg-dark-background transition-colors">
+                                <button
+                                    onClick={() => {
+                                        setIsProfileModalOpen(true);
+                                        setIsUserMenuOpen(false);
+                                    }}
+                                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md hover:bg-light-background dark:hover:bg-dark-background transition-colors"
+                                >
                                     <SettingsIcon fontSize="small" />
                                     <span>Profile Settings</span>
                                 </button>
@@ -85,6 +95,11 @@ export const TopBar: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            <ProfileModal
+                isOpen={isProfileModalOpen}
+                onClose={() => setIsProfileModalOpen(false)}
+            />
         </header>
     );
 };

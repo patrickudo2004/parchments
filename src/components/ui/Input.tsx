@@ -3,11 +3,12 @@ import React, { forwardRef } from 'react';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
+    helperText?: string;
     icon?: React.ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ label, error, icon, className = '', ...props }, ref) => {
+    ({ label, error, helperText, icon, className = '', ...props }, ref) => {
         return (
             <div className="w-full">
                 {label && (
@@ -27,9 +28,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                         {...props}
                     />
                 </div>
-                {error && (
+                {error ? (
                     <p className="mt-1 text-sm text-warning">{error}</p>
-                )}
+                ) : helperText ? (
+                    <p className="mt-1 text-xs text-light-text-disabled dark:text-dark-text-disabled">{helperText}</p>
+                ) : null}
             </div>
         );
     }

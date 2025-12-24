@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
+
+@theme {
+  /* Light mode colors */
+  --color-light-background: #F5F5F7;
+  --color-light-surface: #FFFFFF;
+  --color-light-sidebar: #F0F2F5;
+  --color-light-border: #D6D9E0;
+  --color-light-text-primary: #1F2430;
+  --color-light-text-secondary: #5C6578;
+  --color-light-text-disabled: #A4A9B6;
+
+  /* Dark mode colors */
+  --color-dark-background: #111218;
+  --color-dark-surface: #181A22;
+  --color-dark-sidebar: #151720;
+  --color-dark-elevated: #1F2230;
+  --color-dark-border: #2C3040;
+  --color-dark-text-primary: #F4F5F8;
+  --color-dark-text-secondary: #B3B8C7;
+  --color-dark-text-disabled: #707585;
+
+  /* Brand colors */
+  --color-primary: #2F5D9C;
+  --color-primary-hover: #264A7A;
+  --color-primary-hover-dark: #3668AD;
+  --color-secondary: #2E8B57;
+  --color-warning: #E39A35;
+
+  /* Scripture reference colors */
+  --color-scripture-link: #2F5D9C;
+  --color-scripture-link-dark: #6FA8FF;
+  --color-scripture-hover-bg: #E3ECF8;
+  --color-scripture-hover-bg-dark: #273552;
+  --color-scripture-selection: #C9DBFF;
+  --color-scripture-selection-dark: #3257A8;
+
+  /* Font families */
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-serif: 'Merriweather', Georgia, serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  background-color: var(--color-light-background);
+  color: var(--color-light-text-primary);
+}
+
+/* Dark mode */
+body.dark {
+  background-color: var(--color-dark-background);
+  color: var(--color-dark-text-primary);
+}
+
+@layer components {
+
+  /* Scripture reference link styling */
+  .scripture-ref-link {
+    @apply text-scripture-link underline decoration-dotted cursor-pointer transition-colors;
+    @apply hover:bg-scripture-hover-bg hover:text-primary;
+  }
+
+  .dark .scripture-ref-link {
+    @apply text-scripture-link-dark;
+    @apply hover:bg-scripture-hover-bg-dark hover:text-scripture-link-dark;
+  }
+
+  /* Button base styles */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-hover;
+  }
+
+  .dark .btn-primary {
+    @apply hover:bg-primary-hover-dark;
+  }
+
+  .btn-secondary {
+    @apply border border-primary text-primary bg-transparent;
+    @apply hover:bg-primary hover:text-white;
+  }
+
+  .dark .btn-secondary {
+    @apply border-scripture-link-dark text-scripture-link-dark;
+    @apply hover:bg-scripture-link-dark hover:text-white;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-3 py-2 border rounded-md transition-colors;
+    @apply bg-light-surface border-light-border text-light-text-primary;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  .dark .input {
+    @apply bg-dark-surface border-dark-border text-dark-text-primary;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-light-surface border border-light-border rounded-lg shadow-sm;
+  }
+
+  .dark .card {
+    @apply bg-dark-surface border-dark-border;
+  }
+}
+
+@layer utilities {
+
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-light-sidebar;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-dark-sidebar;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-light-border rounded-full;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-dark-border rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-light-text-disabled;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-text-disabled;
+  }
+}

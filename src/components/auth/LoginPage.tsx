@@ -45,7 +45,7 @@ export const LoginPage: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="card w-full max-w-md p-8 space-y-6">
+            <div className="card w-full max-w-md p-10 space-y-8">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold text-primary mb-2">Parchments</h1>
                     <p className="text-light-text-secondary dark:text-dark-text-secondary">
@@ -53,7 +53,7 @@ export const LoginPage: React.FC = () => {
                     </p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-6">
                     <Input
                         type="email"
                         label="Email"

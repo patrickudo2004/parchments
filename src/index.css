@@ -103,7 +103,7 @@ body.dark {
 
   /* Input styles */
   .input {
-    @apply w-full px-3 py-2 border rounded-md transition-colors;
+    @apply w-full px-4 py-3 border rounded-md transition-colors;
     @apply bg-light-surface border-light-border text-light-text-primary;
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
   }

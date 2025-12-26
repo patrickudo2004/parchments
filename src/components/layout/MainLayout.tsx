@@ -3,24 +3,35 @@ import { TopBar } from './TopBar';
 import { MenuBar } from './MenuBar';
 import { StatusBar } from './StatusBar';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { RichTextEditor } from '../editor/RichTextEditor';
+import { FilesSidebar } from './FilesSidebar';
+import { useNoteStore } from '@/stores/noteStore';
 
 interface MainLayoutProps {
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+    const { createNote, setCurrentNote } = useNoteStore();
+
     // Define global shortcuts
     useKeyboardShortcuts({
-        'Ctrl+N': () => console.log('Shortcut: New Note'),
+        'Ctrl+N': async () => {
+            const note = await createNote(null);
+            setCurrentNote(note);
+        },
         'Ctrl+Shift+N': () => console.log('Shortcut: New Folder'),
-        'Ctrl+P': () => console.log('Shortcut: Print'),
+        'Ctrl+P': () => window.print(),
         'Ctrl+Z': () => console.log('Shortcut: Undo'),
         'Ctrl+Y': () => console.log('Shortcut: Redo'),
-        'Ctrl+X': () => console.log('Shortcut: Cut'),
-        'Ctrl+C': () => console.log('Shortcut: Copy'),
-        'Ctrl+V': () => console.log('Shortcut: Paste'),
         'Ctrl+\\': () => console.log('Shortcut: Toggle Sidebar'),
-        'F11': () => console.log('Shortcut: Full Screen'),
+        'F11': () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        },
         'Ctrl+=': () => console.log('Shortcut: Zoom In'),
         'Ctrl+-': () => console.log('Shortcut: Zoom Out'),
         'Ctrl+B': () => console.log('Shortcut: Bible Verse'),
@@ -35,23 +46,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
             {/* Main content area */}
             <main className="flex-1 flex overflow-hidden relative">
-                {/* Left Sidebar placeholder */}
-                <aside className="w-64 bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border hidden lg:flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-light-border dark:border-dark-border">
-                        <h2 className="text-xs font-bold text-light-text-disabled dark:text-dark-text-disabled uppercase tracking-wider">
-                            Files
-                        </h2>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-2">
-                        <p className="text-xs text-center mt-8 text-light-text-disabled dark:text-dark-text-disabled italic">
-                            No files yet
-                        </p>
-                    </div>
-                </aside>
+                <FilesSidebar />
 
                 {/* Editor area */}
                 <div className="flex-1 h-full overflow-hidden flex flex-col">
-                    {children}
+                    {children || <RichTextEditor />}
                 </div>
 
                 {/* Right Sidebar placeholder (Bible/Strong's) */}

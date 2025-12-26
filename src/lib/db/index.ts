@@ -21,7 +21,7 @@ export class ParchmentsDB extends Dexie {
     users!: Table<User>;
 
     constructor() {
-        super('ParchmentsDB');
+        super('ParchmentsDBv2');
 
         this.version(1).stores({
             notes: 'id, title, folderId, *tags, createdAt, updatedAt, type',

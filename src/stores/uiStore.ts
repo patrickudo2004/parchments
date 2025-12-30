@@ -21,7 +21,7 @@ export const useUIStore = create<UIStore>()(
     persist(
         (set) => ({
             theme: 'light',
-            leftSidebarWidth: 250,
+            leftSidebarWidth: 280,
             rightSidebarWidth: 350,
             rightSidebarOpen: false,
             rightSidebarContent: null,
@@ -29,7 +29,6 @@ export const useUIStore = create<UIStore>()(
             toggleTheme: () =>
                 set((state) => {
                     const newTheme = state.theme === 'light' ? 'dark' : 'light';
-                    // Update document class for Tailwind dark mode
                     if (newTheme === 'dark') {
                         document.body.classList.add('dark');
                     } else {
@@ -59,23 +58,12 @@ export const useUIStore = create<UIStore>()(
                 set({ rightSidebarOpen: false, rightSidebarContent: null }),
         }),
         {
-            name: 'parchments-ui-storage',
-            partialize: (state) => ({
-                theme: state.theme,
-                leftSidebarWidth: state.leftSidebarWidth,
-                rightSidebarWidth: state.rightSidebarWidth,
-            }),
+            name: 'parchments-ui',
+            onRehydrateStorage: () => (state) => {
+                if (state && state.theme === 'dark') {
+                    document.body.classList.add('dark');
+                }
+            }
         }
     )
 );
-
-// Initialize theme on app load
-if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('parchments-ui-storage');
-    if (stored) {
-        const { state } = JSON.parse(stored);
-        if (state.theme === 'dark') {
-            document.body.classList.add('dark');
-        }
-    }
-}

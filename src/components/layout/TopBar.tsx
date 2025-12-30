@@ -1,99 +1,66 @@
 import React from 'react';
-import { useAuthStore } from '@/stores/authStore';
-import { Button } from '@/components/ui/Button';
-import AddIcon from '@mui/icons-material/Add';
-import MicIcon from '@mui/icons-material/Mic';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import GTranslateIcon from '@mui/icons-material/GTranslate';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { useNoteStore } from '@/stores/noteStore';
+import { useUIStore } from '@/stores/uiStore';
+import SearchIcon from '@mui/icons-material/Search';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import SettingsIcon from '@mui/icons-material/Settings';
-import LogoutIcon from '@mui/icons-material/Logout';
 import { ProfileModal } from '../profile/ProfileModal';
 
 export const TopBar: React.FC = () => {
-    const { user, logout } = useAuthStore();
-    const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+    const { currentNote } = useNoteStore();
+    const { theme, toggleTheme } = useUIStore();
     const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
 
-
-
     return (
-        <header className="h-12 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50">
-            <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-                        <span className="text-white font-bold">P</span>
+        <header className="h-16 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
+            {/* Left: Branding */}
+            <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-primary rounded flex items-center justify-center shadow-md">
+                        <span className="text-white font-bold text-lg">P</span>
                     </div>
-                    <span className="font-bold text-lg text-primary hidden sm:block">Parchments</span>
-                </div>
-
-                <div className="h-6 w-[1px] bg-light-border dark:border-dark-border mx-2" />
-
-                <div className="flex items-center space-x-1">
-                    <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[200px]">
-                        Untitled Note
-                    </span>
+                    <span className="font-extrabold text-xl text-primary tracking-tight hidden sm:block">Parchments</span>
                 </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-                <div className="hidden md:flex items-center space-x-1 mr-4">
-                    <Button variant="ghost" size="sm" icon={<AddIcon fontSize="small" />} title="New Note" onClick={() => { }}>Note</Button>
-                    <Button variant="ghost" size="sm" icon={<MicIcon fontSize="small" />} title="New Voice Note" onClick={() => { }}>Voice</Button>
-                    <Button variant="ghost" size="sm" icon={<MenuBookIcon fontSize="small" />} title="Bible" onClick={() => { }}>Bible</Button>
-                    <Button variant="ghost" size="sm" icon={<GTranslateIcon fontSize="small" />} title="Strong's" onClick={() => { }}>Strong's</Button>
+            {/* Center: Note Title */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[300px] block text-center">
+                    {currentNote?.title || 'Home'}
+                </span>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-4">
+                {/* Search */}
+                <div className="relative hidden md:block">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary">
+                        <SearchIcon fontSize="small" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 transition-all"
+                    />
                 </div>
 
-                <div className="relative">
-                    <button
-                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="flex items-center space-x-2 p-1 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-light-sidebar dark:bg-dark-sidebar flex items-center justify-center text-primary overflow-hidden">
-                            {user?.fullName ? (
-                                <span className="font-medium">{user.fullName.charAt(0)}</span>
-                            ) : (
-                                <AccountCircleIcon />
-                            )}
-                        </div>
-                    </button>
+                {/* Theme Toggle */}
+                <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
+                    title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                    {theme === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+                </button>
 
-                    {isUserMenuOpen && (
-                        <>
-                            <div
-                                className="fixed inset-0 z-40"
-                                onClick={() => setIsUserMenuOpen(false)}
-                            />
-                            <div className="absolute right-0 mt-2 w-56 card shadow-lg p-2 z-50 animate-in fade-in zoom-in duration-200">
-                                <div className="px-3 py-2 border-b border-light-border dark:border-dark-border mb-1">
-                                    <p className="text-sm font-bold truncate">{user?.fullName || 'User'}</p>
-                                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary truncate">
-                                        {user?.email}
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={() => {
-                                        setIsProfileModalOpen(true);
-                                        setIsUserMenuOpen(false);
-                                    }}
-                                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md hover:bg-light-background dark:hover:bg-dark-background transition-colors"
-                                >
-                                    <SettingsIcon fontSize="small" />
-                                    <span>Profile Settings</span>
-                                </button>
-
-                                <button
-                                    onClick={() => logout()}
-                                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-warning rounded-md hover:bg-warning/10 transition-colors"
-                                >
-                                    <LogoutIcon fontSize="small" />
-                                    <span>Sign Out</span>
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <button
+                    onClick={() => setIsProfileModalOpen(true)}
+                    className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
+                    title="Settings"
+                >
+                    <SettingsIcon fontSize="small" />
+                </button>
             </div>
 
             <ProfileModal

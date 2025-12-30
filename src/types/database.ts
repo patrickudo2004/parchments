@@ -1,76 +1,35 @@
-// Type definitions for database models
 export interface Note {
-    id: string; // UUID
+    id: string;
     title: string;
-    content: string; // TipTap JSON or HTML
-    folderId: string | null; // null = root level
-    tags: string[];
-    createdAt: number; // Unix timestamp
+    content: string; // HTML content from TipTap
+    createdAt: number;
     updatedAt: number;
-    type: 'text' | 'voice' | 'transcribed';
-    wordCount?: number;
-    pageCount?: number;
+    folderId: string | null;
+    tags: string[];
+    isArchived?: boolean;
+    isPinned?: boolean;
+    type: 'text' | 'voice';
+    audioUrl?: string; // For voice notes
 }
 
 export interface Folder {
     id: string;
     name: string;
-    parentId: string | null; // null = root level
+    parentId: string | null;
     createdAt: number;
-    order: number; // for manual sorting
-}
-
-export interface VoiceNote {
-    id: string;
-    noteId: string; // links to Note.id
-    audioBlob: Blob; // actual audio data
-    duration: number; // seconds
-    transcription: string | null;
-    transcriptionStatus: 'pending' | 'processing' | 'completed' | 'failed';
-    createdAt: number;
-}
-
-export interface BibleVerse {
-    id: string; // composite: version-book-chapter-verse
-    version: string; // 'KJV', 'NKJV', etc.
-    book: string; // 'Genesis', 'John', etc.
-    bookNumber: number; // 1-66 for sorting
-    chapter: number;
-    verse: number;
-    text: string;
-}
-
-export interface BibleVersion {
-    id: string;
-    abbreviation: string; // 'KJV', 'NKJV'
-    name: string; // 'King James Version'
-    language: string; // 'en'
-    copyright: string;
-    isDefault: boolean;
-    installedAt: number;
-    verseCount: number;
-}
-
-export interface StrongsEntry {
-    id: string;
-    number: string; // 'H1234' or 'G5678'
-    language: 'hebrew' | 'greek';
-    lemma: string; // original word
-    transliteration: string;
-    pronunciation: string;
-    definition: string;
-    kjvUsage: string;
-}
-
-export interface Setting {
-    key: string;
-    value: any; // JSON-serializable
+    updatedAt: number;
+    order: number;
 }
 
 export interface User {
     id: string;
     email: string;
-    fullName?: string;
+    fullName: string;
     passwordHash: string;
     createdAt: number;
+    updatedAt: number;
+    preferences: {
+        theme: 'light' | 'dark';
+        sidebarOpen: boolean;
+    };
 }

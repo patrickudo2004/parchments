@@ -1,175 +1,86 @@
 import Dexie, { type Table } from 'dexie';
-import type {
-    Note,
-    Folder,
-    VoiceNote,
-    BibleVerse,
-    BibleVersion,
-    StrongsEntry,
-    Setting,
-    User,
-} from '@/types/database';
+import type { Note, Folder, User } from '@/types/database';
+import { v4 as uuidv4 } from 'uuid';
 
-export class ParchmentsDB extends Dexie {
+export class ParchmentsDatabase extends Dexie {
     notes!: Table<Note>;
     folders!: Table<Folder>;
-    voiceNotes!: Table<VoiceNote>;
-    bibleVerses!: Table<BibleVerse>;
-    bibleVersions!: Table<BibleVersion>;
-    strongsEntries!: Table<StrongsEntry>;
-    settings!: Table<Setting>;
     users!: Table<User>;
 
     constructor() {
-        super('ParchmentsDBv2');
-
+        super('ParchmentsDB');
         this.version(1).stores({
-            notes: 'id, title, folderId, *tags, createdAt, updatedAt, type',
-            folders: 'id, name, parentId, createdAt, order',
-            voiceNotes: 'id, noteId, createdAt, duration, transcriptionStatus',
-            bibleVerses: 'id, [version+book+chapter+verse], version, book, chapter, verse, bookNumber',
-            bibleVersions: 'id, abbreviation, name, isDefault',
-            strongsEntries: 'id, number, language, lemma',
-            settings: 'key',
-            users: 'id, email',
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName'
         });
     }
 }
 
-// Create a singleton instance
-export const db = new ParchmentsDB();
+export const db = new ParchmentsDatabase();
 
-// Helper functions for common database operations
+// Helper functions
 export const dbHelpers = {
     // Notes
-    async createNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note> {
+    createNote: async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
+        const timestamp = Date.now();
         const newNote: Note = {
             ...note,
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            id: uuidv4(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
         };
         await db.notes.add(newNote);
         return newNote;
     },
 
-    async updateNote(id: string, updates: Partial<Note>): Promise<void> {
+    updateNote: async (id: string, updates: Partial<Note>) => {
         await db.notes.update(id, {
             ...updates,
             updatedAt: Date.now(),
         });
     },
 
-    async deleteNote(id: string): Promise<void> {
+    deleteNote: async (id: string) => {
         await db.notes.delete(id);
-        // Also delete associated voice notes
-        const voiceNotes = await db.voiceNotes.where('noteId').equals(id).toArray();
-        await db.voiceNotes.bulkDelete(voiceNotes.map(vn => vn.id));
-    },
-
-    async getNotesByFolder(folderId: string | null): Promise<Note[]> {
-        if (folderId === null) {
-            return await db.notes.filter(note => note.folderId === null).toArray();
-        }
-        return await db.notes.where('folderId').equals(folderId).toArray();
     },
 
     // Folders
-    async createFolder(folder: Omit<Folder, 'id' | 'createdAt'>): Promise<Folder> {
+    createFolder: async (folder: Omit<Folder, 'id' | 'createdAt' | 'updatedAt'>) => {
+        const timestamp = Date.now();
         const newFolder: Folder = {
             ...folder,
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
+            id: uuidv4(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
         };
         await db.folders.add(newFolder);
         return newFolder;
     },
 
-    async deleteFolder(id: string): Promise<void> {
-        // Delete all notes in folder
+    deleteFolder: async (id: string) => {
+        // Simple/Naive: Delete folder and move children to root? Or delete children?
+        // Let's delete children notes for now.
         const notes = await db.notes.where('folderId').equals(id).toArray();
         await db.notes.bulkDelete(notes.map(n => n.id));
-
-        // Delete all subfolders recursively
-        const subfolders = await db.folders.where('parentId').equals(id).toArray();
-        for (const subfolder of subfolders) {
-            await this.deleteFolder(subfolder.id);
-        }
-
-        // Delete the folder itself
         await db.folders.delete(id);
     },
 
-    async getFoldersByParent(parentId: string | null): Promise<Folder[]> {
-        if (parentId === null) {
-            return await db.folders.filter(f => f.parentId === null).sortBy('order');
-        }
-        return await db.folders.where('parentId').equals(parentId).sortBy('order');
-    },
-
-    // Bible
-    async getBibleVersions(): Promise<BibleVersion[]> {
-        return await db.bibleVersions.toArray();
-    },
-
-    async getDefaultBibleVersion(): Promise<BibleVersion | undefined> {
-        return await db.bibleVersions.where('isDefault').equals(true as any).first();
-    },
-
-    async setDefaultBibleVersion(abbreviation: string): Promise<void> {
-        // Unset all defaults
-        const versions = await db.bibleVersions.toArray();
-        await db.bibleVersions.bulkPut(
-            versions.map(v => ({ ...v, isDefault: v.abbreviation === abbreviation }))
-        );
-    },
-
-    async getVerse(version: string, book: string, chapter: number, verse: number): Promise<BibleVerse | undefined> {
-        return await db.bibleVerses.get({ version, book, chapter, verse });
-    },
-
-    async getChapter(version: string, book: string, chapter: number): Promise<BibleVerse[]> {
-        return await db.bibleVerses
-            .where({ version, book, chapter })
-            .sortBy('verse');
-    },
-
-    async searchBible(version: string, query: string, limit: number = 100): Promise<BibleVerse[]> {
-        const normalizedQuery = query.toLowerCase();
-        return await db.bibleVerses
-            .where('version')
-            .equals(version)
-            .filter(verse => verse.text.toLowerCase().includes(normalizedQuery))
-            .limit(limit)
-            .toArray();
-    },
-
-    // Settings
-    async getSetting<T = any>(key: string): Promise<T | undefined> {
-        const setting = await db.settings.get(key);
-        return setting?.value;
-    },
-
-    async setSetting<T = any>(key: string, value: T): Promise<void> {
-        await db.settings.put({ key, value });
-    },
-
-    // Users
-    async createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+    // Users (Mock/Local simplistic)
+    createUser: async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'preferences'>) => {
+        const timestamp = Date.now();
         const newUser: User = {
             ...user,
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
+            id: uuidv4(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            preferences: { theme: 'light', sidebarOpen: true }
         };
         await db.users.add(newUser);
         return newUser;
     },
 
-    async getUserByEmail(email: string): Promise<User | undefined> {
-        return await db.users.where('email').equalsIgnoreCase(email).first();
-    },
-
-    async getUserById(id: string): Promise<User | undefined> {
-        return await db.users.get(id);
-    },
+    getUserByEmail: async (email: string) => {
+        return await db.users.where('email').equals(email).first();
+    }
 };

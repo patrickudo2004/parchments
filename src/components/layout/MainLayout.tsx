@@ -5,6 +5,7 @@ import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
 import { BibleModal } from '@/components/bible/BibleModal';
+import { StrongsModal } from '@/components/bible/StrongsModal';
 
 export const MainLayout: React.FC = () => {
     const { theme } = useUIStore();
@@ -35,6 +36,7 @@ export const MainLayout: React.FC = () => {
             </div>
 
             <BibleModal />
+            <StrongsModal />
             <StatusBar />
         </div>
     );

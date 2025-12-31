@@ -7,7 +7,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
-    const { toggleBibleModal } = useUIStore();
+    const { toggleBibleModal, toggleStrongsModal } = useUIStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +152,7 @@ export const MenuBar: React.FC = () => {
                 <Button variant="primary" icon={<AddIcon />}>Note</Button>
                 <Button variant="primary" icon={<MicIcon />}>Voice</Button>
                 <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
-                <Button variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
+                <Button onClick={toggleStrongsModal} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
             </div>
         </div>
     );

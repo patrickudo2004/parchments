@@ -8,11 +8,13 @@ interface UIStore {
     rightSidebarOpen: boolean;
     rightSidebarContent: 'bible' | 'search' | null;
     isBibleModalOpen: boolean;
+    isStrongsModalOpen: boolean;
 
     // Actions
     toggleTheme: () => void;
     setTheme: (theme: 'light' | 'dark') => void;
     toggleBibleModal: () => void;
+    toggleStrongsModal: () => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
     openRightSidebar: (content: 'bible' | 'search') => void;
@@ -28,6 +30,7 @@ export const useUIStore = create<UIStore>()(
             rightSidebarOpen: false,
             rightSidebarContent: null,
             isBibleModalOpen: false,
+            isStrongsModalOpen: false,
 
             toggleTheme: () =>
                 set((state) => {
@@ -41,6 +44,7 @@ export const useUIStore = create<UIStore>()(
                 }),
 
             toggleBibleModal: () => set((state) => ({ isBibleModalOpen: !state.isBibleModalOpen })),
+            toggleStrongsModal: () => set((state) => ({ isStrongsModalOpen: !state.isStrongsModalOpen })),
 
             setTheme: (theme) =>
                 set(() => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useUIStore } from '@/stores/uiStore';
 import { Button } from '@/components/ui/Button';
 import AddIcon from '@mui/icons-material/Add';
 import MicIcon from '@mui/icons-material/Mic';
@@ -6,6 +7,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
+    const { toggleBibleModal } = useUIStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -110,8 +112,8 @@ export const MenuBar: React.FC = () => {
                                 if (activeMenu) setActiveMenu(menu.label);
                             }}
                             className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${activeMenu === menu.label
-                                    ? 'bg-light-sidebar dark:bg-dark-sidebar text-primary'
-                                    : 'text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background'
+                                ? 'bg-light-sidebar dark:bg-dark-sidebar text-primary'
+                                : 'text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background'
                                 }`}
                         >
                             {menu.label}
@@ -149,7 +151,7 @@ export const MenuBar: React.FC = () => {
             <div className="flex items-center gap-3">
                 <Button variant="primary" icon={<AddIcon />}>Note</Button>
                 <Button variant="primary" icon={<MicIcon />}>Voice</Button>
-                <Button variant="primary" icon={<MenuBookIcon />}>Bible</Button>
+                <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
                 <Button variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
             </div>
         </div>

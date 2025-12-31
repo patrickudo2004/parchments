@@ -4,6 +4,7 @@ import { MenuBar } from './MenuBar';
 import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
+import { BibleModal } from '@/components/bible/BibleModal';
 
 export const MainLayout: React.FC = () => {
     const { theme } = useUIStore();
@@ -33,6 +34,7 @@ export const MainLayout: React.FC = () => {
                 {/* Right sidebar placeholder */}
             </div>
 
+            <BibleModal />
             <StatusBar />
         </div>
     );

@@ -11,10 +11,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useUIStore } from '@/stores/uiStore';
 import type { Note, Folder } from '@/types/database';
 
 export const FilesSidebar: React.FC = () => {
     const { setCurrentNote, createNote, notes, folders, deleteNote, deleteFolder } = useNoteStore();
+    const { leftSidebarWidth } = useUIStore();
+    // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['1', '2'])); // Default expanded for mocks
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
@@ -159,7 +162,10 @@ export const FilesSidebar: React.FC = () => {
     ] : []);
 
     return (
-        <div className="w-[280px] bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 select-none">
+        <div
+            className="bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 select-none overflow-hidden"
+            style={{ width: `${leftSidebarWidth}px` }}
+        >
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">

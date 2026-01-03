@@ -20,6 +20,7 @@ interface UIStore {
     markdownSupport: boolean;
 
     leftSidebarWidth: number;
+    isLeftSidebarOpen: boolean;
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
     rightSidebarContent: 'bible' | 'search' | null;
@@ -34,6 +35,8 @@ interface UIStore {
     toggleBibleModal: () => void;
     toggleStrongsModal: () => void;
     toggleSettingsModal: () => void;
+    toggleLeftSidebar: () => void;
+    toggleRightSidebar: (content?: 'bible' | 'search') => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
     openRightSidebar: (content: 'bible' | 'search') => void;
@@ -59,6 +62,7 @@ export const useUIStore = create<UIStore>()(
             markdownSupport: true,
 
             leftSidebarWidth: 280,
+            isLeftSidebarOpen: true,
             rightSidebarWidth: 350,
             rightSidebarOpen: false,
             rightSidebarContent: null,
@@ -81,6 +85,16 @@ export const useUIStore = create<UIStore>()(
             toggleBibleModal: () => set((state) => ({ isBibleModalOpen: !state.isBibleModalOpen })),
             toggleStrongsModal: () => set((state) => ({ isStrongsModalOpen: !state.isStrongsModalOpen })),
             toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+
+            toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+
+            toggleRightSidebar: (content) => set((state) => {
+                const isOpen = !state.rightSidebarOpen;
+                return {
+                    rightSidebarOpen: isOpen,
+                    rightSidebarContent: isOpen ? (content || state.rightSidebarContent || 'bible') : null
+                };
+            }),
 
             setTheme: (theme) =>
                 set(() => {

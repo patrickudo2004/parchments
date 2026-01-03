@@ -7,7 +7,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
-    const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal } = useUIStore();
+    const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal, toggleRightSidebar, toggleLeftSidebar } = useUIStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -16,8 +16,11 @@ export const MenuBar: React.FC = () => {
             case 'Settings':
                 toggleSettingsModal();
                 break;
+            case 'Toggle Sidebar':
+                toggleLeftSidebar();
+                break;
             case 'Toggle Bible Panel':
-                toggleBibleModal();
+                toggleRightSidebar('bible');
                 break;
             case 'Strong\'s Lookup':
                 toggleStrongsModal();

@@ -7,11 +7,29 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
-    const { toggleBibleModal, toggleStrongsModal } = useUIStore();
+    const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal } = useUIStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const handleItemClick = (label: string) => {
+        switch (label) {
+            case 'Settings':
+                toggleSettingsModal();
+                break;
+            case 'Toggle Bible Panel':
+                toggleBibleModal();
+                break;
+            case 'Strong\'s Lookup':
+                toggleStrongsModal();
+                break;
+            default:
+                console.log(`Clicked ${label}`);
+        }
+        setActiveMenu(null);
+    };
+
     const MENU_STRUCTURE = [
+        // ... same structure ...
         {
             label: 'File',
             items: [
@@ -129,8 +147,8 @@ export const MenuBar: React.FC = () => {
                                         <button
                                             key={index}
                                             onClick={() => {
-                                                console.log(`Clicked ${'label' in item ? item.label : ''}`);
-                                                setActiveMenu(null);
+                                                const label = ('label' in item && typeof item.label === 'string') ? item.label : '';
+                                                handleItemClick(label);
                                             }}
                                             className="w-full text-left px-4 py-2 text-sm text-light-text-primary dark:text-dark-text-primary hover:bg-primary hover:text-white flex justify-between items-center group"
                                         >

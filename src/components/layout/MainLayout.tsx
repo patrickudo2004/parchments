@@ -6,9 +6,15 @@ import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
 import { BibleModal } from '@/components/bible/BibleModal';
 import { StrongsModal } from '@/components/bible/StrongsModal';
+import { SettingsModal } from './SettingsModal';
+import { AnimatePresence } from 'framer-motion';
 
-export const MainLayout: React.FC = () => {
-    const { theme } = useUIStore();
+interface MainLayoutProps {
+    children: React.ReactNode;
+}
+
+export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+    const { theme, isBibleModalOpen, isStrongsModalOpen, isSettingsModalOpen, toggleSettingsModal } = useUIStore();
 
     // Ensure theme is applied to body on mount
     React.useEffect(() => {
@@ -24,20 +30,30 @@ export const MainLayout: React.FC = () => {
             <TopBar />
             <MenuBar />
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
                 <FilesSidebar />
-                <main className="flex-1 overflow-y-auto p-8 relative flex flex-col items-center justify-center">
-                    <div className="text-center space-y-4">
-                        <h1 className="text-4xl font-bold text-primary">Welcome to Parchments</h1>
-                        <p className="text-lg text-light-text-secondary dark:text-dark-text-secondary">Select a note to begin editing.</p>
-                    </div>
+                <main className="flex-1 overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm">
+                    {children}
                 </main>
-                {/* Right sidebar placeholder */}
             </div>
 
-            <BibleModal />
-            <StrongsModal />
             <StatusBar />
+
+            {/* Floating Modals Container */}
+            <div className="fixed inset-0 pointer-events-none z-50">
+                <div className="absolute inset-0">
+                    <AnimatePresence>
+                        {isBibleModalOpen && <BibleModal />}
+                        {isStrongsModalOpen && <StrongsModal />}
+                    </AnimatePresence>
+                </div>
+            </div>
+
+            {/* Global Settings Modal */}
+            <SettingsModal
+                isOpen={isSettingsModalOpen}
+                onClose={toggleSettingsModal}
+            />
         </div>
     );
 };

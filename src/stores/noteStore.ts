@@ -14,6 +14,7 @@ interface NoteStore {
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
+    setNotes: (notes: Note[]) => void;
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
@@ -67,4 +68,5 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     setCurrentNote: (note) => set({ currentNote: note }),
+    setNotes: (notes) => set({ notes }),
 }));

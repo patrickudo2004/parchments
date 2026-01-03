@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
 import AddIcon from '@mui/icons-material/Add';
 import MicIcon from '@mui/icons-material/Mic';
@@ -8,11 +9,19 @@ import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
     const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal, toggleRightSidebar, toggleLeftSidebar } = useUIStore();
+    const { createNote } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const handleItemClick = (label: string) => {
         switch (label) {
+            case 'New Note':
+                createNote(null);
+                break;
+            case 'New Folder':
+                // For now, create folder at root
+                // In future, we can add a prompt for name
+                break;
             case 'Settings':
                 toggleSettingsModal();
                 break;

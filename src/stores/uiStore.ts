@@ -28,6 +28,10 @@ interface UIStore {
     isStrongsModalOpen: boolean;
     isSettingsModalOpen: boolean;
 
+    // Editor stats
+    wordCount: number;
+    characterCount: number;
+
     // Actions
     toggleTheme: () => void;
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
@@ -41,6 +45,7 @@ interface UIStore {
     setRightSidebarWidth: (width: number) => void;
     openRightSidebar: (content: 'bible' | 'search') => void;
     closeRightSidebar: () => void;
+    setEditorStats: (words: number, characters: number) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -69,6 +74,9 @@ export const useUIStore = create<UIStore>()(
             isBibleModalOpen: false,
             isStrongsModalOpen: false,
             isSettingsModalOpen: false,
+
+            wordCount: 0,
+            characterCount: 0,
 
             toggleTheme: () =>
                 set((state) => {
@@ -121,6 +129,9 @@ export const useUIStore = create<UIStore>()(
 
             closeRightSidebar: () =>
                 set({ rightSidebarOpen: false, rightSidebarContent: null }),
+
+            setEditorStats: (words, characters) =>
+                set({ wordCount: words, characterCount: characters }),
         }),
         {
             name: 'parchments-ui',

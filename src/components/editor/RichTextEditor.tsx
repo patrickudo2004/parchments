@@ -14,6 +14,7 @@ import ListItem from '@tiptap/extension-list-item';
 import Blockquote from '@tiptap/extension-blockquote';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import CharacterCount from '@tiptap/extension-character-count';
 import { EditorToolbar } from './EditorToolbar';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -21,7 +22,7 @@ import { db } from '@/lib/db';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, notes, setNotes } = useNoteStore();
-    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing } = useUIStore();
+    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
 
@@ -76,6 +77,7 @@ export const RichTextEditor: React.FC = () => {
             Placeholder.configure({
                 placeholder: 'Begin your study or sermon notes here...',
             }),
+            CharacterCount,
         ],
         content: currentNote?.content || '',
         onUpdate: ({ editor }) => {
@@ -89,6 +91,24 @@ export const RichTextEditor: React.FC = () => {
             editor.commands.setContent(currentNote.content);
         }
     }, [currentNote?.id, editor]);
+
+    // Update word count stats
+    useEffect(() => {
+        if (editor) {
+            const updateStats = () => {
+                const words = editor.storage.characterCount.words();
+                const characters = editor.storage.characterCount.characters();
+                setEditorStats(words || 0, characters || 0);
+            };
+
+            updateStats(); // Initial update
+            editor.on('update', updateStats);
+
+            return () => {
+                editor.off('update', updateStats);
+            };
+        }
+    }, [editor, setEditorStats]);
 
     // DB Save Logic
     const saveToDB = async (newTitle: string, newContent: string) => {

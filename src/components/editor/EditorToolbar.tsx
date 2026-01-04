@@ -14,6 +14,12 @@ import TitleIcon from '@mui/icons-material/Title';
 import LinkIcon from '@mui/icons-material/Link';
 import HighlightingIcon from '@mui/icons-material/BorderColor';
 
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
+import FormatClearIcon from '@mui/icons-material/FormatClear';
+import LooksOneIcon from '@mui/icons-material/LooksOne';
+import LooksTwoIcon from '@mui/icons-material/LooksTwo';
+
 interface EditorToolbarProps {
     editor: Editor | null;
 }
@@ -21,32 +27,69 @@ interface EditorToolbarProps {
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     if (!editor) return null;
 
-    const Button = ({ onClick, isActive, icon: Icon, title }: any) => (
+    const Button = ({ onClick, isActive, icon: Icon, title, disabled }: any) => (
         <button
             onClick={onClick}
             title={title}
-            className={`p-1.5 rounded transition-all ${isActive ? 'bg-primary text-white shadow-md' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
-                }`}
+            disabled={disabled}
+            className={`p-1.5 rounded transition-all flex items-center justify-center ${isActive ? 'bg-primary text-white shadow-md' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
         >
             <Icon fontSize="small" />
         </button>
     );
 
+    const setLink = () => {
+        const previousUrl = editor.getAttributes('link').href;
+        const url = window.prompt('URL', previousUrl);
+
+        if (url === null) return;
+        if (url === '') {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+            return;
+        }
+        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    };
+
     return (
         <div className="h-12 border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex items-center px-4 gap-1 shrink-0 sticky top-0 z-20 overflow-x-auto no-scrollbar">
+            {/* Undo/Redo */}
+            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
+                <Button
+                    onClick={() => editor.chain().focus().undo().run()}
+                    disabled={!editor.can().undo()}
+                    icon={UndoIcon}
+                    title="Undo (Ctrl+Z)"
+                />
+                <Button
+                    onClick={() => editor.chain().focus().redo().run()}
+                    disabled={!editor.can().redo()}
+                    icon={RedoIcon}
+                    title="Redo (Ctrl+Y)"
+                />
+            </div>
+
+            {/* Clear Formatting */}
+            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
+                <Button
+                    onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+                    icon={FormatClearIcon}
+                    title="Clear All Formatting"
+                />
+            </div>
+
             {/* Headers */}
             <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
                 <Button
                     onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                     isActive={editor.isActive('heading', { level: 1 })}
-                    icon={TitleIcon}
+                    icon={LooksOneIcon}
                     title="Heading 1"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
                     isActive={editor.isActive('heading', { level: 2 })}
-                    icon={TitleIcon}
-                    style={{ scale: '0.8' }}
+                    icon={LooksTwoIcon}
                     title="Heading 2"
                 />
             </div>
@@ -131,10 +174,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
             <div className="ml-auto">
                 <Button
-                    onClick={() => { }}
-                    isActive={false}
+                    onClick={setLink}
+                    isActive={editor.isActive('link')}
                     icon={LinkIcon}
-                    title="Insert Link"
+                    title="Insert/Edit Link"
                 />
             </div>
         </div>

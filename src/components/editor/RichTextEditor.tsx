@@ -7,6 +7,13 @@ import Color from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
+import Link from '@tiptap/extension-link';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
+import Blockquote from '@tiptap/extension-blockquote';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
 import { EditorToolbar } from './EditorToolbar';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -27,13 +34,44 @@ export const RichTextEditor: React.FC = () => {
 
     const editor = useEditor({
         extensions: [
-            StarterKit,
+            StarterKit.configure({
+                bulletList: false, // We'll add it explicitly
+                orderedList: false,
+                blockquote: false,
+                listItem: false,
+            }),
             Underline,
             TextStyle,
             Color,
             Highlight.configure({ multicolor: true }),
+            BulletList.configure({
+                HTMLAttributes: {
+                    class: 'list-disc pl-4',
+                },
+            }),
+            OrderedList.configure({
+                HTMLAttributes: {
+                    class: 'list-decimal pl-4',
+                },
+            }),
+            ListItem,
+            Blockquote.configure({
+                HTMLAttributes: {
+                    class: 'border-l-4 border-light-border dark:border-dark-border pl-4 italic',
+                },
+            }),
+            TaskList,
+            TaskItem.configure({
+                nested: true,
+            }),
             TextAlign.configure({
-                types: ['heading', 'paragraph'],
+                types: ['heading', 'paragraph', 'listItem', 'blockquote'],
+            }),
+            Link.configure({
+                openOnClick: false,
+                HTMLAttributes: {
+                    class: 'text-primary underline cursor-pointer',
+                },
             }),
             Placeholder.configure({
                 placeholder: 'Begin your study or sermon notes here...',

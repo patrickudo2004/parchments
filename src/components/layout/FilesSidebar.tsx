@@ -11,12 +11,14 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
 import type { Note, Folder } from '@/types/database';
 
 export const FilesSidebar: React.FC = () => {
-    const { setCurrentNote, createNote, notes, folders, deleteNote, deleteFolder } = useNoteStore();
+    const { setCurrentNote, createNote, createVoiceNote, notes, folders, deleteNote, deleteFolder } = useNoteStore();
     const { leftSidebarWidth } = useUIStore();
+    const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['1', '2'])); // Default expanded for mocks
     const [deleteConfig, setDeleteConfig] = useState<{
@@ -172,7 +174,7 @@ export const FilesSidebar: React.FC = () => {
                     <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Note">
                         <NoteAddIcon fontSize="small" />
                     </button>
-                    <button className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
+                    <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
                         <MicIcon fontSize="small" />
                     </button>
                     <button className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
@@ -180,6 +182,18 @@ export const FilesSidebar: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {showRecorder && (
+                <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <VoiceRecorder
+                        onSave={async (blob, duration) => {
+                            await createVoiceNote(null, blob, duration);
+                            setShowRecorder(false);
+                        }}
+                        onCancel={() => setShowRecorder(false)}
+                    />
+                </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-2">
                 {rootFolders.map(folder => renderTreeItem(folder, 0))}

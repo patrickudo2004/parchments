@@ -17,6 +17,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import CharacterCount from '@tiptap/extension-character-count';
 import { ScriptureExtension } from './extensions/ScriptureExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
+import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
 import { EditorToolbar } from './EditorToolbar';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -191,19 +192,32 @@ export const RichTextEditor: React.FC = () => {
                         </span>
                     </div>
 
-                    {/* Tiptap Editor */}
-                    <ScriptureTooltipProvider>
-                        <div
-                            className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
-                            style={{
-                                fontSize: `${editorFontSize}px`,
-                                lineHeight: editorLineSpacing,
-                            }}
-                        >
-                            <EditorContent editor={editor} />
-                        </div>
-                    </ScriptureTooltipProvider>
                 </div>
+
+                {/* Tiptap Editor */}
+                <ScriptureTooltipProvider>
+                    <div
+                        className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
+                        style={{
+                            fontSize: `${editorFontSize}px`,
+                            lineHeight: editorLineSpacing,
+                        }}
+                    >
+                        {currentNote.type === 'voice' && (
+                            <div className="mb-8 p-6 bg-light-background dark:bg-dark-background border-2 border-dashed border-light-border dark:border-dark-border rounded-xl">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary mb-4">Voice Note Recording</h3>
+                                <VoiceNotePlayer
+                                    audioBlob={currentNote.audioBlob}
+                                    audioUrl={currentNote.audioUrl}
+                                />
+                                <p className="text-xs text-center text-light-text-disabled mt-4">
+                                    Audio recorded on {new Date(currentNote.createdAt).toLocaleString()}
+                                </p>
+                            </div>
+                        )}
+                        <EditorContent editor={editor} />
+                    </div>
+                </ScriptureTooltipProvider>
             </div>
         </div>
     );

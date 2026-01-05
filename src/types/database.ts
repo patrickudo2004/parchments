@@ -10,6 +10,8 @@ export interface Note {
     isPinned?: boolean;
     type: 'text' | 'voice';
     audioUrl?: string; // For voice notes
+    audioBlob?: Blob; // Offline storage
+    duration?: number; // In seconds
 }
 
 export interface Folder {

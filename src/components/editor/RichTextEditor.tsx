@@ -15,6 +15,8 @@ import Blockquote from '@tiptap/extension-blockquote';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import CharacterCount from '@tiptap/extension-character-count';
+import { ScriptureExtension } from './extensions/ScriptureExtension';
+import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { EditorToolbar } from './EditorToolbar';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -78,6 +80,7 @@ export const RichTextEditor: React.FC = () => {
                 placeholder: 'Begin your study or sermon notes here...',
             }),
             CharacterCount,
+            ScriptureExtension,
         ],
         content: currentNote?.content || '',
         onUpdate: ({ editor }) => {
@@ -189,15 +192,17 @@ export const RichTextEditor: React.FC = () => {
                     </div>
 
                     {/* Tiptap Editor */}
-                    <div
-                        className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
-                        style={{
-                            fontSize: `${editorFontSize}px`,
-                            lineHeight: editorLineSpacing,
-                        }}
-                    >
-                        <EditorContent editor={editor} />
-                    </div>
+                    <ScriptureTooltipProvider>
+                        <div
+                            className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
+                            style={{
+                                fontSize: `${editorFontSize}px`,
+                                lineHeight: editorLineSpacing,
+                            }}
+                        >
+                            <EditorContent editor={editor} />
+                        </div>
+                    </ScriptureTooltipProvider>
                 </div>
             </div>
         </div>

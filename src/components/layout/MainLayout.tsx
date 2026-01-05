@@ -5,6 +5,7 @@ import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
 import { BibleModal } from '@/components/bible/BibleModal';
+import { BibleReader } from '@/components/bible/BibleReader';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
 import { AnimatePresence } from 'framer-motion';
@@ -24,6 +25,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         rightSidebarWidth,
         setRightSidebarWidth,
         rightSidebarOpen,
+        rightSidebarContent,
         isLeftSidebarOpen
     } = useUIStore();
 
@@ -119,12 +121,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden"
                         style={{ width: `${rightSidebarWidth}px` }}
                     >
-                        <div className="p-4 border-b border-light-border dark:border-dark-border font-bold text-sm uppercase tracking-wider">
-                            Reference Panel
-                        </div>
-                        <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">
-                            <p className="text-sm italic">Open the Bible or Strong's Lookup to see details here.</p>
-                        </div>
+                        {rightSidebarContent === 'bible' ? (
+                            <BibleReader />
+                        ) : (
+                            <>
+                                <div className="p-4 border-b border-light-border dark:border-dark-border font-bold text-sm uppercase tracking-wider">
+                                    Reference Panel
+                                </div>
+                                <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">
+                                    <p className="text-sm italic">Open the Bible or Strong's Lookup to see details here.</p>
+                                </div>
+                            </>
+                        )}
                     </aside>
                 )}
             </div>

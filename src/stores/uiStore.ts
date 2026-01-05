@@ -28,6 +28,9 @@ interface UIStore {
     isStrongsModalOpen: boolean;
     isSettingsModalOpen: boolean;
 
+    // Bible Navigation
+    bibleFocus: { book: string; chapter: number; verse: number | null } | null;
+
     // Editor stats
     wordCount: number;
     characterCount: number;
@@ -46,6 +49,7 @@ interface UIStore {
     openRightSidebar: (content: 'bible' | 'search') => void;
     closeRightSidebar: () => void;
     setEditorStats: (words: number, characters: number) => void;
+    setBibleFocus: (focus: { book: string; chapter: number; verse: number | null } | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -73,7 +77,10 @@ export const useUIStore = create<UIStore>()(
             rightSidebarContent: null,
             isBibleModalOpen: false,
             isStrongsModalOpen: false,
+            isStrongsModalOpen: false,
             isSettingsModalOpen: false,
+
+            bibleFocus: null,
 
             wordCount: 0,
             characterCount: 0,
@@ -132,6 +139,8 @@ export const useUIStore = create<UIStore>()(
 
             setEditorStats: (words, characters) =>
                 set({ wordCount: words, characterCount: characters }),
+
+            setBibleFocus: (focus) => set({ bibleFocus: focus }),
         }),
         {
             name: 'parchments-ui',

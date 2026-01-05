@@ -20,16 +20,23 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const timerRef = useRef<number | null>(null);
 
     // cleanup on unmount
+    // cleanup stream on unmount or change
     useEffect(() => {
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
+        };
+    }, [stream]);
+
+    // cleanup timer on unmount
+    useEffect(() => {
+        return () => {
             if (timerRef.current) {
                 clearInterval(timerRef.current);
             }
         };
-    }, [stream]);
+    }, []);
 
     const startRecording = async () => {
         try {

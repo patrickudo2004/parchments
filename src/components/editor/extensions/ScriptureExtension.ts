@@ -1,4 +1,5 @@
 import { Mark, mergeAttributes, InputRule } from '@tiptap/react';
+import { Plugin } from '@tiptap/pm/state';
 import { parseScriptureReference, SCRIPTURE_REGEX } from '@/lib/scriptureParser';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -92,7 +93,7 @@ export const ScriptureExtension = Mark.create({
     // Handle Double Click to Open Sidebar
     addProseMirrorPlugins() {
         return [
-            {
+            new Plugin({
                 props: {
                     handleDoubleClick: (view, pos, event) => {
                         const { doc } = view.state;
@@ -119,7 +120,7 @@ export const ScriptureExtension = Mark.create({
                         return false;
                     },
                 },
-            },
+            }),
         ];
     },
 });

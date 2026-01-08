@@ -9,6 +9,7 @@ import { BibleReader } from '@/components/bible/BibleReader';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
 import { AnimatePresence } from 'framer-motion';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -26,6 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setRightSidebarWidth,
         rightSidebarOpen,
         rightSidebarContent,
+        toggleRightSidebar,
         isLeftSidebarOpen
     } = useUIStore();
 
@@ -118,14 +120,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {/* Right Sidebar Placeholder (e.g., Bible Panel) */}
                 {rightSidebarOpen && (
                     <aside
-                        className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden"
+                        className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative group"
                         style={{ width: `${rightSidebarWidth}px` }}
                     >
+                        {/* Global Close Button (visible on hover or always?) -> Let's put it in a consistent header if possible, or floating top-right */}
+                        <button
+                            onClick={() => toggleRightSidebar()}
+                            className="absolute top-2 right-2 z-50 p-1 bg-light-surface dark:bg-dark-surface hover:bg-red-100 dark:hover:bg-red-900/30 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-600 rounded-full shadow-sm border border-transparent hover:border-red-200 transition-all opacity-0 group-hover:opacity-100"
+                            title="Close Sidebar"
+                        >
+                            <CloseIcon fontSize="small" />
+                        </button>
+
                         {rightSidebarContent === 'bible' ? (
                             <BibleReader />
                         ) : (
                             <>
-                                <div className="p-4 border-b border-light-border dark:border-dark-border font-bold text-sm uppercase tracking-wider">
+                                <div className="p-4 border-b border-light-border dark:border-dark-border font-bold text-sm uppercase tracking-wider flex justify-between items-center">
                                     Reference Panel
                                 </div>
                                 <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">

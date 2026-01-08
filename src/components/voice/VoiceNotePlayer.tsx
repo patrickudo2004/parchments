@@ -172,6 +172,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                 <div className="text-light-text-secondary dark:text-dark-text-secondary flex items-center gap-4">
                     {transcriptionStatus === 'idle' && (
                         <button
+                            type="button"
                             onClick={handleTranscribe}
                             className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/10 px-3 py-1.5 rounded transition-colors"
                             title="Transcribe Audio (Offline)"

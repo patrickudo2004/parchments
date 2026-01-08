@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import { useUIStore } from '@/stores/uiStore';
 
 interface VoiceNotePlayerProps {
     audioBlob?: Blob;
@@ -77,14 +78,16 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleTranscribe = () => {
+    const settings = useUIStore();
+
+    const handleTranscribe = async () => {
         if (!audioBlob) {
             alert("This note doesn't have local audio data securely stored for transcription.");
             return;
         }
 
         setTranscriptionStatus('loading');
-        setProgressMessage('Initializing AI...');
+        setProgressMessage('Preparing audio...');
 
         // Verify worker support
         if (!window.Worker) {
@@ -94,18 +97,77 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
         }
 
         try {
-            const worker = new Worker(new URL('../../workers/transcribeWorker.ts', import.meta.url), { type: 'module' });
+            // 1. Pre-decode audio to 16kHz Float32Array (Transformers.js requirement)
+            console.info('[Transcription] Starting audio processing...');
+            setProgressMessage('Accessing audio data...');
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            console.info('[Transcription] ArrayBuffer loaded, size:', arrayBuffer.byteLength);
+
+            setProgressMessage('Decoding audio...');
+            console.info('[Transcription] Initializing AudioContext for decoding...');
+
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+            // Note: decodeAudioData can hang if the context is suspended in some edge cases.
+            // We'll use a promise with a timeout just in case.
+            const decodePromise = audioCtx.decodeAudioData(arrayBuffer);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Audio decoding timed out. The audio format might be unsupported.')), 30000)
+            );
+
+            console.info('[Transcription] Decoding started...');
+            const originalBuffer = await (Promise.race([decodePromise, timeoutPromise]) as Promise<AudioBuffer>);
+            console.info('[Transcription] Decoding complete. Duration:', originalBuffer.duration, 'SampleRate:', originalBuffer.sampleRate);
+
+            setProgressMessage('Resampling to 16kHz...');
+            const offlineCtx = new OfflineAudioContext(
+                1, // Mono is enough for transcription
+                Math.ceil(originalBuffer.duration * 16000),
+                16000
+            );
+
+            const source = offlineCtx.createBufferSource();
+            source.buffer = originalBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+
+            console.info('[Transcription] Resampling started...');
+            const renderedBuffer = await offlineCtx.startRendering();
+            console.info('[Transcription] Resampling complete.');
+            setProgressMessage('AI is starting up...');
+
+            const audioData = renderedBuffer.getChannelData(0);
+            audioCtx.close();
+
+            // Check if audio is empty
+            if (audioData.length === 0 || audioData.every(v => v === 0)) {
+                console.warn('[Transcription] Audio data seems silent or empty.');
+            }
+
+            console.info('[Transcription] Creating worker...');
+            // Direct relative path from the components/voice folder to workers folder
+            const worker = new Worker(
+                new URL('../../workers/transcribeWorker.ts', import.meta.url),
+                { type: 'module' }
+            );
             workerRef.current = worker;
+
+            worker.onerror = (err) => {
+                console.error('[Transcription] Worker error:', err);
+                setTranscriptionStatus('error');
+                setTranscriptionText(`Worker Error: ${err.message || 'Failed to load transcription engine'}`);
+            };
 
             worker.onmessage = (event) => {
                 const { status, message, text, file, progress } = event.data;
+                console.info('[Transcription] Worker message:', status, message || '');
 
                 if (status === 'downloading') {
                     setTranscriptionStatus('loading');
                     if (progress) {
-                        setProgressMessage(`Downloading Model (${file}): ${Math.round(progress)}%`);
+                        setProgressMessage(`Downloading AI Model (${file}): ${Math.round(progress)}%`);
                     } else {
-                        setProgressMessage(`Downloading Model...`);
+                        setProgressMessage(`Downloading AI Model...`);
                     }
                 } else if (status === 'loading') {
                     setProgressMessage(message);
@@ -113,23 +175,30 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                     setTranscriptionStatus('transcribing');
                     setProgressMessage(message);
                 } else if (status === 'complete') {
+                    console.info('[Transcription] Complete!');
                     setTranscriptionStatus('complete');
                     setTranscriptionText(text);
                     worker.terminate();
                     workerRef.current = null;
                 } else if (status === 'error') {
+                    console.error('[Transcription] AI error:', event.data.error);
                     setTranscriptionStatus('error');
-                    setTranscriptionText(`Error: ${event.data.error}`);
+                    setTranscriptionText(`AI Error: ${event.data.error}`);
                     worker.terminate();
                 }
             };
 
-            worker.postMessage({ audioBlob });
+            console.info('[Transcription] Sending data to worker...');
+            // Pass the decoded Float32Array and accuracy setting
+            worker.postMessage({
+                audioBlob: audioData,
+                highAccuracy: settings.highAccuracyTranscription
+            });
 
         } catch (err: any) {
             console.error(err);
             setTranscriptionStatus('error');
-            setTranscriptionText(`Failed to start worker: ${err.message}`);
+            setTranscriptionText(`Failed to process audio: ${err.message}`);
         }
     };
 

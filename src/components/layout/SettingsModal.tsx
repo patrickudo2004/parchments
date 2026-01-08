@@ -361,6 +361,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     ))}
                                                 </div>
                                             </section>
+
+                                            <section className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
+                                                <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-bold">Higher Accuracy Transcription</p>
+                                                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Beta</span>
+                                                        </div>
+                                                        <p className="text-xs text-light-text-secondary mt-1">Uses Whisper Base (~75MB) instead of Tiny (~40MB). Recommended for devices with modern GPUs.</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => updateSettings({ highAccuracyTranscription: !settings.highAccuracyTranscription })}
+                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${settings.highAccuracyTranscription ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.highAccuracyTranscription ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            </section>
                                         </>
                                     )}
                                 </motion.div>

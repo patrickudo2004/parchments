@@ -18,6 +18,7 @@ interface UIStore {
     writingLayout: 'centered' | 'full';
     autoSaveFrequency: number;
     markdownSupport: boolean;
+    highAccuracyTranscription: boolean;
 
     leftSidebarWidth: number;
     isLeftSidebarOpen: boolean;
@@ -69,6 +70,7 @@ export const useUIStore = create<UIStore>()(
             writingLayout: 'centered',
             autoSaveFrequency: 5000,
             markdownSupport: true,
+            highAccuracyTranscription: false,
 
             leftSidebarWidth: 280,
             isLeftSidebarOpen: true,
@@ -76,7 +78,6 @@ export const useUIStore = create<UIStore>()(
             rightSidebarOpen: false,
             rightSidebarContent: null,
             isBibleModalOpen: false,
-            isStrongsModalOpen: false,
             isStrongsModalOpen: false,
             isSettingsModalOpen: false,
 

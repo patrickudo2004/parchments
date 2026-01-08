@@ -12,6 +12,7 @@ interface NoteStore {
     loadFolders: () => Promise<void>;
     createNote: (folderId: string | null) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number) => Promise<Note>;
+    createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
@@ -61,6 +62,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const { notes } = get();
         set({ notes: [...notes, note], currentNote: note });
         return note;
+    },
+
+    createFolder: async (name, parentId = null) => {
+        const folder = await dbHelpers.createFolder({
+            name,
+            parentId,
+            order: 0,
+        });
+        const { folders } = get();
+        set({ folders: [...folders, folder] });
+        return folder;
     },
 
     deleteNote: async (id) => {

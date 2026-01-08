@@ -16,7 +16,7 @@ import { useUIStore } from '@/stores/uiStore';
 import type { Note, Folder } from '@/types/database';
 
 export const FilesSidebar: React.FC = () => {
-    const { setCurrentNote, createNote, createVoiceNote, notes, folders, deleteNote, deleteFolder } = useNoteStore();
+    const { setCurrentNote, createNote, createVoiceNote, createFolder, notes, folders, deleteNote, deleteFolder } = useNoteStore();
     const { leftSidebarWidth } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
@@ -62,6 +62,10 @@ export const FilesSidebar: React.FC = () => {
 
     const handleCreateNote = async () => {
         await createNote(null);
+    };
+
+    const handleCreateFolder = async () => {
+        await createFolder('New Folder', null);
     };
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
@@ -177,7 +181,7 @@ export const FilesSidebar: React.FC = () => {
                     <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
                         <MicIcon fontSize="small" />
                     </button>
-                    <button className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
+                    <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
                         <CreateNewFolderIcon fontSize="small" />
                     </button>
                 </div>

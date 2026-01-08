@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
+import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import AddIcon from '@mui/icons-material/Add';
 import MicIcon from '@mui/icons-material/Mic';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -9,9 +10,14 @@ import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
     const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal, toggleRightSidebar, toggleLeftSidebar } = useUIStore();
-    const { createNote } = useNoteStore();
+    const { createNote, createVoiceNote, createFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
+    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+
+    const handleCreateVoiceNote = () => {
+        setShowVoiceRecorder(true);
+    };
 
     const handleItemClick = (label: string) => {
         switch (label) {
@@ -19,8 +25,7 @@ export const MenuBar: React.FC = () => {
                 createNote(null);
                 break;
             case 'New Folder':
-                // For now, create folder at root
-                // In future, we can add a prompt for name
+                createFolder('New Folder', null);
                 break;
             case 'Settings':
                 toggleSettingsModal();
@@ -179,11 +184,24 @@ export const MenuBar: React.FC = () => {
 
             {/* Right: Big Actions (Filled, Spacious) */}
             <div className="flex items-center gap-3">
-                <Button variant="primary" icon={<AddIcon />}>Note</Button>
-                <Button variant="primary" icon={<MicIcon />}>Voice</Button>
+                <Button onClick={() => createNote(null)} variant="primary" icon={<AddIcon />}>Note</Button>
+                <Button onClick={() => handleCreateVoiceNote()} variant="primary" icon={<MicIcon />}>Voice</Button>
                 <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
                 <Button onClick={toggleStrongsModal} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
             </div>
+
+            {/* Voice Recorder Modal */}
+            {showVoiceRecorder && (
+                <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <VoiceRecorder
+                        onSave={async (blob, duration) => {
+                            await createVoiceNote(null, blob, duration);
+                            setShowVoiceRecorder(false);
+                        }}
+                        onCancel={() => setShowVoiceRecorder(false)}
+                    />
+                </div>
+            )}
         </div>
     );
 };

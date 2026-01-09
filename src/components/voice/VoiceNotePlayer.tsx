@@ -204,8 +204,8 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
     if (!src) return <div className="p-4 text-sm text-gray-500 italic">No audio source available.</div>;
 
     return (
-        <div className="w-full flex flex-col bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border rounded-lg overflow-hidden">
-            <div className="p-4 flex items-center gap-4 select-none border-b border-light-border dark:border-dark-border/10">
+        <div className="w-full flex flex-col bg-light-background/40 dark:bg-dark-background/20 backdrop-blur-sm border border-light-border dark:border-dark-border/20 rounded-2xl overflow-hidden transition-all duration-300">
+            <div className="p-6 flex items-center gap-6 select-none">
                 <audio
                     ref={audioRef}
                     src={src}
@@ -217,64 +217,71 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
 
                 <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-primary hover:bg-primary-dark text-white flex items-center justify-center transition-colors shadow-md shrink-0"
+                    className="w-12 h-12 rounded-full bg-primary hover:scale-105 active:scale-95 text-white flex items-center justify-center transition-all shadow-lg shadow-primary/20 shrink-0"
                 >
-                    {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+                    {isPlaying ? <PauseIcon /> : <PlayArrowIcon className="ml-1" />}
                 </button>
 
-                <div className="flex-1 flex flex-col justify-center">
-                    <div className="flex justify-between text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                <div className="flex-1 flex flex-col justify-center gap-2">
+                    <div className="flex justify-between text-[10px] font-black text-light-text-secondary dark:text-dark-text-secondary uppercase tracking-tighter opacity-50">
                         <span>{formatTime(currentTime)}</span>
                         <span>{formatTime(duration)}</span>
                     </div>
-                    <input
-                        type="range"
-                        min="0"
-                        max={duration || 0}
-                        value={currentTime}
-                        onChange={handleSeek}
-                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
+                    <div className="relative group flex items-center h-4">
+                        <input
+                            type="range"
+                            min="0"
+                            max={duration || 0}
+                            value={currentTime}
+                            onChange={handleSeek}
+                            className="w-full h-1 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-primary group-hover:h-1.5 transition-all"
+                        />
+                    </div>
                 </div>
 
-                <div className="text-light-text-secondary dark:text-dark-text-secondary flex items-center gap-4">
+                <div className="flex items-center gap-5">
                     {transcriptionStatus === 'idle' && (
                         <button
                             type="button"
                             onClick={handleTranscribe}
-                            className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/10 px-3 py-1.5 rounded transition-colors"
-                            title="Transcribe Audio (Offline)"
+                            className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 hover:bg-primary hover:text-white px-4 py-2 rounded-full transition-all border border-primary/20"
                         >
-                            <AutoAwesomeIcon fontSize="small" />
+                            <AutoAwesomeIcon fontSize="inherit" className="group-hover:animate-pulse" />
                             Transcribe
                         </button>
                     )}
-                    <VolumeUpIcon fontSize="small" />
+                    <VolumeUpIcon fontSize="small" className="text-light-text-disabled" />
                 </div>
             </div>
 
             {/* Transcription Status / Result */}
             {(transcriptionStatus !== 'idle') && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 text-sm">
+                <div className="px-6 pb-6 pt-2 border-t border-light-border/30 dark:border-dark-border/10 bg-white/50 dark:bg-black/10">
                     {transcriptionStatus === 'loading' || transcriptionStatus === 'transcribing' ? (
-                        <div className="flex items-center gap-3 text-light-text-secondary dark:text-dark-text-secondary">
-                            <CircularProgress size={16} />
-                            <span>{progressMessage}</span>
+                        <div className="flex items-center gap-3 text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="p-1.5 bg-primary/10 rounded-lg">
+                                <CircularProgress size={12} thickness={6} className="text-primary" />
+                            </div>
+                            <span className="uppercase tracking-widest opacity-70">{progressMessage}</span>
                         </div>
                     ) : transcriptionStatus === 'error' ? (
-                        <div className="text-red-500 font-medium">
+                        <div className="p-3 bg-red-50 dark:bg-red-900/10 text-red-500 text-xs font-bold rounded-xl border border-red-500/20">
                             {transcriptionText}
                         </div>
                     ) : (
-                        <div className="prose dark:prose-invert max-w-none">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary mb-2">Transcript</h4>
-                            <p className="whitespace-pre-wrap">{transcriptionText}</p>
-                            <button
-                                onClick={() => navigator.clipboard.writeText(transcriptionText || '')}
-                                className="mt-2 text-xs text-primary hover:underline"
-                            >
-                                Copy to Clipboard
-                            </button>
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary opacity-50">Transcript</h4>
+                                <button
+                                    onClick={() => navigator.clipboard.writeText(transcriptionText || '')}
+                                    className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                                >
+                                    Copy Text
+                                </button>
+                            </div>
+                            <p className="text-sm leading-relaxed text-light-text-main dark:text-dark-text-main font-medium italic opacity-80 border-l-2 border-primary/30 pl-4 py-1">
+                                "{transcriptionText}"
+                            </p>
                         </div>
                     )}
                 </div>

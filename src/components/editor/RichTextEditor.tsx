@@ -184,7 +184,7 @@ export const RichTextEditor: React.FC = () => {
                     />
 
                     {/* Meta Info */}
-                    <div className="flex items-center gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest mb-12 border-b border-light-border dark:border-dark-border pb-4">
+                    <div className="flex items-center gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest mb-6 border-b border-light-border dark:border-dark-border pb-4">
                         <span>Created: {new Date(currentNote.createdAt).toLocaleDateString()}</span>
                         <span>•</span>
                         <span className={isSaving ? 'text-primary animate-pulse' : ''}>
@@ -192,32 +192,30 @@ export const RichTextEditor: React.FC = () => {
                         </span>
                     </div>
 
-                </div>
+                    {/* Voice Note Player (Inline) */}
+                    {currentNote.type === 'voice' && (
+                        <div className="mb-12">
+                            <VoiceNotePlayer
+                                audioBlob={currentNote.audioBlob}
+                                audioUrl={currentNote.audioUrl}
+                            />
+                            <div className="mt-8 border-b-2 border-dashed border-light-border dark:border-dark-border opacity-50" />
+                        </div>
+                    )}
 
-                {/* Tiptap Editor */}
-                <ScriptureTooltipProvider>
-                    <div
-                        className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
-                        style={{
-                            fontSize: `${editorFontSize}px`,
-                            lineHeight: editorLineSpacing,
-                        }}
-                    >
-                        {currentNote.type === 'voice' && (
-                            <div className="mb-8 p-6 bg-light-background dark:bg-dark-background border-2 border-dashed border-light-border dark:border-dark-border rounded-xl">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary mb-4">Voice Note Recording</h3>
-                                <VoiceNotePlayer
-                                    audioBlob={currentNote.audioBlob}
-                                    audioUrl={currentNote.audioUrl}
-                                />
-                                <p className="text-xs text-center text-light-text-disabled mt-4">
-                                    Audio recorded on {new Date(currentNote.createdAt).toLocaleString()}
-                                </p>
-                            </div>
-                        )}
-                        <EditorContent editor={editor} />
-                    </div>
-                </ScriptureTooltipProvider>
+                    {/* Tiptap Editor */}
+                    <ScriptureTooltipProvider>
+                        <div
+                            className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
+                            style={{
+                                fontSize: `${editorFontSize}px`,
+                                lineHeight: editorLineSpacing,
+                            }}
+                        >
+                            <EditorContent editor={editor} />
+                        </div>
+                    </ScriptureTooltipProvider>
+                </div>
             </div>
         </div>
     );

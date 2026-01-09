@@ -145,7 +145,6 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
             }
 
             console.info('[Transcription] Creating worker...');
-            // Direct relative path from the components/voice folder to workers folder
             const worker = new Worker(
                 new URL('../../workers/transcribeWorker.ts', import.meta.url),
                 { type: 'module' }

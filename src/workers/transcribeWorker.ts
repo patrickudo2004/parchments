@@ -45,13 +45,13 @@ self.addEventListener('message', async (event) => {
         const output = await transcriber(audioBlob, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            task: 'transcribe',
-            language: 'english',
         });
+
+        const text = Array.isArray(output) ? output[0].text : (output as any).text;
 
         self.postMessage({
             status: 'complete',
-            text: output.text,
+            text: text,
         });
 
     } catch (error: any) {

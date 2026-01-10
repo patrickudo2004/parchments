@@ -26,6 +26,16 @@ export class ParchmentsDatabase extends Dexie {
             bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse], [versionId+book+chapter+verse+verseEnd]',
             chapterSummaries: 'id, [book+chapter]'
         });
+
+        // Version 4: Restore ALL tables (Fixing accidental drop in v3)
+        this.version(4).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse], [versionId+book+chapter+verse+verseEnd]',
+            chapterSummaries: 'id, [book+chapter]'
+        });
     }
 }
 

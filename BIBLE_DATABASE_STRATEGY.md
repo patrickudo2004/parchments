@@ -19,7 +19,7 @@ This document outlines the strategic plan for implementing the offline Bible dat
 - **`chapter_summaries`**: Global summaries for all 1,189 chapters, bundled with the app, mapped to book and chapter regardless of translation.
 
 ## 4. Distribution Strategy (GitHub-as-a-CDN)
-- **Base Version:** The app ships with one public-domain version (e.g., KJV or World English Bible) pre-installed for immediate use.
+- **Base Version:** The app ships with the King James Version (KJV) as the default base version. This is fetched as a processed JSON bundle from the [scrollmapper/bible_databases](https://github.com/scrollmapper/bible_databases) repository.
 - **Extra Versions:**
   - A `versions.json` catalog file is hosted on GitHub.
   - Users can select and "Download" additional versions via the **Offline Manager**.

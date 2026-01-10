@@ -6,8 +6,14 @@ import InfoIcon from '@mui/icons-material/Info';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
+import { BookChapterPicker } from './BookChapterPicker';
+import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 
-export const BibleReader: React.FC = () => {
+interface BibleReaderProps {
+    isIndependent?: boolean;
+}
+
+export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false }) => {
     const { bibleFocus, preferredBibleVersion } = useUIStore();
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -15,21 +21,24 @@ export const BibleReader: React.FC = () => {
     const [versionId, setVersionId] = useState(preferredBibleVersion.toLowerCase());
     const [book, setBook] = useState(bibleFocus?.book || 'John');
     const [chapter, setChapter] = useState(bibleFocus?.chapter || 1);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     const installedVersions = useLiveQuery(async () => {
         const all = await db.bibleVersions.toArray();
         return all.filter(v => v.isDownloaded);
     }) || [];
+
     const verses = useLiveQuery(() =>
         db.bibleVerses.where('[versionId+book+chapter]').equals([versionId, book, chapter]).sortBy('verse')
-    ) || [];
+        , [versionId, book, chapter]) || [];
+
     const summary = useLiveQuery(() =>
         db.chapterSummaries.get(`${book}-${chapter}`)
-    );
+        , [book, chapter]);
 
-    // Sync with bibleFocus from global store
+    // Sync with bibleFocus from global store (only if NOT independent)
     useEffect(() => {
-        if (bibleFocus) {
+        if (bibleFocus && !isIndependent) {
             setBook(bibleFocus.book);
             setChapter(bibleFocus.chapter);
 
@@ -50,22 +59,49 @@ export const BibleReader: React.FC = () => {
                 }, 100);
             }
         }
-    }, [bibleFocus]);
+    }, [bibleFocus, isIndependent]);
 
     const handleVersionChange = (newVersion: string) => {
         setVersionId(newVersion.toLowerCase());
     };
 
     const handleNavigation = (direction: 'next' | 'prev') => {
-        // Simple navigation logic (could be improved with book/chapter boundaries)
-        if (direction === 'next') setChapter(prev => prev + 1);
-        else if (chapter > 1) setChapter(prev => prev - 1);
+        const currentBookIndex = BIBLE_BOOKS.findIndex(b => b.name === book);
+        const currentBookData = BIBLE_BOOKS[currentBookIndex];
+
+        if (direction === 'next') {
+            if (chapter < currentBookData.chapters) {
+                setChapter(prev => prev + 1);
+            } else if (currentBookIndex < BIBLE_BOOKS.length - 1) {
+                const nextBook = BIBLE_BOOKS[currentBookIndex + 1];
+                setBook(nextBook.name);
+                setChapter(1);
+            }
+        } else {
+            if (chapter > 1) {
+                setChapter(prev => prev - 1);
+            } else if (currentBookIndex > 0) {
+                const prevBook = BIBLE_BOOKS[currentBookIndex - 1];
+                setBook(prevBook.name);
+                setChapter(prevBook.chapters);
+            }
+        }
+
+        // Scroll back to top
+        contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    };
+
+    const handlePickerSelect = (newBook: string, newChapter: number) => {
+        setBook(newBook);
+        setChapter(newChapter);
+        setIsPickerOpen(false);
+        contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-dark-surface">
+        <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative">
             {/* Nav Header */}
-            <div className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 bg-light-background/30 dark:bg-dark-background/20 shrink-0">
+            <div className={`h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between pl-4 ${!isIndependent ? 'pr-14' : 'pr-4'} bg-light-background/30 dark:bg-dark-background/20 shrink-0`}>
                 <div className="flex items-center gap-2">
                     <select
                         value={versionId.toUpperCase()}
@@ -78,8 +114,11 @@ export const BibleReader: React.FC = () => {
                         {installedVersions.length === 0 && <option disabled>No Bibles</option>}
                     </select>
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
-                    <button className="text-xs font-black uppercase tracking-tight hover:text-primary transition-colors">
-                        {book} {chapter}
+                    <button
+                        onClick={() => setIsPickerOpen(!isPickerOpen)}
+                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors ${isPickerOpen ? 'text-primary' : ''}`}
+                    >
+                        {book} {chapter} {isPickerOpen ? '▴' : '▾'}
                     </button>
                 </div>
 
@@ -88,6 +127,16 @@ export const BibleReader: React.FC = () => {
                     <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><NavigateNextIcon fontSize="small" /></button>
                 </div>
             </div>
+
+            {/* Picker Overlay */}
+            {isPickerOpen && (
+                <BookChapterPicker
+                    currentBook={book}
+                    currentChapter={chapter}
+                    onSelect={handlePickerSelect}
+                    onClose={() => setIsPickerOpen(false)}
+                />
+            )}
 
             {/* Reading Content */}
             <div ref={contentRef} className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
@@ -118,10 +167,28 @@ export const BibleReader: React.FC = () => {
                             ))
                         ) : (
                             <div className="py-20 text-center space-y-4">
-                                <p className="text-light-text-disabled italic">Scripture text not available for this version offline.</p>
+                                <p className="text-light-text-disabled italic">Scripture text not available for this version offline (Chapter {chapter}).</p>
                                 <button className="text-xs font-black uppercase tracking-widest text-primary hover:underline">Download {versionId.toUpperCase()}</button>
                             </div>
                         )}
+                    </div>
+
+                    {/* Chapter End Navigation */}
+                    <div className="mt-20 py-10 border-t border-light-border dark:border-dark-border flex justify-between items-center">
+                        <button
+                            onClick={() => handleNavigation('prev')}
+                            className="flex flex-col items-start gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Previous</span>
+                            <span className="font-bold flex items-center"><NavigateBeforeIcon fontSize="small" /> Previous Chapter</span>
+                        </button>
+                        <button
+                            onClick={() => handleNavigation('next')}
+                            className="flex flex-col items-end gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Next</span>
+                            <span className="font-bold flex items-center">Next Chapter <NavigateNextIcon fontSize="small" /></span>
+                        </button>
                     </div>
                 </div>
             </div>

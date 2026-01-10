@@ -4,6 +4,7 @@ import { useUIStore } from '@/stores/uiStore';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { BibleReader } from './BibleReader';
 
 export const BibleModal: React.FC = () => {
@@ -29,22 +30,34 @@ export const BibleModal: React.FC = () => {
             >
                 {/* Header (Drag Handle) */}
                 <div
-                    className="h-10 border-b border-light-border dark:border-dark-border flex items-center justify-between px-3 bg-light-background dark:bg-dark-background cursor-move select-none shrink-0"
+                    className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 bg-light-background dark:bg-dark-background cursor-move select-none shrink-0"
                     onPointerDown={(e) => dragControls.start(e)}
                 >
-                    <span className="font-bold text-xs uppercase tracking-wider text-light-text-secondary">Quick Bible Reference</span>
+                    <div className="flex items-center gap-2">
+                        <MenuBookIcon sx={{ fontSize: 18 }} className="text-primary" />
+                        <span className="font-bold text-xs uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary">Mini Bible App</span>
+                    </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary" onPointerDown={(e) => e.stopPropagation()}>
-                        <button className="p-1 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"><SearchIcon fontSize="small" /></button>
-                        <button className="p-1 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"><TextFieldsIcon fontSize="small" /></button>
-                        <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
-                        <button onClick={toggleBibleModal} className="p-1 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 rounded transition-colors"><CloseIcon fontSize="small" /></button>
+                    <div className="flex items-center gap-1.5" onPointerDown={(e) => e.stopPropagation()}>
+                        <button className="p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded transition-colors" title="Search"><SearchIcon fontSize="small" /></button>
+                        <button className="p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded transition-colors" title="Settings"><TextFieldsIcon fontSize="small" /></button>
+                        <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-1" />
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBibleModal();
+                            }}
+                            className="p-1.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded transition-colors"
+                            title="Close (Esc)"
+                        >
+                            <CloseIcon fontSize="small" />
+                        </button>
                     </div>
                 </div>
 
                 {/* Content Area */}
-                <BibleReader />
+                <BibleReader isIndependent={true} />
 
                 {/* Resize Handle (Custom) */}
                 <div className="absolute bottom-1 right-1 cursor-se-resize p-1 z-50 pointer-events-none">

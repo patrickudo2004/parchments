@@ -126,7 +126,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         {/* Global Close Button (visible on hover or always?) -> Let's put it in a consistent header if possible, or floating top-right */}
                         <button
                             onClick={() => toggleRightSidebar()}
-                            className="absolute top-2 right-2 z-50 p-1 bg-light-surface dark:bg-dark-surface hover:bg-red-100 dark:hover:bg-red-900/30 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-600 rounded-full shadow-sm border border-transparent hover:border-red-200 transition-all opacity-0 group-hover:opacity-100"
+                            className="absolute top-2 right-2 z-50 p-1 bg-light-surface dark:bg-dark-surface hover:bg-red-100 dark:hover:bg-red-900/30 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-600 rounded-full shadow-sm border border-transparent hover:border-red-200 transition-all opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
                             title="Close Sidebar"
                         >
                             <CloseIcon fontSize="small" />

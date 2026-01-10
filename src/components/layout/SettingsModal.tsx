@@ -70,27 +70,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     };
 
     const handleManualImport = async (file: File) => {
-        if (!file.name.endsWith('.json')) {
-            alert('Currently only JSON format is supported for manual import. USFM support coming soon!');
+        const isJSON = file.name.endsWith('.json');
+        const isUSFM = file.name.endsWith('.usfm') || file.name.endsWith('.sfm');
+
+        if (!isJSON && !isUSFM) {
+            alert('Unsupported file format. Please use .json or .usfm');
             return;
         }
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const data = JSON.parse(e.target?.result as string);
+                let data: any = e.target?.result;
+                let versionId = `custom-${Date.now()}`;
+                let name = file.name.split('.')[0].toUpperCase();
 
-                // 1. Create version record if it doesn't exist
-                const versionId = data.metadata?.id?.toLowerCase() || `custom-${Date.now()}`;
+                if (isJSON) {
+                    const json = JSON.parse(data as string);
+                    versionId = json.metadata?.id?.toLowerCase() || versionId;
+                    name = json.metadata?.name || name;
+                } else {
+                    // For USFM, we'll try to extract the ID from the filename or header later
+                    // For now, use the filename as internal ID
+                    versionId = file.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                }
+
+                // 1. Create version record
                 const existing = await db.bibleVersions.get(versionId);
-
                 if (!existing) {
                     await db.bibleVersions.add({
                         id: versionId,
-                        name: data.metadata?.name || 'Custom Version',
-                        abbreviation: data.metadata?.abbreviation || 'CUST',
-                        language: data.metadata?.language || 'und',
-                        copyright: data.metadata?.copyright || 'User Provided',
+                        name: name,
+                        abbreviation: name.slice(0, 4),
+                        language: 'und',
+                        copyright: 'User Provided',
                         isDownloaded: false
                     });
                 }
@@ -100,7 +113,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                 worker.onmessage = (event) => {
                     const { status, progress, message, error } = event.data;
-
                     if (status === 'complete') {
                         setImportingState(null);
                         worker.terminate();
@@ -113,14 +125,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     }
                 };
 
-                worker.postMessage({ type: 'IMPORT_JSON', data, versionId });
+                worker.postMessage({
+                    type: isJSON ? 'IMPORT_JSON' : 'IMPORT_USFM',
+                    data: isJSON ? JSON.parse(data as string) : data,
+                    versionId
+                });
 
             } catch (err) {
-                console.error('Failed to parse Bible JSON:', err);
-                alert('Invalid JSON format. Please ensure the file matches the Parchments Bible format.');
+                console.error('Import failed:', err);
+                alert('Import failed. Please check the file format.');
             }
         };
-        reader.readAsText(file);
+
+        if (isJSON) reader.readAsText(file);
+        else reader.readAsText(file); // Both are text-based
+    };
+
+    const handleDeleteVersion = async (id: string) => {
+        if (!confirm(`Are you sure you want to delete this Bible version? This will remove all verses from your offline storage.`)) return;
+
+        try {
+            setImportingState({ status: 'Deleting...', progress: 0 });
+            // 1. Delete verses
+            await db.bibleVerses.where('versionId').equals(id).delete();
+            // 2. Delete version metadata
+            await db.bibleVersions.delete(id);
+
+            // 3. If this was the preferred version, reset it
+            if (settings.preferredBibleVersion === id) {
+                const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
+                updateSettings({ preferredBibleVersion: remaining?.abbreviation || 'KJV' });
+            }
+
+            setImportingState(null);
+        } catch (err) {
+            console.error('Delete failed:', err);
+            setImportingState(null);
+        }
     };
 
     if (!isOpen) return null;
@@ -507,23 +548,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             <section className="space-y-4 pt-4">
                                                 <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Offline Manager</h4>
                                                 <div className="space-y-1">
-                                                    {[
-                                                        { name: 'KJV Bible Version', size: '2.4 MB', type: 'Bible' },
-                                                        { name: 'Whisper AI (Tiny)', size: '39.2 MB', type: 'AI Model' }
-                                                    ].map((item) => (
-                                                        <div key={item.name} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
+                                                    {installedVersions.length === 0 && (
+                                                        <p className="text-xs text-light-text-disabled italic p-3">No offline data installed.</p>
+                                                    )}
+                                                    {installedVersions.map((v: BibleVersion) => (
+                                                        <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
                                                             <div className="flex items-center gap-3">
                                                                 <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
                                                                     <StorageIcon fontSize="inherit" />
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-sm font-medium">{item.name}</p>
-                                                                    <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">{item.type} • {item.size}</p>
+                                                                    <p className="text-sm font-medium">{v.name}</p>
+                                                                    <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
                                                                 </div>
                                                             </div>
-                                                            <button className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline">Delete</button>
+                                                            <button
+                                                                onClick={() => handleDeleteVersion(v.id)}
+                                                                className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                                                            >
+                                                                Delete
+                                                            </button>
                                                         </div>
                                                     ))}
+                                                    {/* AI Models can be added here once we have a registry for them */}
+                                                    <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
+                                                                <StorageIcon fontSize="inherit" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium">Whisper AI (Tiny)</p>
+                                                                <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">System • 39.2 MB</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-light-text-disabled uppercase tracking-widest">Required</span>
+                                                    </div>
                                                 </div>
                                             </section>
 

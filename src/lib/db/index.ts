@@ -20,10 +20,10 @@ export class ParchmentsDatabase extends Dexie {
             users: 'id, email, fullName'
         });
 
-        // Version 2: Bible support
-        this.version(2).stores({
-            bibleVersions: 'id, abbreviation',
-            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse]',
+        // Version 3: Fix missing isDownloaded index for BibleReader
+        this.version(3).stores({
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse], [versionId+book+chapter+verse+verseEnd]',
             chapterSummaries: 'id, [book+chapter]'
         });
     }

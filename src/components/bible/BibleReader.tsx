@@ -16,8 +16,10 @@ export const BibleReader: React.FC = () => {
     const [book, setBook] = useState(bibleFocus?.book || 'John');
     const [chapter, setChapter] = useState(bibleFocus?.chapter || 1);
 
-    // Live Queries
-    const installedVersions = useLiveQuery(() => db.bibleVersions.where('isDownloaded').equals(1).toArray()) || [];
+    const installedVersions = useLiveQuery(async () => {
+        const all = await db.bibleVersions.toArray();
+        return all.filter(v => v.isDownloaded);
+    }) || [];
     const verses = useLiveQuery(() =>
         db.bibleVerses.where('[versionId+book+chapter]').equals([versionId, book, chapter]).sortBy('verse')
     ) || [];

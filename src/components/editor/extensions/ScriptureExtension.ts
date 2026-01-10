@@ -59,7 +59,6 @@ export const ScriptureExtension = Mark.create({
                 // Regex matches "John 3:16 ", captures the ref in group 1
                 find: new RegExp(`(${SCRIPTURE_REGEX.source})\\s$`, 'i'),
                 handler: ({ state, range, match }) => {
-                    const fullMatch = match[0]; // e.g., "John 3:16 "
                     const refText = match[1];   // e.g., "John 3:16" (without trailing space)
                     const { tr } = state;
 
@@ -104,7 +103,7 @@ export const ScriptureExtension = Mark.create({
                         const scriptureMark = marks.find(m => m.type.name === 'scripture');
 
                         if (scriptureMark) {
-                            const { book, chapter, verse } = scriptureMark.attrs;
+                            const { book, chapter, verse, verseEnd } = scriptureMark.attrs;
 
                             // Prevent default text selection
                             event.preventDefault();
@@ -113,7 +112,7 @@ export const ScriptureExtension = Mark.create({
                             const { openRightSidebar, setBibleFocus } = useUIStore.getState();
 
                             openRightSidebar('bible');
-                            setBibleFocus({ book, chapter, verse });
+                            setBibleFocus({ book, chapter, verse, verseEnd });
 
                             return true;
                         }

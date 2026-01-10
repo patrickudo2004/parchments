@@ -1,66 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-
-// Mock Data Function (Phase 1)
-const getVerseText = (book: string, chapter: number, verse: number): string => {
-    const key = `${book} ${chapter}:${verse}`;
-
-    // Some popular verses for demo
-    if (key === 'John 3:16') return "For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.";
-    if (key === 'Genesis 1:1') return "In the beginning, God created the heavens and the earth.";
-    if (key === 'Philippians 4:13') return "I can do all things through him who strengthens me.";
-    if (key === 'Romans 8:28') return "And we know that for those who love God all things work together for good, for those who are called according to his purpose.";
-
-    // Generic placeholder
-    return `[${book} ${chapter}:${verse}] Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`;
-};
+import { db } from '@/lib/db';
+import { useUIStore } from '@/stores/uiStore';
+import type { BibleVerse } from '@/types/database';
 
 interface ScriptureTooltipProps {
     children: React.ReactNode;
 }
 
 export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ children }) => {
+    const { verseHoverPreviews } = useUIStore();
+
+    if (!verseHoverPreviews) return <>{children}</>;
+
     return (
-        <Tooltip.Provider delayDuration={300}>
+        <Tooltip.Provider delayDuration={400}>
             {children}
-            {/* The actual tooltip content is rendered via Portal by individual triggers, 
-                 but since we are using Tiptap, we can't easily wrap each mark in a Trigger. 
-                 
-                 Instead, we will use a "Virtual Element" approach or a Global Listener approach. 
-                 A simpler way for Phase 1 inside Tiptap is to let the Mark extension handle the styling,
-                 and use a global event listener to show a tooltip when hovering `.scripture-ref`.
-             */}
             <GlobalScriptureListener />
         </Tooltip.Provider>
     );
 };
 
 const GlobalScriptureListener: React.FC = () => {
+    const { preferredBibleVersion } = useUIStore();
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [content, setContent] = useState<{ ref: string; text: string } | null>(null);
+    const [content, setContent] = useState<{ ref: string; text: string; version: string } | null>(null);
 
     useEffect(() => {
-        const handleMouseOver = (e: MouseEvent) => {
+        const handleMouseOver = async (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             if (target.classList.contains('scripture-ref')) {
                 const book = target.getAttribute('book');
                 const chapter = parseInt(target.getAttribute('chapter') || '0');
                 const verse = parseInt(target.getAttribute('verse') || '0');
+                const verseEnd = parseInt(target.getAttribute('verseend') || '0');
 
                 if (book && chapter && verse) {
-                    const text = getVerseText(book, chapter, verse);
-                    setContent({
-                        ref: `${book} ${chapter}:${verse}`,
-                        text
-                    });
+                    const versionId = preferredBibleVersion.toLowerCase();
 
-                    const rect = target.getBoundingClientRect();
-                    setPosition({
-                        x: rect.left + rect.width / 2,
-                        y: rect.top
-                    });
-                    setOpen(true);
+                    // Fetch from DB
+                    let verses: BibleVerse[] = [];
+                    if (verseEnd && verseEnd > verse) {
+                        verses = await db.bibleVerses
+                            .where('[versionId+book+chapter+verse]')
+                            .between([versionId, book, chapter, verse], [versionId, book, chapter, verseEnd], true, true)
+                            .toArray();
+                    } else {
+                        const v = await db.bibleVerses.get(`${versionId}-${book}-${chapter}-${verse}`);
+                        if (v) verses = [v];
+                    }
+
+                    if (verses.length > 0) {
+                        const refString = verseEnd && verseEnd > verse
+                            ? `${book} ${chapter}:${verse}-${verseEnd}`
+                            : `${book} ${chapter}:${verse}`;
+
+                        const combinedText = verses.map(v => v.text).join(' ');
+
+                        setContent({
+                            ref: refString,
+                            text: combinedText,
+                            version: preferredBibleVersion
+                        });
+
+                        const rect = target.getBoundingClientRect();
+                        setPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top
+                        });
+                        setOpen(true);
+                    }
                 }
             }
         };
@@ -79,7 +89,7 @@ const GlobalScriptureListener: React.FC = () => {
             document.removeEventListener('mouseover', handleMouseOver);
             document.removeEventListener('mouseout', handleMouseOut);
         };
-    }, []);
+    }, [preferredBibleVersion]);
 
     // We use a custom anchor for Radix Tooltip
     // This is a "virtual element" implementation for React
@@ -102,12 +112,16 @@ const GlobalScriptureListener: React.FC = () => {
             </Tooltip.Trigger>
             <Tooltip.Portal>
                 <Tooltip.Content
-                    className="z-[200] max-w-sm rounded bg-gray-900 px-4 py-3 text-sm leading-relaxed text-white shadow-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2"
-                    sideOffset={5}
+                    className="z-[200] max-w-sm rounded-xl bg-gray-900/95 backdrop-blur-md px-4 py-4 text-sm leading-relaxed text-white shadow-2xl border border-white/10 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2"
+                    side="top"
+                    sideOffset={12}
                 >
-                    <div className="font-bold text-gray-300 mb-1 text-xs uppercase tracking-wide">{content.ref} • ESV</div>
-                    <div className="font-serif">{content.text}</div>
-                    <Tooltip.Arrow className="fill-gray-900" />
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="font-black text-primary text-[10px] uppercase tracking-[0.2em]">{content.ref}</span>
+                        <span className="bg-white/10 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tight">{content.version}</span>
+                    </div>
+                    <div className="font-serif italic text-gray-200 leading-snug">{content.text}</div>
+                    <Tooltip.Arrow className="fill-gray-900/95" />
                 </Tooltip.Content>
             </Tooltip.Portal>
         </Tooltip.Root>

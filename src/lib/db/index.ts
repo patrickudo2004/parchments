@@ -1,18 +1,30 @@
 import Dexie, { type Table } from 'dexie';
-import type { Note, Folder, User } from '@/types/database';
+import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary } from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ParchmentsDatabase extends Dexie {
     notes!: Table<Note>;
     folders!: Table<Folder>;
     users!: Table<User>;
+    bibleVersions!: Table<BibleVersion>;
+    bibleVerses!: Table<BibleVerse>;
+    chapterSummaries!: Table<ChapterSummary>;
 
     constructor() {
         super('ParchmentsDB');
+
+        // Version 1: Original schema
         this.version(1).stores({
             notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
             folders: 'id, name, parentId, order, [parentId+order]',
             users: 'id, email, fullName'
+        });
+
+        // Version 2: Bible support
+        this.version(2).stores({
+            bibleVersions: 'id, abbreviation',
+            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse]',
+            chapterSummaries: 'id, [book+chapter]'
         });
     }
 }

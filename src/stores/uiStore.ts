@@ -30,7 +30,7 @@ interface UIStore {
     isSettingsModalOpen: boolean;
 
     // Bible Navigation
-    bibleFocus: { book: string; chapter: number; verse: number | null } | null;
+    bibleFocus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null;
 
     // Editor stats
     wordCount: number;
@@ -50,7 +50,7 @@ interface UIStore {
     openRightSidebar: (content: 'bible' | 'search') => void;
     closeRightSidebar: () => void;
     setEditorStats: (words: number, characters: number) => void;
-    setBibleFocus: (focus: { book: string; chapter: number; verse: number | null } | null) => void;
+    setBibleFocus: (focus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(

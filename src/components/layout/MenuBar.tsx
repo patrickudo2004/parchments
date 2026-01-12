@@ -187,7 +187,7 @@ export const MenuBar: React.FC = () => {
                 <Button onClick={() => createNote(null)} variant="primary" icon={<AddIcon />}>Note</Button>
                 <Button onClick={() => handleCreateVoiceNote()} variant="primary" icon={<MicIcon />}>Voice</Button>
                 <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
-                <Button onClick={toggleStrongsModal} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
+                <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
             </div>
 
             {/* Voice Recorder Modal */}

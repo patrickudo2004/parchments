@@ -20,6 +20,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         theme,
         isBibleModalOpen,
         isStrongsModalOpen,
+        selectedStrongsId,
+        toggleStrongsModal,
         isSettingsModalOpen,
         toggleSettingsModal,
         setLeftSidebarWidth,
@@ -152,10 +154,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
             {/* Floating Modals Container */}
             <div className="fixed inset-0 pointer-events-none z-[60]">
-                <div className="absolute inset-0">
+                <div className="absolute inset-0 pointer-events-none">
                     <AnimatePresence>
-                        {isBibleModalOpen && <BibleModal />}
-                        {isStrongsModalOpen && <StrongsModal />}
+                        {isBibleModalOpen && (
+                            <div key="bible-modal-wrapper" className="pointer-events-auto">
+                                <BibleModal />
+                            </div>
+                        )}
+                        {isStrongsModalOpen && (
+                            <div key="strongs-modal-wrapper" className="pointer-events-auto">
+                                <StrongsModal
+                                    strongsId={selectedStrongsId}
+                                    onClose={() => toggleStrongsModal(null)}
+                                />
+                            </div>
+                        )}
                     </AnimatePresence>
                 </div>
             </div>

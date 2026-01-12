@@ -16,7 +16,7 @@ This document outlines the strategic plan for implementing the offline Bible dat
 ## 3. Database Schema (Proposed)
 - **`bible_versions`**: Metadata for installed versions (ID, Name, Abbreviation, Language, Copyright).
 - **`bible_verses`**: The actual text, indexed by a composite key of `[versionId+book+chapter+verse]` for instant retrieval.
-- **`chapter_summaries`**: Global summaries for all 1,189 chapters, bundled with the app, mapped to book and chapter regardless of translation.
+- **`chapter_summaries` (Deferred)**: Global summaries for all 1,189 chapters. This feature is currently on the roadmap but not implemented in the MVP due to data sourcing requirements.
 
 ## 4. Distribution Strategy (GitHub-as-a-CDN)
 - **Base Version:** The app ships with the King James Version (KJV) as the default base version. This is fetched as a processed JSON bundle from the [scrollmapper/bible_databases](https://github.com/scrollmapper/bible_databases) repository.

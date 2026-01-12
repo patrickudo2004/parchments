@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary } from '@/types/database';
+import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry } from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ParchmentsDatabase extends Dexie {
@@ -9,6 +9,8 @@ export class ParchmentsDatabase extends Dexie {
     bibleVersions!: Table<BibleVersion>;
     bibleVerses!: Table<BibleVerse>;
     chapterSummaries!: Table<ChapterSummary>;
+    strongsEntries!: Table<StrongsEntry>;
+    strongsConcordance!: Table<{ verseId: string; strongsNumbers: string[] }>;
 
     constructor() {
         super('ParchmentsDB');
@@ -33,8 +35,20 @@ export class ParchmentsDatabase extends Dexie {
             folders: 'id, name, parentId, order, [parentId+order]',
             users: 'id, email, fullName',
             bibleVersions: 'id, abbreviation, isDownloaded',
-            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse], [versionId+book+chapter+verse+verseEnd]',
-            chapterSummaries: 'id, [book+chapter]'
+            bibleVerses: 'id, versionId, book, [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]'
+        });
+
+        // Version 6: Fix missing indices for BibleReader and Ingestion
+        this.version(6).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]',
+            strongsEntries: 'id',
+            strongsConcordance: 'verseId'
         });
     }
 }

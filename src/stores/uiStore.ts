@@ -10,6 +10,7 @@ interface UIStore {
     // Bible & Study
     preferredBibleVersion: string;
     verseHoverPreviews: boolean;
+    interlinearEnabled: boolean;
 
     // Editor
     editorFontFamily: 'sans' | 'serif';
@@ -27,6 +28,7 @@ interface UIStore {
     rightSidebarContent: 'bible' | 'search' | null;
     isBibleModalOpen: boolean;
     isStrongsModalOpen: boolean;
+    selectedStrongsId: string | null;
     isSettingsModalOpen: boolean;
 
     // Bible Navigation
@@ -41,8 +43,9 @@ interface UIStore {
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
     updateSettings: (settings: Partial<UIStore>) => void;
     toggleBibleModal: () => void;
-    toggleStrongsModal: () => void;
+    toggleStrongsModal: (id?: string | null) => void;
     toggleSettingsModal: () => void;
+    toggleInterlinear: () => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search') => void;
     setLeftSidebarWidth: (width: number) => void;
@@ -63,6 +66,7 @@ export const useUIStore = create<UIStore>()(
 
             preferredBibleVersion: 'KJV',
             verseHoverPreviews: true,
+            interlinearEnabled: false,
 
             editorFontFamily: 'serif',
             editorFontSize: 16,
@@ -79,6 +83,7 @@ export const useUIStore = create<UIStore>()(
             rightSidebarContent: null,
             isBibleModalOpen: false,
             isStrongsModalOpen: false,
+            selectedStrongsId: null,
             isSettingsModalOpen: false,
 
             bibleFocus: null,
@@ -99,8 +104,20 @@ export const useUIStore = create<UIStore>()(
                 }),
 
             toggleBibleModal: () => set((state) => ({ isBibleModalOpen: !state.isBibleModalOpen })),
-            toggleStrongsModal: () => set((state) => ({ isStrongsModalOpen: !state.isStrongsModalOpen })),
+            toggleStrongsModal: (id) => set((state) => {
+                // If id is explicitly null, we close.
+                // If it's a string, we open with that ID.
+                // If it's undefined (no args), we toggle.
+                if (id === null) return { isStrongsModalOpen: false, selectedStrongsId: null };
+                if (typeof id === 'string') return { isStrongsModalOpen: true, selectedStrongsId: id };
+
+                return {
+                    isStrongsModalOpen: !state.isStrongsModalOpen,
+                    selectedStrongsId: state.selectedStrongsId
+                };
+            }),
             toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+            toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
 

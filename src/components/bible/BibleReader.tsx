@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import InfoIcon from '@mui/icons-material/Info';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
 import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
+import { Languages } from 'lucide-react';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
@@ -23,6 +23,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
     const [chapter, setChapter] = useState(bibleFocus?.chapter || 1);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
 
+    const { interlinearEnabled, toggleInterlinear, toggleStrongsModal } = useUIStore();
+
     const installedVersions = useLiveQuery(async () => {
         const all = await db.bibleVersions.toArray();
         return all.filter(v => v.isDownloaded);
@@ -31,10 +33,6 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
     const verses = useLiveQuery(() =>
         db.bibleVerses.where('[versionId+book+chapter]').equals([versionId, book, chapter]).sortBy('verse')
         , [versionId, book, chapter]) || [];
-
-    const summary = useLiveQuery(() =>
-        db.chapterSummaries.get(`${book}-${chapter}`)
-        , [book, chapter]);
 
     // Sync with bibleFocus from global store (only if NOT independent)
     useEffect(() => {
@@ -123,6 +121,14 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 </div>
 
                 <div className="flex items-center gap-1">
+                    <button
+                        onClick={toggleInterlinear}
+                        className={`p-1.5 rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                        title="Toggle Interlinear"
+                    >
+                        <Languages size={18} />
+                    </button>
+                    <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
                     <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><NavigateBeforeIcon fontSize="small" /></button>
                     <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><NavigateNextIcon fontSize="small" /></button>
                 </div>
@@ -145,24 +151,28 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         {book} <span className="text-primary">{chapter}</span>
                     </h1>
 
-                    {/* Uniform Summary Box */}
-                    {summary && (
-                        <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-5 mb-8 flex gap-4 text-sm text-light-text-main dark:text-dark-text-main border border-primary/10 animate-in fade-in duration-500">
-                            <InfoIcon className="text-primary shrink-0" fontSize="small" />
-                            <div className="leading-relaxed">
-                                <span className="font-black uppercase tracking-widest text-[10px] text-primary block mb-1">Contextual Summary</span>
-                                {summary.summary}
-                            </div>
-                        </div>
-                    )}
-
                     {/* Scripture Text */}
                     <div className="space-y-6 text-xl leading-relaxed text-light-text-main dark:text-dark-text-main font-serif">
                         {verses.length > 0 ? (
                             verses.map((v: BibleVerse) => (
                                 <div key={v.id} id={`verse-${v.verse}`} className="transition-all duration-500 rounded p-1 -mx-1">
-                                    <sup className="text-primary font-black text-[10px] mr-2 select-none opacity-50">{v.verse}</sup>
-                                    <span className="opacity-90">{v.text}</span>
+                                    <sup
+                                        className="text-primary font-black mr-3 select-none opacity-90 relative -top-1"
+                                        style={{ fontSize: '20px' }}
+                                    >
+                                        {v.verse}
+                                    </sup>
+                                    <span className="opacity-90">
+                                        {interlinearEnabled && v.interlinear ? (
+                                            <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2">
+                                                {v.interlinear.map((word, idx) => (
+                                                    <InterlinearWord key={idx} word={word} onClick={toggleStrongsModal} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            v.text
+                                        )}
+                                    </span>
                                 </div>
                             ))
                         ) : (
@@ -201,6 +211,29 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 </span>
                 <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors">Next <NavigateNextIcon fontSize="inherit" className="ml-1" /></button>
             </div>
+        </div>
+    );
+};
+
+const InterlinearWord: React.FC<{ word: { text: string; number: string }; onClick: (id: string) => void }> = ({ word, onClick }) => {
+    const entry = useLiveQuery(() => db.strongsEntries.get(word.number.toUpperCase()), [word.number]);
+
+    return (
+        <div className="flex flex-col items-start min-w-fit">
+            <span className="text-[10px] font-black uppercase tracking-tight text-light-text-disabled leading-none mb-1">
+                {word.text}
+            </span>
+            <button
+                onClick={() => onClick(word.number.toUpperCase())}
+                className="group flex flex-col items-start"
+            >
+                <span className="text-base font-serif text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors">
+                    {entry?.lemma || '...'}
+                </span>
+                <span className="text-[9px] font-bold text-primary opacity-50 group-hover:opacity-100 transition-opacity">
+                    {word.number.toUpperCase()}
+                </span>
+            </button>
         </div>
     );
 };

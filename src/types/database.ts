@@ -48,16 +48,33 @@ export interface BibleVersion {
 }
 
 export interface BibleVerse {
-    id: string;          // slug: version-book-chapter-verse
+    id: string; // book-chapter-verse
     versionId: string;
-    book: string;        // Normalized name: 'Genesis'
+    book: string;
     chapter: number;
     verse: number;
     text: string;
+    interlinear?: InterlinearWord[];
+}
+
+export interface InterlinearWord {
+    text: string;
+    number: string; // Strong's number, e.g., "h120"
+}
+
+export interface StrongsEntry {
+    id: string; // e.g., "H430"
+    lemma: string;
+    xlit: string;
+    pron: string;
+    derivation: string;
+    strongs_def: string;
+    kjv_def: string;
+    usage?: string;
 }
 
 export interface ChapterSummary {
-    id: string;          // book-chapter
+    id: string; // book-chapter
     book: string;
     chapter: number;
     summary: string;

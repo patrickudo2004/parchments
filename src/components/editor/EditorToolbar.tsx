@@ -13,6 +13,7 @@ import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import TitleIcon from '@mui/icons-material/Title';
 import LinkIcon from '@mui/icons-material/Link';
 import HighlightingIcon from '@mui/icons-material/BorderColor';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -172,7 +173,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 />
             </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+                <Button
+                    onClick={() => editor.chain().focus().scanScriptures().run()}
+                    icon={AutoFixHighIcon}
+                    title="Scan for Scripture References"
+                />
                 <Button
                     onClick={setLink}
                     isActive={editor.isActive('link')}

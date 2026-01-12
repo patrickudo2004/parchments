@@ -18,7 +18,13 @@ export class BibleIngestionService {
 
             // The JSON structure is: { translation: string, books: [ { name: string, chapters: [ { chapter: number, verses: [ { verse: number, text: string } ] } ] } ] }
             for (const book of data.books) {
-                const bookName = book.name;
+                let bookName = book.name;
+
+                // Normalize Roman numerals to Arabic for consistency with BibleData.ts
+                if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
+                else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
+                else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
+
                 for (const chapter of book.chapters) {
                     const chapterNumber = chapter.chapter;
                     for (const verse of chapter.verses) {

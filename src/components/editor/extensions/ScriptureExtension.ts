@@ -7,6 +7,7 @@ declare module '@tiptap/core' {
     interface Commands<ReturnType> {
         scripture: {
             setScripture: (attrs: { book: string; chapter: number; verse: number; verseEnd?: number }) => ReturnType;
+            scanScriptures: () => ReturnType;
         };
     }
 }
@@ -49,6 +50,57 @@ export const ScriptureExtension = Mark.create({
                 (attributes) =>
                     ({ commands }) => {
                         return commands.setMark(this.name, attributes);
+                    },
+            scanScriptures:
+                () =>
+                    ({ state, dispatch }) => {
+                        const { tr, schema } = state;
+                        let modified = false;
+
+                        // Iterate through all nodes to find text
+                        state.doc.descendants((node, pos) => {
+                            if (!node.isText || !node.text) return;
+
+                            // Create a global regex from the source
+                            const regex = new RegExp(SCRIPTURE_REGEX.source, 'gi');
+
+                            // Find all matches in this text node
+                            const matches = [...node.text.matchAll(regex)];
+
+                            matches.forEach((match) => {
+                                if (match.index === undefined) return;
+
+                                const from = pos + match.index;
+                                const to = from + match[0].length;
+                                const refText = match[0];
+
+                                // Check if range already has this mark to avoid duplicates
+                                if (state.doc.rangeHasMark(from, to, schema.marks.scripture)) {
+                                    return;
+                                }
+
+                                const parsed = parseScriptureReference(refText);
+                                if (parsed) {
+                                    tr.addMark(
+                                        from,
+                                        to,
+                                        schema.marks.scripture.create({
+                                            book: parsed.book,
+                                            chapter: parsed.chapter,
+                                            verse: parsed.verse,
+                                            verseEnd: parsed.verseEnd,
+                                        })
+                                    );
+                                    modified = true;
+                                }
+                            });
+                        });
+
+                        if (modified && dispatch) {
+                            dispatch(tr);
+                            return true;
+                        }
+                        return false;
                     },
         };
     },

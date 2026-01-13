@@ -87,7 +87,7 @@ const BOOK_ABBREVIATIONS: { [key: string]: string } = {
  * (?:-(\d+))? : Optional hyphen and ending verse
  * \b : Word boundary end
  */
-export const SCRIPTURE_REGEX = /\b((?:1|2|3|I|II|III)\s*)?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+)(?:[-–—](\d+))?\b/i;
+export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+)(?:[-–—](\d+))?\b/i;
 
 export const parseScriptureReference = (text: string): BibleReference | null => {
     const match = text.match(SCRIPTURE_REGEX);

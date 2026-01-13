@@ -34,7 +34,7 @@ class BibleDownloadService {
                     abbreviation: 'KJV',
                     language: 'eng',
                     size: '2.4MB',
-                    url: 'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/json/kjv.json',
+                    url: '/data/bibles/kjv.json',
                     copyright: 'Public Domain'
                 },
                 {
@@ -43,7 +43,7 @@ class BibleDownloadService {
                     abbreviation: 'WEB',
                     language: 'eng',
                     size: '2.6MB',
-                    url: 'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/json/web.json',
+                    url: '/data/bibles/web.json',
                     copyright: 'Public Domain'
                 }
             ];

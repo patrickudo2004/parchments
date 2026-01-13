@@ -28,7 +28,7 @@ export const seedBibleData = async () => {
 
     // Check for Interlinear (check if some verses have it)
     // We'll check the first verse of John 1
-    const john1_1 = await db.bibleVerses.get('kjv-John-1-1');
+    const john1_1 = await db.bibleVerses.get('kjv-john-1-1');
     if (john1_1 && !john1_1.interlinear) {
         console.info('[BibleDB] Interlinear data missing for KJV. Triggering ingestion...');
         await BibleIngestionService.ingestInterlinear();

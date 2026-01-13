@@ -47,7 +47,7 @@ const GlobalScriptureListener: React.FC = () => {
                             .between([versionId, book, chapter, verse], [versionId, book, chapter, verseEnd], true, true)
                             .toArray();
                     } else {
-                        const v = await db.bibleVerses.get(`${versionId}-${book}-${chapter}-${verse}`);
+                        const v = await db.bibleVerses.get(`${versionId}-${book}-${chapter}-${verse}`.toLowerCase());
                         if (v) verses = [v];
                     }
 

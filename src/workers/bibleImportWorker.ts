@@ -10,43 +10,73 @@ self.addEventListener('message', async (event) => {
         try {
             self.postMessage({ status: 'processing', message: 'Starting import...' });
 
-            const { books } = data; // Expected: { books: [{ name: 'John', chapters: [['v1', 'v2'], ...] }] }
             const versesToInsert: BibleVerse[] = [];
 
-            let totalChapters = 0;
-            books.forEach((b: any) => totalChapters += b.chapters.length);
-            let processedChapters = 0;
+            if (data.books) {
+                // Format 1: Nested { books: [{ name, chapters: [...] }] }
+                const { books } = data;
+                let totalChapters = 0;
+                books.forEach((b: any) => totalChapters += b.chapters.length);
+                let processedChapters = 0;
 
-            for (const bookData of books) {
-                const bookName = bookData.name;
-
-                for (let cIdx = 0; cIdx < bookData.chapters.length; cIdx++) {
-                    const chapterNum = cIdx + 1;
-                    const verses = bookData.chapters[cIdx];
-
-                    for (let vIdx = 0; vIdx < verses.length; vIdx++) {
-                        const verseNum = vIdx + 1;
-                        const text = verses[vIdx];
-
-                        versesToInsert.push({
-                            id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
-                            versionId,
-                            book: bookName,
-                            chapter: chapterNum,
-                            verse: verseNum,
-                            text,
-                        });
+                for (const bookData of books) {
+                    const bookName = bookData.name;
+                    for (let cIdx = 0; cIdx < bookData.chapters.length; cIdx++) {
+                        const chapterNum = cIdx + 1;
+                        const verses = bookData.chapters[cIdx];
+                        for (let vIdx = 0; vIdx < verses.length; vIdx++) {
+                            const verseNum = vIdx + 1;
+                            const text = verses[vIdx];
+                            versesToInsert.push({
+                                id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
+                                versionId,
+                                book: bookName,
+                                chapter: chapterNum,
+                                verse: verseNum,
+                                text,
+                            });
+                        }
+                        processedChapters++;
+                        if (processedChapters % 10 === 0) {
+                            self.postMessage({
+                                status: 'progress',
+                                progress: (processedChapters / totalChapters) * 100,
+                                message: `Processing ${bookName} ${chapterNum}...`
+                            });
+                        }
                     }
+                }
+            } else if (data.verses) {
+                // Format 2: Flat { verses: [{ book_name, chapter, verse, text }] }
+                const { verses } = data;
+                const totalVerses = verses.length;
+                let processedVerses = 0;
 
-                    processedChapters++;
-                    if (processedChapters % 10 === 0) {
+                for (const v of verses) {
+                    // Normalize book name if needed (e.g. Roman numerals)
+                    // For now assuming web.json has standard names like 'Genesis'
+                    const bookName = v.book_name;
+
+                    versesToInsert.push({
+                        id: `${versionId}-${bookName}-${v.chapter}-${v.verse}`.toLowerCase(),
+                        versionId,
+                        book: bookName,
+                        chapter: v.chapter,
+                        verse: v.verse,
+                        text: v.text,
+                    });
+
+                    processedVerses++;
+                    if (processedVerses % 500 === 0) {
                         self.postMessage({
                             status: 'progress',
-                            progress: (processedChapters / totalChapters) * 100,
-                            message: `Processing ${bookName} ${chapterNum}...`
+                            progress: (processedVerses / totalVerses) * 100,
+                            message: `Processing ${bookName} ${v.chapter}:${v.verse}...`
                         });
                     }
                 }
+            } else {
+                throw new Error('Unknown JSON format. Expected "books" or "verses" array.');
             }
 
             self.postMessage({ status: 'saving', message: 'Saving to database...' });

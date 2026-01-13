@@ -35,6 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     // Bible State
     const [importingState, setImportingState] = useState<{ status: string, progress: number } | null>(null);
     const [catalog, setCatalog] = useState<CatalogBibleVersion[]>([]);
+    const [selectedCatalogId, setSelectedCatalogId] = useState<string>('');
     const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
     const bibleVersions = useLiveQuery(() => db.bibleVersions.toArray()) || [];
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
@@ -329,39 +330,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                             <section className="space-y-4">
                                                 <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Official Versions Catalog</h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {isFetchingCatalog ? (
-                                                        <div className="col-span-full py-10 text-center">
-                                                            <CircularProgress size={24} className="text-primary mb-2" />
-                                                            <p className="text-xs text-light-text-disabled uppercase font-black tracking-widest">Checking Cloud Library...</p>
-                                                        </div>
-                                                    ) : (
-                                                        catalog.map((v: CatalogBibleVersion) => {
-                                                            const isInstalled = bibleVersions.find(lv => lv.id === v.id)?.isDownloaded;
-                                                            return (
-                                                                <div key={v.id} className="p-4 border border-light-border dark:border-dark-border rounded-xl bg-light-background dark:bg-dark-background/50 flex items-center justify-between group">
-                                                                    <div>
-                                                                        <p className="font-bold text-sm tracking-tight">{v.name} ({v.abbreviation})</p>
-                                                                        <p className="text-[10px] text-light-text-disabled uppercase font-black">{v.language} • {v.size}</p>
-                                                                    </div>
-                                                                    {isInstalled ? (
-                                                                        <span className="text-xs font-bold text-green-500 flex items-center gap-1">
-                                                                            <CheckCircleIcon fontSize="inherit" /> Installed
-                                                                        </span>
-                                                                    ) : (
-                                                                        <button
-                                                                            className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full hover:bg-primary hover:text-white transition-all disabled:opacity-50"
-                                                                            disabled={importingState !== null}
-                                                                            onClick={() => handleDownload(v)}
-                                                                        >
-                                                                            Download
-                                                                        </button>
-                                                                    )}
+
+                                                {isFetchingCatalog ? (
+                                                    <div className="py-10 text-center">
+                                                        <CircularProgress size={24} className="text-primary mb-2" />
+                                                        <p className="text-xs text-light-text-disabled uppercase font-black tracking-widest">Checking Cloud Library...</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        <div className="flex gap-4">
+                                                            <div className="flex-1 relative">
+                                                                <select
+                                                                    value={selectedCatalogId}
+                                                                    onChange={(e) => setSelectedCatalogId(e.target.value)}
+                                                                    className="w-full p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                                                                >
+                                                                    <option value="">Select a version to download...</option>
+                                                                    {catalog.map((v: CatalogBibleVersion) => {
+                                                                        const isInstalled = bibleVersions.some(lv => lv.id === v.id && lv.isDownloaded);
+                                                                        return (
+                                                                            <option key={v.id} value={v.id}>
+                                                                                {v.name} ({v.abbreviation}) {isInstalled ? '✓ Installed' : ''}
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-light-text-disabled">
+                                                                    <MenuBookIcon fontSize="small" />
                                                                 </div>
-                                                            );
-                                                        })
-                                                    )}
-                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    const v = catalog.find(c => c.id === selectedCatalogId);
+                                                                    if (v) handleDownload(v);
+                                                                }}
+                                                                disabled={!selectedCatalogId || importingState !== null || bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded)}
+                                                                className={`px-6 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded)
+                                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 cursor-default'
+                                                                    : 'bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                                    }`}
+                                                            >
+                                                                {bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded) ? (
+                                                                    <span className="flex items-center gap-2"><CheckCircleIcon fontSize="small" /> Installed</span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-2"><DownloadIcon fontSize="small" /> Download</span>
+                                                                )}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Selected Version Details Preview */}
+                                                        {selectedCatalogId && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: -10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                className="p-4 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-xl"
+                                                            >
+                                                                {(() => {
+                                                                    const v = catalog.find(c => c.id === selectedCatalogId);
+                                                                    if (!v) return null;
+                                                                    return (
+                                                                        <div className="flex justify-between items-center">
+                                                                            <div>
+                                                                                <h5 className="font-bold">{v.name}</h5>
+                                                                                <p className="text-xs text-light-text-secondary mt-1">{v.copyright}</p>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <div className="px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded text-[10px] font-black uppercase tracking-wider inline-block">
+                                                                                    {v.language}
+                                                                                </div>
+                                                                                <p className="text-[10px] text-light-text-disabled mt-1">{v.size}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </motion.div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </section>
 
                                             <section className="space-y-4">

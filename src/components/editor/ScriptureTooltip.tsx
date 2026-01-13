@@ -25,7 +25,7 @@ const GlobalScriptureListener: React.FC = () => {
     const { preferredBibleVersion } = useUIStore();
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [content, setContent] = useState<{ ref: string; text: string; version: string } | null>(null);
+    const [content, setContent] = useState<{ ref: string; verses: BibleVerse[]; version: string } | null>(null);
 
     useEffect(() => {
         const handleMouseOver = async (e: MouseEvent) => {
@@ -56,11 +56,9 @@ const GlobalScriptureListener: React.FC = () => {
                             ? `${book} ${chapter}:${verse}-${verseEnd}`
                             : `${book} ${chapter}:${verse}`;
 
-                        const combinedText = verses.map(v => v.text).join(' ');
-
                         setContent({
                             ref: refString,
-                            text: combinedText,
+                            verses: verses,
                             version: preferredBibleVersion
                         });
 
@@ -120,7 +118,14 @@ const GlobalScriptureListener: React.FC = () => {
                         <span className="font-black text-primary text-[10px] uppercase tracking-[0.2em]">{content.ref}</span>
                         <span className="bg-white/10 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tight">{content.version}</span>
                     </div>
-                    <div className="font-serif italic text-gray-200 leading-snug">{content.text}</div>
+                    <div className="font-serif italic text-gray-200 leading-snug">
+                        {content.verses.map((v, i) => (
+                            <span key={i}>
+                                <span className="text-[10px] align-top text-primary font-bold mr-1 select-none opacity-70 relative top-[2px]">{v.verse}</span>
+                                {v.text}{' '}
+                            </span>
+                        ))}
+                    </div>
                     <Tooltip.Arrow className="fill-gray-900/95" />
                 </Tooltip.Content>
             </Tooltip.Portal>

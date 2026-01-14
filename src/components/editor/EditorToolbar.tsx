@@ -10,7 +10,6 @@ import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import TitleIcon from '@mui/icons-material/Title';
 import LinkIcon from '@mui/icons-material/Link';
 import HighlightingIcon from '@mui/icons-material/BorderColor';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';

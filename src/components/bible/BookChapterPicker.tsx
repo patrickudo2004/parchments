@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 
 interface BookChapterPickerProps {

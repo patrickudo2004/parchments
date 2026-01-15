@@ -37,7 +37,7 @@ const GlobalScriptureListener: React.FC = () => {
                 const verseEnd = parseInt(target.getAttribute('verseend') || '0');
 
                 if (book && chapter && verse) {
-                    const versionId = preferredBibleVersion.toLowerCase();
+                    const versionId = preferredBibleVersion.toLowerCase(); // Lowercase to match catalog IDs
 
                     // Fetch from DB
                     let verses: BibleVerse[] = [];

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "bsb",
+    "name": "English Berean Standard Bible (BSB)",
+    "abbreviation": "BSB",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/BSB.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "csb",
+    "name": "English CSB 2017 - Christian Standard Bible",
+    "abbreviation": "CSB",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/CSB.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "esv",
+    "name": "English ESV 2016",
+    "abbreviation": "ESV",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/ESV.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "kjv",
+    "name": "English KJV",
+    "abbreviation": "KJV",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/KJV.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "nasb",
+    "name": "English NASB (New American Standard Bible - NASB 1995)",
+    "abbreviation": "NASB",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/NASB.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "nirv",
+    "name": "English NIRV 1996 - Copyrighted only for Website",
+    "abbreviation": "NIRV",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/NIRV.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "niv",
+    "name": "English NIV",
+    "abbreviation": "NIV",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/NIV.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "nkjv",
+    "name": "English NKJ 1982",
+    "abbreviation": "NKJ",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/NKJV.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "nlt",
+    "name": "English NLT",
+    "abbreviation": "NLT",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/NLT.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "tmb",
+    "name": "The Message Bible (2002)",
+    "abbreviation": "TMB",
+    "language": "eng",
+    "size": "Unknown",
+    "url": "/data/bibles/TMB.json",
+    "copyright": "See version details"
+  },
+  {
+    "id": "web",
+    "name": "World English Bible",
+    "abbreviation": "WEB",
+    "language": "en",
+    "size": "Unknown",
+    "url": "/data/bibles/web.json",
+    "copyright": "See version details"
+  }
+]

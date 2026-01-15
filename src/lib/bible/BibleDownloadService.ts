@@ -20,33 +20,25 @@ export interface CatalogResponse {
 class BibleDownloadService {
     async fetchCatalog(): Promise<CatalogBibleVersion[]> {
         try {
-            // For now, we return a mock catalog if the fetch fails (developing mode)
+            // First try to fetch the local catalog
+            const localResponse = await fetch('/data/bibles/catalog.json');
+            if (localResponse.ok) {
+                const catalog: CatalogBibleVersion[] = await localResponse.json();
+                console.log('[BibleDownload] Using local catalog with', catalog.length, 'versions');
+                return catalog;
+            }
+
+            // Fallback to remote catalog if local fails
+            console.warn('[BibleDownload] Local catalog not found, trying remote...');
             const response = await fetch(CATALOG_URL);
-            if (!response.ok) throw new Error('Failed to fetch catalog');
+            if (!response.ok) throw new Error('Failed to fetch remote catalog');
             const data: CatalogResponse = await response.json();
             return data.versions;
         } catch (error) {
-            console.warn('[BibleDownload] Using mock catalog for development.');
-            return [
-                {
-                    id: 'kjv',
-                    name: 'King James Version',
-                    abbreviation: 'KJV',
-                    language: 'eng',
-                    size: '2.4MB',
-                    url: '/data/bibles/kjv.json',
-                    copyright: 'Public Domain'
-                },
-                {
-                    id: 'web',
-                    name: 'World English Bible',
-                    abbreviation: 'WEB',
-                    language: 'eng',
-                    size: '2.6MB',
-                    url: '/data/bibles/web.json',
-                    copyright: 'Public Domain'
-                }
-            ];
+            console.error('[BibleDownload] Failed to fetch catalog:', error);
+            // Return empty array instead of hardcoded mock
+            // User should run `npm run catalog` to generate the catalog
+            return [];
         }
     }
 

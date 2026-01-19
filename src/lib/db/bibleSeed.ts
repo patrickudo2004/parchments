@@ -7,6 +7,16 @@ import { BibleIngestionService } from '../bible/BibleIngestionService';
  * via the BibleDownloadService or import them manually.
  */
 export const seedBibleData = async () => {
+    // Check for legacy data (Uppercase book names in IDs, e.g., kjv-Genesis-1-1)
+    // We strictly need lowercase IDs for tooltips to work consistently.
+    const legacyVerse = await db.bibleVerses.get('kjv-Genesis-1-1');
+    if (legacyVerse) {
+        console.info('[BibleDB] Detected legacy KJV data (Title Case IDs). Purging for migration...');
+        await db.bibleVersions.delete('kjv');
+        await db.bibleVerses.where('versionId').equals('kjv').delete();
+        console.info('[BibleDB] Legacy KJV data purged.');
+    }
+
     const existingVersions = await db.bibleVersions.count();
 
     // Check if KJV is already downloaded

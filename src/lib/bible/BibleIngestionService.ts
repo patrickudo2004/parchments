@@ -32,7 +32,7 @@ export class BibleIngestionService {
                         const text = verse.text;
 
                         versesToIngest.push({
-                            id: `kjv-${bookName}-${chapterNumber}-${verseNumber}`,
+                            id: `kjv-${bookName}-${chapterNumber}-${verseNumber}`.toLowerCase(),
                             versionId: 'kjv',
                             book: bookName,
                             chapter: chapterNumber,

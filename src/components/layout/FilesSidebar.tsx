@@ -20,7 +20,7 @@ export const FilesSidebar: React.FC = () => {
     const { leftSidebarWidth } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['1', '2'])); // Default expanded for mocks
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
         targetId: string;
@@ -46,17 +46,10 @@ export const FilesSidebar: React.FC = () => {
 
     const handleItemClick = (item: any) => {
         if (item.type === 'file') {
-            const note = notes.find(n => n.id === item.id) || {
-                id: item.id,
-                title: item.name,
-                content: '<p>Mock content</p>',
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                folderId: null,
-                tags: [],
-                type: 'text'
-            } as Note;
-            setCurrentNote(note as Note);
+            const note = notes.find(n => n.id === item.id);
+            if (note) {
+                setCurrentNote(note);
+            }
         }
     };
 
@@ -99,12 +92,7 @@ export const FilesSidebar: React.FC = () => {
             ? notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }))
             : [];
 
-        // For mocks/demo if real data is empty
-        const mockChildren: any[] = [];
-        if (item.id === '1' && notes.length === 0) mockChildren.push({ id: 'mock1', name: 'Example Sermon.docx', type: 'file' });
-        if (item.id === '2' && notes.length === 0) mockChildren.push({ id: 'mock2', name: 'James 1 Study.txt', type: 'file' });
-
-        const finalChildren = children.length > 0 ? children : mockChildren;
+        const finalChildren = children;
 
         return (
             <React.Fragment key={item.id}>
@@ -155,17 +143,10 @@ export const FilesSidebar: React.FC = () => {
         );
     };
 
-    const rootFolders = folders.length > 0 ? folders.map(f => ({ ...f, type: 'folder' as const })) : [
-        { id: '1', name: 'Sermons', type: 'folder' as const },
-        { id: '2', name: 'Bible Study', type: 'folder' as const },
-    ];
+    const rootFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
     const rootNotes = notes.filter(n => !n.folderId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
 
-    // For demo if empty
-    const displayRootNotes = rootNotes.length > 0 ? rootNotes : (notes.length === 0 ? [
-        { id: '3', name: 'Sunday Service', type: 'file' as const },
-        { id: '4', name: 'Midweek Notes', type: 'file' as const },
-    ] : []);
+    const displayRootNotes = rootNotes;
 
     return (
         <div

@@ -13,7 +13,7 @@ import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
-import type { Note } from '@/types/database';
+
 
 export const FilesSidebar: React.FC = () => {
     const { setCurrentNote, createNote, createVoiceNote, createFolder, notes, folders, deleteNote, deleteFolder } = useNoteStore();

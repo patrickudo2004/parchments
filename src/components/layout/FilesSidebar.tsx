@@ -21,6 +21,7 @@ export const FilesSidebar: React.FC = () => {
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
         targetId: string;
@@ -44,21 +45,25 @@ export const FilesSidebar: React.FC = () => {
         setExpandedFolders(newExpanded);
     };
 
-    const handleItemClick = (item: any) => {
+    const handleItemClick = (e: React.MouseEvent, item: any) => {
+        e.stopPropagation();
         if (item.type === 'file') {
             const note = notes.find(n => n.id === item.id);
             if (note) {
                 setCurrentNote(note);
             }
+        } else if (item.type === 'folder') {
+            // If clicking the folder text (not the chevron), select it
+            setSelectedFolderId(prev => (prev === item.id ? null : item.id));
         }
     };
 
     const handleCreateNote = async () => {
-        await createNote(null);
+        await createNote(selectedFolderId);
     };
 
     const handleCreateFolder = async () => {
-        await createFolder('New Folder', null);
+        await createFolder('New Folder', selectedFolderId);
     };
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
@@ -97,8 +102,11 @@ export const FilesSidebar: React.FC = () => {
         return (
             <React.Fragment key={item.id}>
                 <div
-                    onClick={() => handleItemClick(item)}
-                    className="group flex items-center justify-between p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded cursor-pointer text-sm transition-colors"
+                    onClick={(e) => handleItemClick(e, item)}
+                    className={`group flex items-center justify-between p-1.5 rounded cursor-pointer text-sm transition-colors ${selectedFolderId === item.id
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'hover:bg-light-background dark:hover:bg-dark-background'
+                        }`}
                     style={{ paddingLeft: `${level * 12 + 8}px` }}
                 >
                     <div className="flex items-center gap-1.5 overflow-hidden flex-1">
@@ -172,7 +180,7 @@ export const FilesSidebar: React.FC = () => {
                 <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
                         onSave={async (blob, duration) => {
-                            await createVoiceNote(null, blob, duration);
+                            await createVoiceNote(selectedFolderId, blob, duration);
                             setShowRecorder(false);
                         }}
                         onCancel={() => setShowRecorder(false)}
@@ -180,7 +188,7 @@ export const FilesSidebar: React.FC = () => {
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
                 {rootFolders.map(folder => renderTreeItem(folder, 0))}
                 {displayRootNotes.map(note => renderTreeItem(note, 0))}
             </div>

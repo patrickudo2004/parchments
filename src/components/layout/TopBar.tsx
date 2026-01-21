@@ -5,10 +5,48 @@ import SearchIcon from '@mui/icons-material/Search';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import SettingsIcon from '@mui/icons-material/Settings';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { exportService } from '@/lib/export/ExportService';
+import { useState } from 'react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
     const { theme, toggleTheme, toggleSettingsModal } = useUIStore();
+    const [showExportMenu, setShowExportMenu] = useState(false);
+
+    const handleExport = async (format: 'docx' | 'pdf' | 'md' | 'html' | 'txt') => {
+        if (!currentNote) return;
+
+        setShowExportMenu(false);
+        const { title, content } = currentNote;
+
+        try {
+            switch (format) {
+                case 'docx':
+                    await exportService.exportToDocx(title, content);
+                    break;
+                case 'pdf':
+                    await exportService.exportToPdf(title, content);
+                    break;
+                case 'md':
+                    exportService.exportToMarkdown(title, content);
+                    break;
+                case 'html':
+                    exportService.exportToHtml(title, content);
+                    break;
+                case 'txt':
+                    // We might want proper plain text extraction later, for now using content
+                    // Ideally pass simple text
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    exportService.exportToTxt(title, tempDiv.textContent || '');
+                    break;
+            }
+        } catch (error) {
+            console.error('Export failed', error);
+            alert('Export failed due to an error. Check console.');
+        }
+    };
 
     return (
         <header className="h-16 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
@@ -40,6 +78,45 @@ export const TopBar: React.FC = () => {
                         className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 transition-all"
                     />
                 </div>
+
+                {/* Export Menu */}
+                {currentNote && (
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
+                            title="Export Note"
+                        >
+                            <FileDownloadIcon fontSize="small" />
+                        </button>
+
+                        {showExportMenu && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-dark-surface rounded-xl shadow-xl border border-light-border dark:border-dark-border py-2 z-20 flex flex-col">
+                                    <div className="px-4 py-2 border-b border-light-border dark:border-dark-border mb-2">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-light-text-secondary">Export As</p>
+                                    </div>
+                                    {[
+                                        { id: 'docx', label: 'Word Document (.docx)' },
+                                        { id: 'pdf', label: 'PDF Document (.pdf)' },
+                                        { id: 'md', label: 'Markdown (.md)' },
+                                        { id: 'html', label: 'HTML File (.html)' },
+                                        { id: 'txt', label: 'Plain Text (.txt)' },
+                                    ].map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => handleExport(opt.id as any)}
+                                            className="px-4 py-2 text-left text-sm hover:bg-light-background dark:hover:bg-dark-background transition-colors"
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* Theme Toggle */}
                 <button

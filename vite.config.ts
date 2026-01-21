@@ -2,9 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      include: ['events', 'stream', 'util', 'buffer', 'http', 'https', 'path', 'url'], // html-to-docx needs these
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+  ],
   server: {
     port: 3000,
   },
@@ -20,6 +32,13 @@ export default defineConfig({
       '@/hooks': path.resolve(__dirname, './src/hooks'),
       '@/types': path.resolve(__dirname, './src/types'),
       '@/styles': path.resolve(__dirname, './src/styles'),
+      // Polyfill aliases
+      events: 'events',
     },
+  },
+  define: {
+    // Some libraries look for global, which the polyfill plugin should handle,
+    // but defining it here is a double-safety for some edge cases.
+    global: 'window',
   },
 })

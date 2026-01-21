@@ -24,7 +24,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { db } from '@/lib/db';
 
 export const RichTextEditor: React.FC = () => {
-    const { currentNote, notes, setNotes } = useNoteStore();
+    const { currentNote, notes, setNotes, saveCurrentNote } = useNoteStore();
     const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -114,27 +114,11 @@ export const RichTextEditor: React.FC = () => {
         }
     }, [editor, setEditorStats]);
 
-    // DB Save Logic
+    // Unified Save Logic via Store
     const saveToDB = async (newTitle: string, newContent: string) => {
-        if (!currentNote?.id) return;
-
         setIsSaving(true);
         try {
-            await db.notes.update(currentNote.id, {
-                title: newTitle,
-                content: newContent,
-                updatedAt: Date.now(),
-            });
-
-            // Sync store
-            const updatedNotes = notes.map(n =>
-                n.id === currentNote.id
-                    ? { ...n, title: newTitle, content: newContent, updatedAt: Date.now() }
-                    : n
-            );
-            setNotes(updatedNotes);
-        } catch (error) {
-            console.error('Failed to save note:', error);
+            await saveCurrentNote(newTitle, newContent);
         } finally {
             setIsSaving(false);
         }

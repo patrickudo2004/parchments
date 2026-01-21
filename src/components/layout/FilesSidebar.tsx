@@ -6,6 +6,7 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import MicIcon from '@mui/icons-material/Mic';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -16,7 +17,11 @@ import { useUIStore } from '@/stores/uiStore';
 
 
 export const FilesSidebar: React.FC = () => {
-    const { setCurrentNote, createNote, createVoiceNote, createFolder, notes, folders, deleteNote, deleteFolder } = useNoteStore();
+    const {
+        setCurrentNote, createNote, createVoiceNote, createFolder,
+        notes, folders, deleteNote, deleteFolder,
+        isLocalMode, localFiles, openLocalFolder, openLocalFile
+    } = useNoteStore();
     const { leftSidebarWidth } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
@@ -47,13 +52,16 @@ export const FilesSidebar: React.FC = () => {
 
     const handleItemClick = (e: React.MouseEvent, item: any) => {
         e.stopPropagation();
-        if (item.type === 'file') {
-            const note = notes.find(n => n.id === item.id);
-            if (note) {
-                setCurrentNote(note);
+        if (item.kind === 'file' || item.type === 'file') {
+            if (isLocalMode) {
+                openLocalFile(item);
+            } else {
+                const note = notes.find(n => n.id === item.id);
+                if (note) {
+                    setCurrentNote(note);
+                }
             }
-        } else if (item.type === 'folder') {
-            // If clicking the folder text (not the chevron), select it
+        } else if (item.kind === 'directory' || item.type === 'folder') {
             setSelectedFolderId(prev => (prev === item.id ? null : item.id));
         }
     };
@@ -99,6 +107,10 @@ export const FilesSidebar: React.FC = () => {
 
         const finalChildren = children;
 
+        // Determine icon based on item type
+        const isFolder = item.type === 'folder' || item.kind === 'directory';
+        const isFile = item.type === 'file' || item.kind === 'file';
+
         return (
             <React.Fragment key={item.id}>
                 <div
@@ -121,7 +133,7 @@ export const FilesSidebar: React.FC = () => {
                             <div className="w-4" /> // Spacing for items without chevrons
                         )}
 
-                        {item.type === 'folder' ? (
+                        {isFolder ? (
                             isExpanded ? (
                                 <FolderOpenIcon className="text-primary shrink-0" fontSize="small" />
                             ) : (
@@ -164,14 +176,21 @@ export const FilesSidebar: React.FC = () => {
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
-                    <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Note">
-                        <NoteAddIcon fontSize="small" />
-                    </button>
-                    <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
-                        <MicIcon fontSize="small" />
-                    </button>
-                    <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
-                        <CreateNewFolderIcon fontSize="small" />
+                    {!isLocalMode && (
+                        <>
+                            <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Note">
+                                <NoteAddIcon fontSize="small" />
+                            </button>
+                            <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
+                                <MicIcon fontSize="small" />
+                            </button>
+                            <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
+                                <CreateNewFolderIcon fontSize="small" />
+                            </button>
+                        </>
+                    )}
+                    <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="Open Local Folder">
+                        <DriveFolderUploadIcon fontSize="small" />
                     </button>
                 </div>
             </div>
@@ -189,8 +208,14 @@ export const FilesSidebar: React.FC = () => {
             )}
 
             <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
-                {rootFolders.map(folder => renderTreeItem(folder, 0))}
-                {displayRootNotes.map(note => renderTreeItem(note, 0))}
+                {isLocalMode ? (
+                    localFiles.map((file: any) => renderTreeItem(file, 0))
+                ) : (
+                    <>
+                        {rootFolders.map(folder => renderTreeItem(folder, 0))}
+                        {displayRootNotes.map(note => renderTreeItem(note, 0))}
+                    </>
+                )}
             </div>
 
             <ConfirmModal

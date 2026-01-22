@@ -6,33 +6,42 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import { exportService } from '@/lib/export/ExportService';
+import { exportService, type ExportOptions } from '@/lib/export/ExportService';
+import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
     const { theme, toggleTheme, toggleSettingsModal } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [selectedFormat, setSelectedFormat] = useState<'docx' | 'pdf' | 'md' | 'html' | 'txt'>('pdf');
 
-    const handleExport = async (format: 'docx' | 'pdf' | 'md' | 'html' | 'txt') => {
+    const handleFormatSelect = (format: 'docx' | 'pdf' | 'md' | 'html' | 'txt') => {
+        setSelectedFormat(format);
+        setShowExportMenu(false);
+        setShowExportModal(true);
+    };
+
+    const handleExportConfirm = async (options: ExportOptions) => {
         if (!currentNote) return;
 
-        setShowExportMenu(false);
+        setShowExportModal(false);
         const { title, content } = currentNote;
 
         try {
-            switch (format) {
+            switch (selectedFormat) {
                 case 'docx':
-                    await exportService.exportToDocx(title, content);
+                    await exportService.exportToDocx(title, content, options);
                     break;
                 case 'pdf':
-                    await exportService.exportToPdf(title, content);
+                    await exportService.exportToPdf(title, content, options);
                     break;
                 case 'md':
-                    exportService.exportToMarkdown(title, content);
+                    await exportService.exportToMarkdown(title, content, options);
                     break;
                 case 'html':
-                    exportService.exportToHtml(title, content);
+                    await exportService.exportToHtml(title, content, options);
                     break;
                 case 'txt':
                     // We might want proper plain text extraction later, for now using content
@@ -106,7 +115,7 @@ export const TopBar: React.FC = () => {
                                     ].map(opt => (
                                         <button
                                             key={opt.id}
-                                            onClick={() => handleExport(opt.id as any)}
+                                            onClick={() => handleFormatSelect(opt.id as any)}
                                             className="px-4 py-2 text-left text-sm hover:bg-light-background dark:hover:bg-dark-background transition-colors"
                                         >
                                             {opt.label}
@@ -117,6 +126,14 @@ export const TopBar: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {/* Export Options Modal */}
+                <ExportOptionsModal
+                    isOpen={showExportModal}
+                    format={selectedFormat}
+                    onConfirm={handleExportConfirm}
+                    onCancel={() => setShowExportModal(false)}
+                />
 
                 {/* Theme Toggle */}
                 <button

@@ -4,6 +4,13 @@ import TurndownService from 'turndown';
 import html2pdf from 'html2pdf.js';
 // @ts-ignore
 import htmlToDocx from 'html-to-docx';
+import { parseScriptureReference, SCRIPTURE_REGEX } from '@/lib/scriptureParser';
+import { dbHelpers } from '@/lib/db';
+
+export interface ExportOptions {
+    includeScripture?: boolean;
+    bibleVersion?: string;
+}
 
 export class ExportService {
     private turndownService: TurndownService;
@@ -16,9 +23,52 @@ export class ExportService {
     }
 
     /**
+     * Enrich HTML content with scripture verse text
+     */
+    private async enrichContentWithScripture(htmlContent: string, versionId: string): Promise<string> {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+
+        // Find all scripture reference spans
+        const scriptureSpans = doc.querySelectorAll('.scripture-ref');
+
+        for (const span of Array.from(scriptureSpans)) {
+            const refText = span.textContent?.trim();
+            if (!refText) continue;
+
+            const parsed = parseScriptureReference(refText);
+            if (!parsed) continue;
+
+            try {
+                const verseText = await dbHelpers.getVerseText(
+                    versionId,
+                    parsed.book,
+                    parsed.chapter,
+                    parsed.verse || 1,
+                    parsed.verseEnd
+                );
+
+                if (verseText) {
+                    // Add verse text inline
+                    span.innerHTML = `${refText} - <em>"${verseText}"</em>`;
+                }
+            } catch (error) {
+                console.error('Failed to fetch verse:', error);
+                // Keep original reference if fetch fails
+            }
+        }
+
+        return doc.body.innerHTML;
+    }
+
+    /**
      * Export HTML content as a Microsoft Word (.docx) file
      */
-    async exportToDocx(title: string, htmlContent: string) {
+    async exportToDocx(title: string, htmlContent: string, options?: ExportOptions) {
+        // Enrich with scripture if requested
+        if (options?.includeScripture && options?.bibleVersion) {
+            htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
+        }
         try {
             // html-to-docx expects a complete HTML document structure or at least body content
             const fullHtml = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${htmlContent}</body></html>`;
@@ -41,7 +91,11 @@ export class ExportService {
      * Export a DOM element or HTML string as PDF
      * Note: html2pdf works best with a visible DOM element, but we can pass a string too.
      */
-    async exportToPdf(title: string, elementOrHtml: HTMLElement | string) {
+    async exportToPdf(title: string, elementOrHtml: HTMLElement | string, options?: ExportOptions) {
+        // Enrich with scripture if requested and input is string
+        if (options?.includeScripture && options?.bibleVersion && typeof elementOrHtml === 'string') {
+            elementOrHtml = await this.enrichContentWithScripture(elementOrHtml, options.bibleVersion);
+        }
         try {
             const opt = {
                 margin: 10,
@@ -56,12 +110,35 @@ export class ExportService {
                 const container = document.createElement('div');
                 container.innerHTML = `<h1>${title}</h1><br/>` + elementOrHtml;
                 container.style.width = '800px'; // Force width for consistency
+                container.style.color = '#000000'; // Force black text
+                container.style.background = '#ffffff'; // Force white background
+
                 // We might need to append to body briefly if styles depend on it, 
                 // but html2pdf usually handles off-screen elements if passed directly.
                 // However, for best styling, passing the actual editor DOM element ID is better.
                 await html2pdf().set(opt).from(container).save();
             } else {
-                await html2pdf().set(opt).from(elementOrHtml).save();
+                // For element, we clone it to modify styles without affecting UI
+                const clone = elementOrHtml.cloneNode(true) as HTMLElement;
+                const container = document.createElement('div');
+                container.appendChild(clone);
+
+                // Force styles on container and children
+                container.style.width = '800px';
+                container.style.color = '#000000';
+                container.style.background = '#ffffff';
+                container.style.padding = '20px'; // Add some padding
+
+                // Force text color on all children to override dark mode classes
+                const allElements = container.getElementsByTagName('*');
+                for (let i = 0; i < allElements.length; i++) {
+                    const el = allElements[i] as HTMLElement;
+                    el.style.color = '#000000';
+                    el.style.backgroundColor = 'transparent'; // Remove dark backgrounds
+                    el.style.borderColor = '#cccccc'; // Lighten borders
+                }
+
+                await html2pdf().set(opt).from(container).save();
             }
         } catch (error) {
             console.error('PDF Export Failed:', error);
@@ -72,7 +149,11 @@ export class ExportService {
     /**
      * Export HTML content as Markdown (.md)
      */
-    exportToMarkdown(title: string, htmlContent: string) {
+    async exportToMarkdown(title: string, htmlContent: string, options?: ExportOptions) {
+        // Enrich with scripture if requested
+        if (options?.includeScripture && options?.bibleVersion) {
+            htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
+        }
         try {
             const markdown = this.turndownService.turndown(htmlContent);
             // Add a title header
@@ -88,7 +169,11 @@ export class ExportService {
     /**
      * Export HTML content as HTML (.html)
      */
-    exportToHtml(title: string, htmlContent: string) {
+    async exportToHtml(title: string, htmlContent: string, options?: ExportOptions) {
+        // Enrich with scripture if requested
+        if (options?.includeScripture && options?.bibleVersion) {
+            htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
+        }
         const fullHtml = `
 <!DOCTYPE html>
 <html>

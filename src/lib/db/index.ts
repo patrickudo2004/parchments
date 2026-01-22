@@ -118,5 +118,32 @@ export const dbHelpers = {
 
     getUserByEmail: async (email: string) => {
         return await db.users.where('email').equals(email).first();
+    },
+
+    // Bible Verses
+    getVerseText: async (versionId: string, book: string, chapter: number, verse: number, verseEnd?: number | null) => {
+        try {
+            if (verseEnd && verseEnd > verse) {
+                // Fetch verse range
+                const verses = await db.bibleVerses
+                    .where('[versionId+book+chapter]')
+                    .equals([versionId, book, chapter])
+                    .and(v => v.verse >= verse && v.verse <= verseEnd)
+                    .sortBy('verse');
+
+                return verses.map(v => `<sup>${v.verse}</sup> ${v.text}`).join(' ');
+            } else {
+                // Fetch single verse
+                const verseData = await db.bibleVerses
+                    .where('[versionId+book+chapter+verse]')
+                    .equals([versionId, book, chapter, verse])
+                    .first();
+
+                return verseData ? `<sup>${verseData.verse}</sup> ${verseData.text}` : null;
+            }
+        } catch (error) {
+            console.error('Error fetching verse:', error);
+            return null;
+        }
     }
 };

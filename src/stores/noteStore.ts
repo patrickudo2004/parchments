@@ -8,6 +8,7 @@ export interface LocalItem {
     name: string;
     kind: 'file' | 'directory';
     handle: FileSystemHandle;
+    parentId: string | null;
 }
 
 interface NoteStore {
@@ -127,14 +128,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     openLocalFolder: async () => {
         try {
             const handle = await fileSystem.openDirectory();
-            const rawFiles = await fileSystem.readDirectory(handle);
-            // Wrap handles with IDs
+            const rawFiles = await fileSystem.readDirectoryRecursive(handle);
+
+            // Map the recursive result to LocalItems
             const files: LocalItem[] = rawFiles.map(f => ({
-                id: f.name, // Use name as ID for now (flat structure)
+                id: f.id,
                 name: f.name,
                 kind: f.kind,
-                handle: f
+                handle: f.handle,
+                parentId: f.parentId
             }));
+
             set({
                 isLocalMode: true,
                 localDirectoryHandle: handle,
@@ -188,24 +192,29 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
             const handle = await fileSystem.createFile(parentHandle, name, content);
 
-            // Refresh file list (root only for now)
-            // TODO: recursive refresh if we want to see it
-            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            // Refresh file list recursively
+            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
             const files: LocalItem[] = rawFiles.map(f => ({
-                id: f.name,
+                id: f.id,
                 name: f.name,
                 kind: f.kind,
-                handle: f
+                handle: f.handle,
+                parentId: f.parentId
             }));
 
             set({ localFiles: files });
 
             // Open the new file (construct a LocalItem)
+            // We need to reconstruct the ID for the new file
+            // If we have a targetFolderId, the new ID is targetFolderId/name
+            const newId = targetFolderId ? `${targetFolderId}/${name}` : name;
+
             await openLocalFile({
-                id: name,
+                id: newId,
                 name: name,
                 kind: 'file',
-                handle: handle
+                handle: handle,
+                parentId: targetFolderId
             });
         } catch (error) {
             console.error('Failed to create local note:', error);
@@ -230,12 +239,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             await fileSystem.createDirectory(parentHandle, folderName);
 
             // Refresh file list
-            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
             const files: LocalItem[] = rawFiles.map(f => ({
-                id: f.name,
+                id: f.id,
                 name: f.name,
                 kind: f.kind,
-                handle: f
+                handle: f.handle,
+                parentId: f.parentId
             }));
             set({ localFiles: files });
         } catch (error) {
@@ -263,12 +273,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const handle = await fileSystem.createFile(parentHandle, name, audioBlob);
 
             // Refresh file list
-            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
             const files: LocalItem[] = rawFiles.map(f => ({
-                id: f.name,
+                id: f.id,
                 name: f.name,
                 kind: f.kind,
-                handle: f
+                handle: f.handle,
+                parentId: f.parentId
             }));
             set({ localFiles: files });
         } catch (error) {

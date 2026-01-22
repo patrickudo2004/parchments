@@ -64,6 +64,30 @@ export class FileSystemService {
     async createDirectory(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
         return await parent.getDirectoryHandle(name, { create: true });
     }
+
+    async readDirectoryRecursive(dirHandle: FileSystemDirectoryHandle, parentId: string | null = null): Promise<{ handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[]> {
+        let entries: { handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[] = [];
+
+        // @ts-ignore
+        for await (const entry of dirHandle.values()) {
+            const id = parentId ? `${parentId}/${entry.name}` : entry.name;
+            const kind = entry.kind;
+
+            entries.push({
+                handle: entry,
+                parentId: parentId,
+                id: id,
+                kind: kind,
+                name: entry.name
+            });
+
+            if (kind === 'directory') {
+                const subEntries = await this.readDirectoryRecursive(entry as FileSystemDirectoryHandle, id);
+                entries = [...entries, ...subEntries];
+            }
+        }
+        return entries;
+    }
 }
 
 export const fileSystem = new FileSystemService();

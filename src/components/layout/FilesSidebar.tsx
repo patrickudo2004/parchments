@@ -115,10 +115,14 @@ export const FilesSidebar: React.FC = () => {
     // Tree Rendering Logic
     const renderTreeItem = (item: any, level: number = 0) => {
         const isExpanded = expandedFolders.has(item.id);
-        const hasChildren = item.type === 'folder';
-        const children = item.type === 'folder'
-            ? notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }))
-            : [];
+        const hasChildren = item.type === 'folder' || item.kind === 'directory';
+
+        let children: any[] = [];
+        if (isLocalMode) {
+            children = localFiles.filter(f => f.parentId === item.id);
+        } else if (item.type === 'folder') {
+            children = notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }));
+        }
 
         const finalChildren = children;
 
@@ -224,7 +228,7 @@ export const FilesSidebar: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
                 {isLocalMode ? (
-                    localFiles.map((file: any) => renderTreeItem(file, 0))
+                    localFiles.filter(f => !f.parentId).map((file: any) => renderTreeItem(file, 0))
                 ) : (
                     <>
                         {rootFolders.map(folder => renderTreeItem(folder, 0))}

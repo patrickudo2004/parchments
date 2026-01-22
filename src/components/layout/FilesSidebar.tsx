@@ -20,7 +20,8 @@ export const FilesSidebar: React.FC = () => {
     const {
         setCurrentNote, createNote, createVoiceNote, createFolder,
         notes, folders, deleteNote, deleteFolder,
-        isLocalMode, localFiles, openLocalFolder, openLocalFile
+        isLocalMode, localFiles, openLocalFolder, openLocalFile,
+        createLocalNote, createLocalFolder, createLocalVoiceNote
     } = useNoteStore();
     const { leftSidebarWidth } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
@@ -67,11 +68,25 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleCreateNote = async () => {
-        await createNote(selectedFolderId);
+        if (isLocalMode) {
+            const name = prompt('Enter note name:');
+            if (name) {
+                await createLocalNote(name, selectedFolderId);
+            }
+        } else {
+            await createNote(selectedFolderId);
+        }
     };
 
     const handleCreateFolder = async () => {
-        await createFolder('New Folder', selectedFolderId);
+        if (isLocalMode) {
+            const name = prompt('Enter folder name:');
+            if (name) {
+                await createLocalFolder(name, selectedFolderId);
+            }
+        } else {
+            await createFolder('New Folder', selectedFolderId);
+        }
     };
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
@@ -176,19 +191,15 @@ export const FilesSidebar: React.FC = () => {
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
-                    {!isLocalMode && (
-                        <>
-                            <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Note">
-                                <NoteAddIcon fontSize="small" />
-                            </button>
-                            <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Voice Note">
-                                <MicIcon fontSize="small" />
-                            </button>
-                            <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="New Folder">
-                                <CreateNewFolderIcon fontSize="small" />
-                            </button>
-                        </>
-                    )}
+                    <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Note" : "New Note"}>
+                        <NoteAddIcon fontSize="small" />
+                    </button>
+                    <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}>
+                        <MicIcon fontSize="small" />
+                    </button>
+                    <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Folder" : "New Folder"}>
+                        <CreateNewFolderIcon fontSize="small" />
+                    </button>
                     <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="Open Local Folder">
                         <DriveFolderUploadIcon fontSize="small" />
                     </button>
@@ -199,7 +210,11 @@ export const FilesSidebar: React.FC = () => {
                 <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
                         onSave={async (blob, duration) => {
-                            await createVoiceNote(selectedFolderId, blob, duration);
+                            if (isLocalMode) {
+                                await createLocalVoiceNote(blob, selectedFolderId);
+                            } else {
+                                await createVoiceNote(selectedFolderId, blob, duration);
+                            }
                             setShowRecorder(false);
                         }}
                         onCancel={() => setShowRecorder(false)}

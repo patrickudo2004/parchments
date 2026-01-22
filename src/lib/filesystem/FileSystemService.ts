@@ -49,10 +49,20 @@ export class FileSystemService {
         return await file.text();
     }
 
-    async writeFile(handle: FileSystemFileHandle, content: string): Promise<void> {
+    async writeFile(handle: FileSystemFileHandle, content: string | Blob): Promise<void> {
         const writable = await handle.createWritable();
         await writable.write(content);
         await writable.close();
+    }
+
+    async createFile(parent: FileSystemDirectoryHandle, name: string, content: string | Blob): Promise<FileSystemFileHandle> {
+        const handle = await parent.getFileHandle(name, { create: true });
+        await this.writeFile(handle, content);
+        return handle;
+    }
+
+    async createDirectory(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
+        return await parent.getDirectoryHandle(name, { create: true });
     }
 }
 

@@ -3,6 +3,13 @@ import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
 
+export interface LocalItem {
+    id: string;
+    name: string;
+    kind: 'file' | 'directory';
+    handle: FileSystemHandle;
+}
+
 interface NoteStore {
     currentNote: Note | null;
     notes: Note[];
@@ -11,7 +18,7 @@ interface NoteStore {
     // Local File System State
     isLocalMode: boolean;
     localDirectoryHandle: FileSystemDirectoryHandle | null;
-    localFiles: FileSystemHandle[];
+    localFiles: LocalItem[];
     currentFileHandle: FileSystemFileHandle | null;
     // Actions
     loadNotes: () => Promise<void>;
@@ -25,7 +32,11 @@ interface NoteStore {
     setNotes: (notes: Note[]) => void;
     // Local Actions
     openLocalFolder: () => Promise<void>;
-    openLocalFile: (handle: FileSystemHandle) => Promise<void>;
+    openLocalFile: (item: LocalItem) => Promise<void>;
+    // Local Creation Actions
+    createLocalNote: (fileName: string, targetFolderId: string | null) => Promise<void>;
+    createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
+    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null) => Promise<void>;
     saveCurrentNote: (title: string, content: string) => Promise<void>;
     setLocalMode: (enabled: boolean) => void;
 }
@@ -116,7 +127,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     openLocalFolder: async () => {
         try {
             const handle = await fileSystem.openDirectory();
-            const files = await fileSystem.readDirectory(handle);
+            const rawFiles = await fileSystem.readDirectory(handle);
+            // Wrap handles with IDs
+            const files: LocalItem[] = rawFiles.map(f => ({
+                id: f.name, // Use name as ID for now (flat structure)
+                name: f.name,
+                kind: f.kind,
+                handle: f
+            }));
             set({
                 isLocalMode: true,
                 localDirectoryHandle: handle,
@@ -128,16 +146,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    openLocalFile: async (handle: FileSystemHandle) => {
-        if (handle.kind !== 'file') return;
+    openLocalFile: async (item: LocalItem) => {
+        if (item.kind !== 'file') return;
 
         try {
-            const fileHandle = handle as FileSystemFileHandle;
+            const fileHandle = item.handle as FileSystemFileHandle;
             const content = await fileSystem.readFile(fileHandle);
             // Construct a temporary Note object for the editor
             const tempNote: Note = {
-                id: handle.name,
-                title: handle.name,
+                id: item.id,
+                title: item.name.replace(/\.html$|\.txt$|\.md$/, ''), // Remove extension for display
                 content: content,
                 folderId: null,
                 tags: [],
@@ -148,6 +166,114 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             set({ currentNote: tempNote, currentFileHandle: fileHandle });
         } catch (error) {
             console.error('Failed to read file:', error);
+        }
+    },
+
+    createLocalNote: async (fileName: string, targetFolderId: string | null) => {
+        const { localDirectoryHandle, localFiles, openLocalFile } = get();
+        if (!localDirectoryHandle) return;
+
+        try {
+            // Determine parent directory
+            let parentHandle = localDirectoryHandle;
+            if (targetFolderId) {
+                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                if (folderItem && folderItem.handle.kind === 'directory') {
+                    parentHandle = folderItem.handle as FileSystemDirectoryHandle;
+                }
+            }
+
+            // Default to empty HTML
+            const content = '';
+            const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
+            const handle = await fileSystem.createFile(parentHandle, name, content);
+
+            // Refresh file list (root only for now)
+            // TODO: recursive refresh if we want to see it
+            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            const files: LocalItem[] = rawFiles.map(f => ({
+                id: f.name,
+                name: f.name,
+                kind: f.kind,
+                handle: f
+            }));
+
+            set({ localFiles: files });
+
+            // Open the new file (construct a LocalItem)
+            await openLocalFile({
+                id: name,
+                name: name,
+                kind: 'file',
+                handle: handle
+            });
+        } catch (error) {
+            console.error('Failed to create local note:', error);
+            throw error;
+        }
+    },
+
+    createLocalFolder: async (folderName: string, targetFolderId: string | null) => {
+        const { localDirectoryHandle, localFiles } = get();
+        if (!localDirectoryHandle) return;
+
+        try {
+            // Determine parent directory
+            let parentHandle = localDirectoryHandle;
+            if (targetFolderId) {
+                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                if (folderItem && folderItem.handle.kind === 'directory') {
+                    parentHandle = folderItem.handle as FileSystemDirectoryHandle;
+                }
+            }
+
+            await fileSystem.createDirectory(parentHandle, folderName);
+
+            // Refresh file list
+            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            const files: LocalItem[] = rawFiles.map(f => ({
+                id: f.name,
+                name: f.name,
+                kind: f.kind,
+                handle: f
+            }));
+            set({ localFiles: files });
+        } catch (error) {
+            console.error('Failed to create local folder:', error);
+            throw error;
+        }
+    },
+
+    createLocalVoiceNote: async (audioBlob: Blob, targetFolderId: string | null) => {
+        const { localDirectoryHandle, localFiles } = get();
+        if (!localDirectoryHandle) return;
+
+        try {
+            // Determine parent directory
+            let parentHandle = localDirectoryHandle;
+            if (targetFolderId) {
+                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                if (folderItem && folderItem.handle.kind === 'directory') {
+                    parentHandle = folderItem.handle as FileSystemDirectoryHandle;
+                }
+            }
+
+            // Generate a name with timestamp
+            const name = `Recording ${new Date().toLocaleString().replace(/[/:]/g, '-')}.webm`;
+            const handle = await fileSystem.createFile(parentHandle, name, audioBlob);
+
+            // Refresh file list
+            const rawFiles = await fileSystem.readDirectory(localDirectoryHandle);
+            const files: LocalItem[] = rawFiles.map(f => ({
+                id: f.name,
+                name: f.name,
+                kind: f.kind,
+                handle: f
+            }));
+            set({ localFiles: files });
+        } catch (error) {
+            console.error('Failed to create local voice note:', error);
+            throw error;
         }
     },
 

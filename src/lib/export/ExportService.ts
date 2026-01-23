@@ -98,24 +98,69 @@ export class ExportService {
         }
         try {
             const opt = {
-                margin: 10,
+                margin: [15, 15, 15, 15], // top, right, bottom, left in mm
                 filename: `${title}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                image: { type: 'jpeg' as const, quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    logging: false
+                },
+                jsPDF: {
+                    unit: 'mm',
+                    format: 'a4',
+                    orientation: 'portrait' as const,
+                    compress: true
+                },
+                pagebreak: {
+                    mode: ['avoid-all', 'css', 'legacy'] as any,
+                    before: '.page-break-before',
+                    after: '.page-break-after',
+                    avoid: ['img', 'table', 'tr', 'td']
+                }
             };
 
             if (typeof elementOrHtml === 'string') {
-                // If string, create a temp container
+                // If string, create a temp container with better formatting
                 const container = document.createElement('div');
-                container.innerHTML = `<h1>${title}</h1><br/>` + elementOrHtml;
-                container.style.width = '800px'; // Force width for consistency
-                container.style.color = '#000000'; // Force black text
-                container.style.background = '#ffffff'; // Force white background
+                container.innerHTML = `<h1 style="margin-bottom: 20px; font-size: 24px; font-weight: bold;">${title}</h1>` + elementOrHtml;
 
-                // We might need to append to body briefly if styles depend on it, 
-                // but html2pdf usually handles off-screen elements if passed directly.
-                // However, for best styling, passing the actual editor DOM element ID is better.
+                // Apply styles to prevent clipping
+                container.style.width = '180mm'; // A4 width minus margins
+                container.style.maxWidth = '180mm';
+                container.style.color = '#000000';
+                container.style.background = '#ffffff';
+                container.style.padding = '0';
+                container.style.fontSize = '12pt';
+                container.style.lineHeight = '1.6';
+                container.style.fontFamily = 'Georgia, serif';
+                container.style.wordWrap = 'break-word';
+                container.style.overflowWrap = 'break-word';
+
+                // Fix all child elements to prevent overflow
+                const allElements = container.getElementsByTagName('*');
+                for (let i = 0; i < allElements.length; i++) {
+                    const el = allElements[i] as HTMLElement;
+                    el.style.color = '#000000';
+                    el.style.backgroundColor = 'transparent';
+                    el.style.borderColor = '#cccccc';
+                    el.style.maxWidth = '100%';
+                    el.style.wordWrap = 'break-word';
+                    el.style.overflowWrap = 'break-word';
+
+                    // Fix specific elements
+                    if (el.tagName === 'P') {
+                        el.style.marginBottom = '12px';
+                        el.style.lineHeight = '1.6';
+                    }
+                    if (el.tagName === 'H1' || el.tagName === 'H2' || el.tagName === 'H3') {
+                        el.style.pageBreakAfter = 'avoid';
+                        el.style.marginTop = '16px';
+                        el.style.marginBottom = '8px';
+                    }
+                }
+
                 await html2pdf().set(opt).from(container).save();
             } else {
                 // For element, we clone it to modify styles without affecting UI
@@ -124,18 +169,37 @@ export class ExportService {
                 container.appendChild(clone);
 
                 // Force styles on container and children
-                container.style.width = '800px';
+                container.style.width = '180mm';
+                container.style.maxWidth = '180mm';
                 container.style.color = '#000000';
                 container.style.background = '#ffffff';
-                container.style.padding = '20px'; // Add some padding
+                container.style.padding = '0';
+                container.style.fontSize = '12pt';
+                container.style.lineHeight = '1.6';
+                container.style.fontFamily = 'Georgia, serif';
+                container.style.wordWrap = 'break-word';
+                container.style.overflowWrap = 'break-word';
 
                 // Force text color on all children to override dark mode classes
                 const allElements = container.getElementsByTagName('*');
                 for (let i = 0; i < allElements.length; i++) {
                     const el = allElements[i] as HTMLElement;
                     el.style.color = '#000000';
-                    el.style.backgroundColor = 'transparent'; // Remove dark backgrounds
-                    el.style.borderColor = '#cccccc'; // Lighten borders
+                    el.style.backgroundColor = 'transparent';
+                    el.style.borderColor = '#cccccc';
+                    el.style.maxWidth = '100%';
+                    el.style.wordWrap = 'break-word';
+                    el.style.overflowWrap = 'break-word';
+
+                    if (el.tagName === 'P') {
+                        el.style.marginBottom = '12px';
+                        el.style.lineHeight = '1.6';
+                    }
+                    if (el.tagName === 'H1' || el.tagName === 'H2' || el.tagName === 'H3') {
+                        el.style.pageBreakAfter = 'avoid';
+                        el.style.marginTop = '16px';
+                        el.style.marginBottom = '8px';
+                    }
                 }
 
                 await html2pdf().set(opt).from(container).save();

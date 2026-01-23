@@ -24,14 +24,11 @@ export interface FileSystemWritableFileStream extends WritableStream {
 }
 
 export class FileSystemService {
-    private directoryHandle: FileSystemDirectoryHandle | null = null;
-
     async openDirectory(): Promise<FileSystemDirectoryHandle> {
         // @ts-ignore - API might not be in all TS/window definitions by default
         const handle = await window.showDirectoryPicker({
             mode: 'readwrite'
         });
-        this.directoryHandle = handle;
         return handle;
     }
 

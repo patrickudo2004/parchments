@@ -21,10 +21,9 @@ import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
 import { EditorToolbar } from './EditorToolbar';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
-import { db } from '@/lib/db';
 
 export const RichTextEditor: React.FC = () => {
-    const { currentNote, notes, setNotes, saveCurrentNote } = useNoteStore();
+    const { currentNote, saveCurrentNote } = useNoteStore();
     const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);

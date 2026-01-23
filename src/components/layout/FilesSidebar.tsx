@@ -128,7 +128,6 @@ export const FilesSidebar: React.FC = () => {
 
         // Determine icon based on item type
         const isFolder = item.type === 'folder' || item.kind === 'directory';
-        const isFile = item.type === 'file' || item.kind === 'file';
 
         return (
             <React.Fragment key={item.id}>

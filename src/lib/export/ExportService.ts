@@ -4,7 +4,7 @@ import TurndownService from 'turndown';
 import html2pdf from 'html2pdf.js';
 // @ts-ignore
 import htmlToDocx from 'html-to-docx';
-import { parseScriptureReference, SCRIPTURE_REGEX } from '@/lib/scriptureParser';
+import { parseScriptureReference } from '@/lib/scriptureParser';
 import { dbHelpers } from '@/lib/db';
 
 export interface ExportOptions {
@@ -98,7 +98,7 @@ export class ExportService {
         }
         try {
             const opt = {
-                margin: [15, 15, 15, 15], // top, right, bottom, left in mm
+                margin: [15, 15, 15, 15] as [number, number, number, number], // top, right, bottom, left in mm
                 filename: `${title}.pdf`,
                 image: { type: 'jpeg' as const, quality: 0.98 },
                 html2canvas: {

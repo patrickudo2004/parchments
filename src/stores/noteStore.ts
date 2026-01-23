@@ -270,7 +270,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Generate a name with timestamp
             const name = `Recording ${new Date().toLocaleString().replace(/[/:]/g, '-')}.webm`;
-            const handle = await fileSystem.createFile(parentHandle, name, audioBlob);
+            await fileSystem.createFile(parentHandle, name, audioBlob);
 
             // Refresh file list
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);

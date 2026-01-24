@@ -10,7 +10,7 @@ import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 
 interface MainLayoutProps {
@@ -38,7 +38,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isLeftSidebarOpen,
         isSearchModalOpen,
         searchQuery,
-        toggleSearchModal
+        toggleSearchModal,
+        isFocusMode,
+        toast
     } = useUIStore();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
@@ -111,12 +113,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }, [toggleSearchModal]);
 
     return (
-        <div className={`flex flex-col h-screen overflow-hidden bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary density-${density} ${isResizingLeft || isResizingRight ? 'cursor-col-resize select-none' : ''}`}>
+        <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''}`}>
+            {/* Conditional MenuBar */}
+            {!isFocusMode && <MenuBar />}
             <TopBar />
-            <MenuBar />
 
-            <div className="flex flex-1 overflow-hidden relative">
-                {isLeftSidebarOpen && (
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Left Sidebar - Files/Explorer */}
+                {!isFocusMode && isLeftSidebarOpen && (
                     <>
                         <FilesSidebar />
 
@@ -128,50 +132,47 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </>
                 )}
 
+                {/* Main Content Area - Editor */}
                 <main className="flex-1 overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative">
                     {children}
                 </main>
 
-                {/* Right Resize Handle */}
-                {rightSidebarOpen && (
-                    <div
-                        onMouseDown={startResizingRight}
-                        className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
-                    />
-                )}
+                {/* Right Sidebar - Bible/Search */}
+                {!isFocusMode && rightSidebarOpen && (
+                    <>
+                        {/* Right Resize Handle */}
+                        <div
+                            onMouseDown={startResizingRight}
+                            className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
+                        />
 
-                {/* Right Sidebar Placeholder (e.g., Bible Panel) */}
-                {rightSidebarOpen && (
-                    <aside
-                        className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative group"
-                        style={{ width: `${rightSidebarWidth}px` }}
-                    >
-                        {/* Global Close Button (visible on hover or always?) -> Let's put it in a consistent header if possible, or floating top-right */}
-                        <button
-                            onClick={() => toggleRightSidebar()}
-                            className="absolute top-2 right-2 z-50 p-1 bg-light-surface dark:bg-dark-surface hover:bg-red-100 dark:hover:bg-red-900/30 text-light-text-secondary dark:text-dark-text-secondary hover:text-red-600 rounded-full shadow-sm border border-transparent hover:border-red-200 transition-all opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
-                            title="Close Sidebar"
+                        <aside
+                            className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative group"
+                            style={{ width: `${rightSidebarWidth}px` }}
                         >
-                            <CloseIcon fontSize="small" />
-                        </button>
+                            {/* Sidebar Header */}
+                            <div className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 shrink-0">
+                                <span className="text-xs font-bold uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary">{rightSidebarContent === 'bible' ? 'Bible Panel' : 'Reference Panel'}</span>
+                                <button onClick={() => toggleRightSidebar()} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><CloseIcon fontSize="small" /></button>
+                            </div>
 
-                        {rightSidebarContent === 'bible' ? (
-                            <BibleReader />
-                        ) : (
-                            <>
-                                <div className="p-4 border-b border-light-border dark:border-dark-border font-bold text-sm uppercase tracking-wider flex justify-between items-center">
-                                    Reference Panel
-                                </div>
-                                <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">
-                                    <p className="text-sm italic">Open the Bible or Strong's Lookup to see details here.</p>
-                                </div>
-                            </>
-                        )}
-                    </aside>
+                            {/* Content */}
+                            <div className="flex-1 overflow-hidden">
+                                {rightSidebarContent === 'bible' ? (
+                                    <BibleReader />
+                                ) : (
+                                    <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">
+                                        <p className="text-sm italic">Open the Bible or Strong's Lookup to see details here.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </aside>
+                    </>
                 )}
             </div>
 
-            <StatusBar />
+            {/* Status Bar */}
+            {!isFocusMode && <StatusBar />}
 
             {/* Floating Modals Container */}
             <div className="fixed inset-0 pointer-events-none z-[60]">
@@ -210,6 +211,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 initialQuery={searchQuery}
                 onClose={toggleSearchModal}
             />
+
+            {/* Toast System */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 50 }}
+                        className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-dark-surface border border-dark-border rounded-full shadow-2xl flex items-center gap-3"
+                    >
+                        <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-primary'}`} />
+                        <span className="text-sm font-bold text-white tracking-tight">{toast.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

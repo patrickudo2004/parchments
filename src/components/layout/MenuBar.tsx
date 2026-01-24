@@ -17,9 +17,14 @@ export const MenuBar: React.FC = () => {
         toggleLeftSidebar,
         toggleSearchModal,
         toggleShortcutModal,
-        activeEditor
+        activeEditor,
+        toggleFocusMode,
+        updateSettings,
+        editorFontSize,
+        openExportModal,
+        showToast
     } = useUIStore();
-    const { createNote, createVoiceNote, createFolder } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createVoiceNote, createFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -29,6 +34,11 @@ export const MenuBar: React.FC = () => {
     };
 
     const handleItemClick = (label: string) => {
+        if (!activeEditor && ['Undo', 'Redo', 'Sermon Template', 'Current Date', 'Horizontal Line', 'Find in Note'].includes(label)) {
+            showToast('Open a note to use this feature', 'info');
+            return;
+        }
+
         switch (label) {
             case 'New Note':
                 createNote(null);
@@ -36,6 +46,14 @@ export const MenuBar: React.FC = () => {
             case 'New Folder':
                 createFolder('New Folder', null);
                 break;
+            case 'Quick Save':
+                if (currentNote) {
+                    saveCurrentNote(currentNote.id, activeEditor?.getHTML() || currentNote.content);
+                    showToast('Note saved!', 'success');
+                }
+                break;
+            case 'Export to PDF': openExportModal('pdf'); break;
+            case 'Export to Word': openExportModal('docx'); break;
             case 'Settings':
                 toggleSettingsModal();
                 break;
@@ -44,6 +62,15 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Toggle Bible Panel':
                 toggleRightSidebar('bible');
+                break;
+            case 'Focus Mode':
+                toggleFocusMode();
+                break;
+            case 'Zoom In':
+                updateSettings({ editorFontSize: Math.min(32, editorFontSize + 1) });
+                break;
+            case 'Zoom Out':
+                updateSettings({ editorFontSize: Math.max(12, editorFontSize - 1) });
                 break;
             case 'Strong\'s Lookup':
                 toggleStrongsModal();
@@ -59,6 +86,18 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Redo':
                 activeEditor?.chain().focus().redo().run();
+                break;
+            case 'Find in Note':
+                showToast('Use Ctrl+F to find in browser', 'info');
+                break;
+            case 'Current Date':
+                activeEditor?.chain().focus().insertContent(new Date().toLocaleDateString()).run();
+                break;
+            case 'Horizontal Line':
+                activeEditor?.chain().focus().setHorizontalRule().run();
+                break;
+            case 'Voice Dictation':
+                handleCreateVoiceNote();
                 break;
             case 'Sermon Template':
                 if (activeEditor) {
@@ -109,10 +148,6 @@ export const MenuBar: React.FC = () => {
                 { label: 'Undo', shortcut: 'Ctrl+Z' },
                 { label: 'Redo', shortcut: 'Ctrl+Y' },
                 { type: 'separator' },
-                { label: 'Cut', shortcut: 'Ctrl+X' },
-                { label: 'Copy', shortcut: 'Ctrl+C' },
-                { label: 'Paste', shortcut: 'Ctrl+V' },
-                { type: 'separator' },
                 { label: 'Copy as Citation', shortcut: 'Ctrl+Shift+C' },
                 { label: 'Copy Scripture Text', shortcut: 'Ctrl+Alt+C' },
                 { type: 'separator' },
@@ -151,7 +186,6 @@ export const MenuBar: React.FC = () => {
                 { label: 'Strong\'s Lookup', shortcut: 'Ctrl+K' },
                 { label: 'Voice Dictation', shortcut: 'Ctrl+Shift+R' },
                 { type: 'separator' },
-                { label: 'Compare Versions', shortcut: '' },
                 { label: 'Word Count', shortcut: '' },
             ]
         },

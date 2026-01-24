@@ -32,7 +32,11 @@ interface UIStore {
     isSearchModalOpen: boolean;
     searchQuery: string;
     isShortcutModalOpen: boolean;
+    isFocusMode: boolean;
     activeEditor: Editor | null;
+    toast: { message: string, type: 'success' | 'error' | 'info' } | null;
+    isExportModalOpen: boolean;
+    exportFormat: 'pdf' | 'docx' | 'md' | 'html' | 'txt' | null;
 
     // Bible Navigation
     bibleFocus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null;
@@ -50,7 +54,11 @@ interface UIStore {
     toggleSettingsModal: () => void;
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
+    toggleFocusMode: () => void;
+    showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
     setEditor: (editor: Editor | null) => void;
+    openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
+    closeExportModal: () => void;
     toggleInterlinear: () => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search') => void;
@@ -92,7 +100,11 @@ export const useUIStore = create<UIStore>()(
             isSearchModalOpen: false,
             searchQuery: '',
             isShortcutModalOpen: false,
+            isFocusMode: false,
             activeEditor: null,
+            toast: null,
+            isExportModalOpen: false,
+            exportFormat: null,
 
             bibleFocus: null,
 
@@ -130,7 +142,14 @@ export const useUIStore = create<UIStore>()(
                 searchQuery: query || ''
             })),
             toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
+            toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode })),
+            showToast: (message, type = 'success') => {
+                set({ toast: { message, type } });
+                setTimeout(() => set({ toast: null }), 3000);
+            },
             setEditor: (editor) => set({ activeEditor: editor }),
+            openExportModal: (format) => set({ isExportModalOpen: true, exportFormat: format }),
+            closeExportModal: () => set({ isExportModalOpen: false, exportFormat: null }),
             toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),

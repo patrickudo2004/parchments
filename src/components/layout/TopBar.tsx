@@ -12,25 +12,25 @@ import { useState } from 'react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
-    const { theme, toggleTheme, toggleSettingsModal, toggleSearchModal } = useUIStore();
+    const {
+        theme, toggleTheme, toggleSettingsModal, toggleSearchModal, density,
+        isExportModalOpen, exportFormat, closeExportModal, openExportModal
+    } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
-    const [showExportModal, setShowExportModal] = useState(false);
-    const [selectedFormat, setSelectedFormat] = useState<'docx' | 'pdf' | 'md' | 'html' | 'txt'>('pdf');
 
-    const handleFormatSelect = (format: 'docx' | 'pdf' | 'md' | 'html' | 'txt') => {
-        setSelectedFormat(format);
+    const handleFormatSelect = (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => {
+        openExportModal(format);
         setShowExportMenu(false);
-        setShowExportModal(true);
     };
 
     const handleExportConfirm = async (options: ExportOptions) => {
         if (!currentNote) return;
 
-        setShowExportModal(false);
+        closeExportModal();
         const { title, content } = currentNote;
 
         try {
-            switch (selectedFormat) {
+            switch (exportFormat) {
                 case 'docx':
                     await exportService.exportToDocx(title, content, options);
                     break;
@@ -131,10 +131,10 @@ export const TopBar: React.FC = () => {
 
                 {/* Export Options Modal */}
                 <ExportOptionsModal
-                    isOpen={showExportModal}
-                    format={selectedFormat}
+                    isOpen={isExportModalOpen}
+                    format={exportFormat || 'docx'}
                     onConfirm={handleExportConfirm}
-                    onCancel={() => setShowExportModal(false)}
+                    onCancel={closeExportModal}
                 />
 
                 {/* Theme Toggle */}

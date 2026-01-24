@@ -24,7 +24,7 @@ import { useUIStore } from '@/stores/uiStore';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, saveCurrentNote } = useNoteStore();
-    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats } = useUIStore();
+    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats, updateSettings, isFocusMode } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
 
@@ -105,6 +105,27 @@ export const RichTextEditor: React.FC = () => {
             return () => setEditor(null);
         }
     }, [editor, setEditor]);
+
+    // Zoom Keyboard Shortcuts
+    useEffect(() => {
+        const handleZoom = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === '=' || e.key === '+') {
+                    e.preventDefault();
+                    updateSettings({ editorFontSize: Math.min(32, editorFontSize + 1) });
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    updateSettings({ editorFontSize: Math.max(12, editorFontSize - 1) });
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    updateSettings({ editorFontSize: 18 });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleZoom);
+        return () => window.removeEventListener('keydown', handleZoom);
+    }, [editorFontSize, updateSettings]);
 
     // Update word count stats
     useEffect(() => {

@@ -114,9 +114,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     return (
         <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''}`}>
-            {/* Conditional MenuBar */}
-            {!isFocusMode && <MenuBar />}
             <TopBar />
+            {!isFocusMode && <MenuBar />}
 
             <div className="flex-1 flex overflow-hidden relative">
                 {/* Left Sidebar - Files/Explorer */}

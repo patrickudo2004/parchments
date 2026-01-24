@@ -195,6 +195,26 @@ export const useUIStore = create<UIStore>()(
         }),
         {
             name: 'parchments-ui',
+            partialize: (state) => ({
+                theme: state.theme,
+                density: state.density,
+                preferredBibleVersion: state.preferredBibleVersion,
+                verseHoverPreviews: state.verseHoverPreviews,
+                interlinearEnabled: state.interlinearEnabled,
+                editorFontFamily: state.editorFontFamily,
+                editorFontSize: state.editorFontSize,
+                editorLineSpacing: state.editorLineSpacing,
+                writingLayout: state.writingLayout,
+                autoSaveFrequency: state.autoSaveFrequency,
+                markdownSupport: state.markdownSupport,
+                highAccuracyTranscription: state.highAccuracyTranscription,
+                leftSidebarWidth: state.leftSidebarWidth,
+                isLeftSidebarOpen: state.isLeftSidebarOpen,
+                rightSidebarWidth: state.rightSidebarWidth,
+                rightSidebarOpen: state.rightSidebarOpen,
+                rightSidebarContent: state.rightSidebarContent,
+                bibleFocus: state.bibleFocus,
+            }),
             onRehydrateStorage: () => (state) => {
                 if (state && state.theme === 'dark') {
                     document.body.classList.add('dark');

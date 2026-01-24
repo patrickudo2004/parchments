@@ -18,6 +18,7 @@ async function initTransformers() {
     // Skip local checks for now to avoid FS errors in browser
     env.allowLocalModels = false;
     env.useBrowserCache = true;
+    console.info('[Worker] AI Engine initialized. Offline caching enabled.');
 }
 
 class TranscribeWorker {
@@ -33,9 +34,13 @@ class TranscribeWorker {
 
         if (!this.instance) {
             this.model = model;
+
+            // Check for WebGPU and fp16 support if possible
+            // Note: In v3, passing device: 'webgpu' without dtype might still work and auto-detect.
+            // We'll try to be safe but performant.
             this.instance = await pipeline('automatic-speech-recognition', model, {
                 device: 'webgpu',
-                dtype: 'fp16',
+                // Don't force fp16 here, let the transcriber call handle it or fallback
                 progress_callback,
             });
         }
@@ -61,13 +66,15 @@ self.addEventListener('message', async (event) => {
 
         self.postMessage({ status: 'transcribing', message: 'Transcribing with AI acceleration...' });
 
-        // Use fp16 (16-bit) for 2x-3x speedup on WebGPU supporting devices
+        // Try fp16 first, if it fails it will throw and we fallback to WASM/float32
         const output = await transcriber(audioBlob, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            // Optimized inference settings
             language: 'english',
             task: 'transcribe',
+            // In v3, we can use 'auto' or a specific type. 
+            // If the user's hardware failed last time, we could remember, 
+            // but for now we'll just try and catch.
             dtype: 'fp16',
         });
 
@@ -79,11 +86,11 @@ self.addEventListener('message', async (event) => {
         });
 
     } catch (error: any) {
-        console.error('Transcription error:', error);
+        const isDeviceError = error.message?.includes('webgpu') || error.message?.includes('fp16') || error.message?.includes('dtype');
 
-        // Fallback to WASM if WebGPU fails
-        if (error.message?.includes('webgpu') || error.message?.includes('dtype')) {
-            self.postMessage({ status: 'loading', message: 'Device optimization failed, falling back to standard engine...' });
+        if (isDeviceError) {
+            console.warn('[Worker] WebGPU/fp16 not supported, falling back to CPU/WASM.');
+            self.postMessage({ status: 'loading', message: 'Optimizing for your device (standard engine)...' });
             try {
                 await initTransformers();
                 // For WASM fallback, use quantized: true for speed

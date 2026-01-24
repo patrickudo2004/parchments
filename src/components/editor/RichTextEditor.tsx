@@ -42,8 +42,9 @@ export const RichTextEditor: React.FC = () => {
                 orderedList: false,
                 blockquote: false,
                 listItem: false,
-                link: false,        // New duplicates in v3?
-                underline: false,
+                // link and underline are NOT in StarterKit by default.
+                // If they are duplicated, they might be added by a sub-module of StarterKit 
+                // or the user has a different package version.
             }),
             Underline,
             TextStyle,

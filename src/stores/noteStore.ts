@@ -21,6 +21,7 @@ interface NoteStore {
     localDirectoryHandle: FileSystemDirectoryHandle | null;
     localFiles: LocalItem[];
     currentFileHandle: FileSystemFileHandle | null;
+    hasStudyspace: boolean;
     // Actions
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
@@ -47,10 +48,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     notes: [],
     folders: [],
     isLoading: false,
-    isLocalMode: false,
+    isLocalMode: true, // Default to local mode for Studyspace-First
     localDirectoryHandle: null,
     localFiles: [],
     currentFileHandle: null,
+    hasStudyspace: false,
 
     loadNotes: async () => {
         set({ isLoading: true });
@@ -142,7 +144,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             set({
                 isLocalMode: true,
                 localDirectoryHandle: handle,
-                localFiles: files
+                localFiles: files,
+                hasStudyspace: true,
             });
         } catch (error) {
             console.error('Failed to open directory:', error);

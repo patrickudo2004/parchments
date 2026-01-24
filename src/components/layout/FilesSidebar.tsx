@@ -21,7 +21,8 @@ export const FilesSidebar: React.FC = () => {
         setCurrentNote, createNote, createVoiceNote, createFolder,
         notes, folders, deleteNote, deleteFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
-        createLocalNote, createLocalFolder, createLocalVoiceNote
+        createLocalNote, createLocalFolder, createLocalVoiceNote,
+        hasStudyspace
     } = useNoteStore();
     const { leftSidebarWidth } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
@@ -194,16 +195,31 @@ export const FilesSidebar: React.FC = () => {
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
-                    <button onClick={handleCreateNote} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Note" : "New Note"}>
+                    <button
+                        onClick={handleCreateNote}
+                        disabled={!hasStudyspace}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'}`}
+                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Note" : "New Note")}
+                    >
                         <NoteAddIcon fontSize="small" />
                     </button>
-                    <button onClick={() => setShowRecorder(true)} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}>
+                    <button
+                        onClick={() => hasStudyspace && setShowRecorder(true)}
+                        disabled={!hasStudyspace}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'}`}
+                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Voice Note" : "New Voice Note")}
+                    >
                         <MicIcon fontSize="small" />
                     </button>
-                    <button onClick={handleCreateFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title={isLocalMode ? "New Local Folder" : "New Folder"}>
+                    <button
+                        onClick={handleCreateFolder}
+                        disabled={!hasStudyspace}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'}`}
+                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Folder" : "New Folder")}
+                    >
                         <CreateNewFolderIcon fontSize="small" />
                     </button>
-                    <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors" title="Open Local Folder">
+                    <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors text-primary" title="Open Local Studyspace">
                         <DriveFolderUploadIcon fontSize="small" />
                     </button>
                 </div>
@@ -226,8 +242,30 @@ export const FilesSidebar: React.FC = () => {
             )}
 
             <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
-                {isLocalMode ? (
-                    localFiles.filter(f => !f.parentId).map((file: any) => renderTreeItem(file, 0))
+                {!hasStudyspace ? (
+                    <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
+                        <div className="w-12 h-12 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm">
+                            <FolderIcon className="text-light-text-disabled" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">No Studyspace</p>
+                            <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Open a local folder to start managing your notes.</p>
+                        </div>
+                        <button
+                            onClick={openLocalFolder}
+                            className="w-full py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                        >
+                            Open Folder
+                        </button>
+                    </div>
+                ) : isLocalMode ? (
+                    localFiles.filter(f => !f.parentId).length > 0 ? (
+                        localFiles.filter(f => !f.parentId).map((file: any) => renderTreeItem(file, 0))
+                    ) : (
+                        <div className="py-8 text-center opacity-40">
+                            <p className="text-[10px] font-bold uppercase tracking-widest italic">Studyspace is empty</p>
+                        </div>
+                    )
                 ) : (
                     <>
                         {rootFolders.map(folder => renderTreeItem(folder, 0))}

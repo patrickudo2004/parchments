@@ -13,6 +13,7 @@ import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import LinkIcon from '@mui/icons-material/Link';
 import HighlightingIcon from '@mui/icons-material/BorderColor';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { useUIStore } from '@/store/uiStore';
 
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -26,6 +27,8 @@ interface EditorToolbarProps {
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     if (!editor) return null;
+
+    const { showToast } = useUIStore();
 
     const Button = ({ onClick, isActive, icon: Icon, title, disabled }: any) => (
         <button
@@ -49,6 +52,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
             return;
         }
         editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    };
+
+    const handleScan = () => {
+        editor.chain().focus().scanScriptures().run();
+        showToast('Scripture scan complete', 'success');
     };
 
     return (
@@ -174,7 +182,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
             <div className="ml-auto flex items-center gap-2">
                 <Button
-                    onClick={() => editor.chain().focus().scanScriptures().run()}
+                    onClick={handleScan}
                     icon={AutoFixHighIcon}
                     title="Scan for Scripture References"
                 />

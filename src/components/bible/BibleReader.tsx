@@ -23,7 +23,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
     const [chapter, setChapter] = useState(bibleFocus?.chapter || 1);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-    const { interlinearEnabled, toggleInterlinear, toggleStrongsModal } = useUIStore();
+    const { interlinearEnabled, toggleInterlinear, toggleStrongsModal, showToast } = useUIStore();
 
     const installedVersions = useLiveQuery(async () => {
         const all = await db.bibleVersions.toArray();
@@ -178,7 +178,12 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         ) : (
                             <div className="py-20 text-center space-y-4">
                                 <p className="text-light-text-disabled italic">Scripture text not available for this version offline (Chapter {chapter}).</p>
-                                <button className="text-xs font-black uppercase tracking-widest text-primary hover:underline">Download {versionId.toUpperCase()}</button>
+                                <button
+                                    onClick={() => showToast(`Download for ${versionId.toUpperCase()} coming in Phase 2`, 'info')}
+                                    className="text-xs font-black uppercase tracking-widest text-primary hover:underline"
+                                >
+                                    Download {versionId.toUpperCase()}
+                                </button>
                             </div>
                         )}
                     </div>

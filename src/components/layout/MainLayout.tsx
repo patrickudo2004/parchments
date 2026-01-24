@@ -12,6 +12,7 @@ import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { AnimatePresence, motion } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -160,8 +161,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 {rightSidebarContent === 'bible' ? (
                                     <BibleReader />
                                 ) : (
-                                    <div className="flex-1 p-6 text-light-text-secondary dark:text-dark-text-secondary">
-                                        <p className="text-sm italic">Open the Bible or Strong's Lookup to see details here.</p>
+                                    <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                        <div className="w-16 h-16 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm opacity-50">
+                                            <SearchIcon className="text-light-text-disabled" fontSize="large" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-widest mb-1">Reference Tool</p>
+                                            <p className="text-xs text-light-text-secondary leading-relaxed max-w-[200px] mx-auto opacity-70">
+                                                Lexicons, Cross-references and Parallel views will appear here.
+                                            </p>
+                                        </div>
+                                        <div className="pt-4">
+                                            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-tighter rounded-full border border-primary/20">
+                                                Coming in Phase 2
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                             </div>

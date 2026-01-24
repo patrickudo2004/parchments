@@ -24,7 +24,7 @@ import { useUIStore } from '@/stores/uiStore';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, saveCurrentNote } = useNoteStore();
-    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats, updateSettings, isFocusMode } = useUIStore();
+    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats, updateSettings } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
 

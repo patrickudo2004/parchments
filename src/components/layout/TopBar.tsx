@@ -13,7 +13,7 @@ import { useState } from 'react';
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
     const {
-        theme, toggleTheme, toggleSettingsModal, toggleSearchModal, density,
+        theme, toggleTheme, toggleSettingsModal, toggleSearchModal,
         isExportModalOpen, exportFormat, closeExportModal, openExportModal
     } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);

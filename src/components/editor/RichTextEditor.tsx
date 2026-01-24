@@ -42,6 +42,8 @@ export const RichTextEditor: React.FC = () => {
                 orderedList: false,
                 blockquote: false,
                 listItem: false,
+                link: false,        // New duplicates in v3?
+                underline: false,
             }),
             Underline,
             TextStyle,

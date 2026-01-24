@@ -46,10 +46,10 @@ class TranscribeWorker {
 self.addEventListener('message', async (event) => {
     const { audioBlob, highAccuracy } = event.data;
 
-    // Switch to Xenova repo for distil-whisper which is the most reliable for transformers.js
-    // Standard: Xenova/distil-whisper-tiny.en (~40MB)
-    // High Accuracy: Xenova/whisper-base.en
-    const model = highAccuracy ? 'Xenova/whisper-base.en' : 'Xenova/distil-whisper-tiny.en';
+    // Switch to verified onnx-community models for max stability with transformers.js v3
+    // Standard: whisper-tiny (Small, fast, reliable)
+    // High Accuracy: whisper-base
+    const model = highAccuracy ? 'onnx-community/whisper-base' : 'onnx-community/whisper-tiny.en';
 
     try {
         await initTransformers();

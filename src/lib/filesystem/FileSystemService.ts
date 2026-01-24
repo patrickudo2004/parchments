@@ -62,6 +62,11 @@ export class FileSystemService {
         return await parent.getDirectoryHandle(name, { create: true });
     }
 
+    async deleteEntry(parent: FileSystemDirectoryHandle, name: string): Promise<void> {
+        // @ts-ignore
+        return await parent.removeEntry(name, { recursive: true });
+    }
+
     async readDirectoryRecursive(dirHandle: FileSystemDirectoryHandle, parentId: string | null = null): Promise<{ handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[]> {
         let entries: { handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[] = [];
 

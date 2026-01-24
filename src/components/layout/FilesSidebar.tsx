@@ -92,11 +92,12 @@ export const FilesSidebar: React.FC = () => {
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
         e.stopPropagation();
+        const type = (item.kind === 'file' || item.type === 'file') ? 'file' : 'folder';
         setDeleteConfig({
             isOpen: true,
             targetId: item.id,
-            targetType: item.type,
-            targetName: item.name,
+            targetType: type,
+            targetName: item.name || item.title,
         });
     };
 

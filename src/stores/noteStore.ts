@@ -105,23 +105,83 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     deleteNote: async (id) => {
-        await db.notes.delete(id);
-        const { notes, currentNote } = get();
-        set({
-            notes: notes.filter((n) => n.id !== id),
-            currentNote: currentNote?.id === id ? null : currentNote,
-        });
+        const { isLocalMode, localDirectoryHandle, localFiles, notes, currentNote } = get();
+
+        if (isLocalMode && localDirectoryHandle) {
+            const item = localFiles.find(f => f.id === id && f.kind === 'file');
+            if (item) {
+                try {
+                    // Find parent
+                    let parentHandle = localDirectoryHandle;
+                    if (item.parentId) {
+                        const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                        if (parent) parentHandle = parent.handle as FileSystemDirectoryHandle;
+                    }
+
+                    await fileSystem.deleteEntry(parentHandle, item.name);
+
+                    // Refresh
+                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+                    const files: LocalItem[] = rawFiles.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    }));
+
+                    set({
+                        localFiles: files,
+                        currentNote: currentNote?.id === id ? null : currentNote
+                    });
+                } catch (error) {
+                    console.error('Failed to delete local file:', error);
+                }
+            }
+        } else {
+            await db.notes.delete(id);
+            set({
+                notes: notes.filter((n) => n.id !== id),
+                currentNote: currentNote?.id === id ? null : currentNote,
+            });
+        }
     },
 
     deleteFolder: async (id) => {
-        // Warning: This doesn't recursively delete notes in the implementation here, 
-        // but the DB should handle it or we should orphaned notes if cascade isn't set.
-        // For now, just delete the folder record.
-        await db.folders.delete(id);
-        const { folders } = get();
-        set({
-            folders: folders.filter((f) => f.id !== id),
-        });
+        const { isLocalMode, localDirectoryHandle, localFiles, folders } = get();
+
+        if (isLocalMode && localDirectoryHandle) {
+            const item = localFiles.find(f => f.id === id && f.kind === 'directory');
+            if (item) {
+                try {
+                    let parentHandle = localDirectoryHandle;
+                    if (item.parentId) {
+                        const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                        if (parent) parentHandle = parent.handle as FileSystemDirectoryHandle;
+                    }
+
+                    await fileSystem.deleteEntry(parentHandle, item.name);
+
+                    // Refresh
+                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+                    const files: LocalItem[] = rawFiles.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    }));
+                    set({ localFiles: files });
+                } catch (error) {
+                    console.error('Failed to delete local folder:', error);
+                }
+            }
+        } else {
+            await db.folders.delete(id);
+            set({
+                folders: folders.filter((f) => f.id !== id),
+            });
+        }
     },
 
     setCurrentNote: (note) => set({ currentNote: note }),

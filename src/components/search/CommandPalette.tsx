@@ -9,7 +9,6 @@ import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
-import type { Note } from '@/types/database';
 
 interface SearchResult {
     id: string;
@@ -27,7 +26,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const { notes, setCurrentNote, isLocalMode, localFiles, openLocalFile } = useNoteStore();
+    const { setCurrentNote, isLocalMode, localFiles, openLocalFile } = useNoteStore();
     const { toggleTheme, setBibleFocus, openRightSidebar } = useUIStore();
 
     // Reset when opening
@@ -102,8 +101,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
 
         // 3. Quick Actions
         const actions: SearchResult[] = [
-            { id: 'act-theme', title: 'Toggle Theme', subtitle: 'Switch between light/dark', icon: <BoltIcon />, handler: toggleTheme },
-            { id: 'act-bible', title: 'Open Bible', subtitle: 'Open Bible reader', icon: <AutoAwesomeIcon />, handler: () => openRightSidebar('bible') },
+            { id: 'act-theme', type: 'action', title: 'Toggle Theme', subtitle: 'Switch between light/dark', icon: <BoltIcon />, handler: toggleTheme },
+            { id: 'act-bible', type: 'action', title: 'Open Bible', subtitle: 'Open Bible reader', icon: <AutoAwesomeIcon />, handler: () => openRightSidebar('bible') },
         ];
 
         actions.filter(a => a.title.toLowerCase().includes(lowerQuery)).forEach(a => {
@@ -193,8 +192,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                         onClick={() => result.handler()}
                                         onMouseEnter={() => setSelectedIndex(idx)}
                                         className={`px-6 py-3 flex items-center gap-4 cursor-pointer transition-colors ${idx === selectedIndex
-                                                ? 'bg-primary/10 dark:bg-primary/20'
-                                                : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                                            ? 'bg-primary/10 dark:bg-primary/20'
+                                            : 'hover:bg-gray-50 dark:hover:bg-white/5'
                                             }`}
                                     >
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${idx === selectedIndex ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'

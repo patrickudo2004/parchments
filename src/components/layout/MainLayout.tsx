@@ -8,6 +8,7 @@ import { BibleModal } from '@/components/bible/BibleModal';
 import { BibleReader } from '@/components/bible/BibleReader';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
+import { CommandPalette } from '@/components/search/CommandPalette';
 import { AnimatePresence } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 
@@ -30,7 +31,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         rightSidebarOpen,
         rightSidebarContent,
         toggleRightSidebar,
-        isLeftSidebarOpen
+        isLeftSidebarOpen,
+        isSearchModalOpen,
+        toggleSearchModal
     } = useUIStore();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
@@ -88,6 +91,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             document.body.classList.remove('dark');
         }
     }, [theme]);
+
+    // Global Keyboard Shortcuts
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+                e.preventDefault();
+                toggleSearchModal();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [toggleSearchModal]);
 
     return (
         <div className={`flex flex-col h-screen overflow-hidden bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${isResizingLeft || isResizingRight ? 'cursor-col-resize select-none' : ''}`}>
@@ -177,6 +193,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <SettingsModal
                 isOpen={isSettingsModalOpen}
                 onClose={toggleSettingsModal}
+            />
+
+            <CommandPalette
+                isOpen={isSearchModalOpen}
+                onClose={toggleSearchModal}
             />
         </div>
     );

@@ -81,6 +81,20 @@ export const dbHelpers = {
         await db.notes.delete(id);
     },
 
+    searchNotes: async (query: string) => {
+        if (!query.trim()) return [];
+        const lowerQuery = query.toLowerCase();
+
+        // Search in title and content
+        // Note: For large datasets, this might need optimization
+        return await db.notes
+            .filter(note =>
+                note.title.toLowerCase().includes(lowerQuery) ||
+                note.content.toLowerCase().includes(lowerQuery)
+            )
+            .toArray();
+    },
+
     // Folders
     createFolder: async (folder: Omit<Folder, 'id' | 'createdAt' | 'updatedAt'>) => {
         const timestamp = Date.now();

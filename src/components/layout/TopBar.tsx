@@ -12,7 +12,7 @@ import { useState } from 'react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
-    const { theme, toggleTheme, toggleSettingsModal } = useUIStore();
+    const { theme, toggleTheme, toggleSettingsModal, toggleSearchModal } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [selectedFormat, setSelectedFormat] = useState<'docx' | 'pdf' | 'md' | 'html' | 'txt'>('pdf');
@@ -77,15 +77,17 @@ export const TopBar: React.FC = () => {
 
             <div className="flex items-center gap-4">
                 {/* Search */}
-                <div className="relative hidden md:block">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary">
+                <div
+                    className="relative hidden md:block cursor-pointer group"
+                    onClick={toggleSearchModal}
+                >
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary group-hover:text-primary transition-colors">
                         <SearchIcon fontSize="small" />
                     </div>
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 transition-all"
-                    />
+                    <div className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm text-light-text-disabled w-48 flex items-center justify-between transition-all hover:border-primary/50">
+                        <span>Search...</span>
+                        <kbd className="text-[10px] font-bold opacity-50 px-1.5 py-0.5 rounded bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border shadow-sm">⌘K</kbd>
+                    </div>
                 </div>
 
                 {/* Export Menu */}

@@ -30,6 +30,7 @@ interface UIStore {
     isStrongsModalOpen: boolean;
     selectedStrongsId: string | null;
     isSettingsModalOpen: boolean;
+    isSearchModalOpen: boolean;
 
     // Bible Navigation
     bibleFocus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null;
@@ -45,6 +46,7 @@ interface UIStore {
     toggleBibleModal: () => void;
     toggleStrongsModal: (id?: string | null) => void;
     toggleSettingsModal: () => void;
+    toggleSearchModal: () => void;
     toggleInterlinear: () => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search') => void;
@@ -85,6 +87,7 @@ export const useUIStore = create<UIStore>()(
             isStrongsModalOpen: false,
             selectedStrongsId: null,
             isSettingsModalOpen: false,
+            isSearchModalOpen: false,
 
             bibleFocus: null,
 
@@ -117,6 +120,7 @@ export const useUIStore = create<UIStore>()(
                 };
             }),
             toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+            toggleSearchModal: () => set((state) => ({ isSearchModalOpen: !state.isSearchModalOpen })),
             toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),

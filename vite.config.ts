@@ -37,8 +37,7 @@ export default defineConfig({
     },
   },
   define: {
-    // Universal globals that work in both Main and Worker threads
+    // Universal global that works in both Main and Worker threads
     global: 'globalThis',
-    window: 'globalThis',
   },
 })

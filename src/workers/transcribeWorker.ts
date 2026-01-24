@@ -1,19 +1,31 @@
 console.info('[Worker] Transcription worker script loaded.');
-// Shim window for libraries that expect it (like some sub-dependencies of transformers)
-if (typeof window === 'undefined') {
-    (self as any).window = self;
-}
-import { pipeline, env } from '@huggingface/transformers';
 
-// Skip local checks for now to avoid FS errors in browser
-env.allowLocalModels = false;
-env.useBrowserCache = true;
+// Define global shims before any other imports
+if (typeof self !== 'undefined') {
+    (self as any).window = self;
+    (self as any).global = self;
+}
+
+let pipeline: any = null;
+let env: any = null;
+
+async function initTransformers() {
+    if (pipeline) return;
+    const transformers = await import('@huggingface/transformers');
+    pipeline = transformers.pipeline;
+    env = transformers.env;
+
+    // Skip local checks for now to avoid FS errors in browser
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+}
 
 class TranscribeWorker {
     static instance: any = null;
     static model: string | null = null;
 
     static async getInstance(model: string, progress_callback: (progress: any) => void) {
+        await initTransformers();
         // If instance exists but model changed, we need to create a new one
         if (this.instance && this.model !== model) {
             this.instance = null;
@@ -40,6 +52,7 @@ self.addEventListener('message', async (event) => {
     const model = highAccuracy ? 'onnx-community/whisper-base.en' : 'onnx-community/distil-whisper-tiny.en';
 
     try {
+        await initTransformers();
         self.postMessage({ status: 'loading', message: `Initializing ${highAccuracy ? 'High Accuracy' : 'Turbo'} AI...` });
 
         const transcriber = await TranscribeWorker.getInstance(model, (data: any) => {
@@ -72,6 +85,7 @@ self.addEventListener('message', async (event) => {
         if (error.message?.includes('webgpu') || error.message?.includes('dtype')) {
             self.postMessage({ status: 'loading', message: 'Device optimization failed, falling back to standard engine...' });
             try {
+                await initTransformers();
                 // For WASM fallback, use quantized: true for speed
                 const transcriber = await pipeline('automatic-speech-recognition', model, {
                     device: 'wasm',

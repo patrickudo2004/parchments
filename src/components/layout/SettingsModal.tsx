@@ -9,6 +9,8 @@ import StorageIcon from '@mui/icons-material/Storage';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import WarningIcon from '@mui/icons-material/Warning';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db } from '@/lib/db';
 import type { BibleVersion } from '@/types/database';
@@ -162,6 +164,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         } catch (err) {
             console.error('Delete failed:', err);
             setImportingState(null);
+        }
+    };
+
+    const handleFactoryReset = async () => {
+        if (!confirm('CRITICAL: This will PERMANENTLY delete all your notes, folders, and downloaded Bible versions. This action cannot be undone. Are you absolutely sure?')) return;
+
+        try {
+            await db.delete();
+            localStorage.clear();
+            window.location.reload();
+        } catch (err) {
+            console.error('Factory reset failed:', err);
+            alert('Failed to reset application data.');
         }
     };
 
@@ -647,6 +662,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     >
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.highAccuracyTranscription ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
+                                                </div>
+                                            </section>
+
+                                            <section className="mt-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl">
+                                                <div className="flex items-start gap-4">
+                                                    <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg shrink-0">
+                                                        <WarningIcon />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-red-600">Danger Zone: Factory Reset</h4>
+                                                        <p className="text-xs text-red-500/80 mt-1 mb-4 leading-relaxed">
+                                                            Permanently delete all data stored in this browser. This includes all your notes, transcribed audio, and downloaded Bibles. This cannot be undone.
+                                                        </p>
+                                                        <button
+                                                            onClick={handleFactoryReset}
+                                                            className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 active:scale-95 transition-all flex items-center gap-2"
+                                                        >
+                                                            <DeleteForeverIcon fontSize="small" /> Factory Reset Application
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </section>
                                         </>

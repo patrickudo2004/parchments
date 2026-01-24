@@ -26,9 +26,9 @@ interface EditorToolbarProps {
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
-    if (!editor) return null;
-
     const { showToast } = useUIStore();
+
+    if (!editor) return null;
 
     const Button = ({ onClick, isActive, icon: Icon, title, disabled }: any) => (
         <button

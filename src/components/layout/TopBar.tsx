@@ -79,7 +79,7 @@ export const TopBar: React.FC = () => {
                 {/* Search */}
                 <div
                     className="relative hidden md:block cursor-pointer group"
-                    onClick={toggleSearchModal}
+                    onClick={() => toggleSearchModal()}
                 >
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary group-hover:text-primary transition-colors">
                         <SearchIcon fontSize="small" />

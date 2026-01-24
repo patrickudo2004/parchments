@@ -1,4 +1,8 @@
 console.info('[Worker] Transcription worker script loaded.');
+// Shim window for libraries that expect it (like some sub-dependencies of transformers)
+if (typeof window === 'undefined') {
+    (self as any).window = self;
+}
 import { pipeline, env } from '@huggingface/transformers';
 
 // Skip local checks for now to avoid FS errors in browser

@@ -36,9 +36,5 @@ export default defineConfig({
       events: 'events',
     },
   },
-  define: {
-    // Some libraries look for global, which the polyfill plugin should handle,
-    // but defining it here is a double-safety for some edge cases.
-    global: 'window',
-  },
+},
 })

@@ -36,5 +36,9 @@ export default defineConfig({
       events: 'events',
     },
   },
-},
+  define: {
+    // Universal globals that work in both Main and Worker threads
+    global: 'globalThis',
+    window: 'globalThis',
+  },
 })

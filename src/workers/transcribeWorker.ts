@@ -70,8 +70,6 @@ self.addEventListener('message', async (event) => {
         const output = await transcriber(audioBlob, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            language: 'english',
-            task: 'transcribe',
             // In v3, we can use 'auto' or a specific type. 
             // If the user's hardware failed last time, we could remember, 
             // but for now we'll just try and catch.

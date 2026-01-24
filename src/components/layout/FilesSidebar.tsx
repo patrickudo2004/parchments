@@ -186,7 +186,9 @@ export const FilesSidebar: React.FC = () => {
     const rootFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
     const rootNotes = notes.filter(n => !n.folderId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
 
-    const displayRootNotes = rootNotes;
+    const rootItems = isLocalMode
+        ? localFiles.filter(D => !D.parentId)
+        : [...rootFolders, ...rootNotes];
 
     return (
         <div
@@ -274,8 +276,7 @@ export const FilesSidebar: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        {rootFolders.map(folder => renderTreeItem(folder, 0))}
-                        {displayRootNotes.map(note => renderTreeItem(note, 0))}
+                        {rootItems.map(item => renderTreeItem(item, 0))}
                     </>
                 )}
             </div>

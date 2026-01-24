@@ -69,15 +69,15 @@
 - [x] Add "New Voice Note" button to left sidebar (with Pause and Response animation)
 - [x] Implement folder creation with inline naming
 - [x] Implement note creation with auto-generated title
-- [/] Add drag-and-drop for reorganizing folders and notes
+- [x] Add drag-and-drop for reorganizing folders and notes
 - [x] Implement active item highlighting in sidebar
 - [x] Add context menu for items (Rename, Delete, Move, Duplicate)
 - [x] Implement auto-save functionality with 2-second debounce
 - [x] Add save status indicator ("Saved", "Typing...", "Saving...")
 - [x] Implement delete note with confirmation dialog
 - [x] Add rename note functionality (inline editing)
-- [/] Build basic search/filter for notes by title
-- [/] Add search highlight in sidebar
+- [x] Build basic search/filter for notes by title
+- [x] Add search highlight in sidebar
 - [x] Test editor performance with large documents (10,000+ words)
 - [x] Test folder tree with 100+ items
 - [x] Verify data persistence in IndexedDB
@@ -88,9 +88,9 @@
 
 **Phase 1 - Week 1:** [x] 17/17 tasks completed  
 **Phase 1 - Week 2:** [x] 19/19 tasks completed  
-**Phase 1 - Week 3:** [x] 24/28 tasks completed  
+**Phase 1 - Week 3:** [x] 28/28 tasks completed  
 
-**Phase 1 Total:** [x] 60/64 tasks completed (93%)
+**Phase 1 Total:** [x] 64/64 tasks completed (100%)
 
 ---
 

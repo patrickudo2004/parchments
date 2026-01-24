@@ -13,7 +13,7 @@ import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import LinkIcon from '@mui/icons-material/Link';
 import HighlightingIcon from '@mui/icons-material/BorderColor';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import { useUIStore } from '@/store/uiStore';
+import { useUIStore } from '@/stores/uiStore';
 
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';

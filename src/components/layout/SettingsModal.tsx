@@ -12,7 +12,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import WarningIcon from '@mui/icons-material/Warning';
 import CircularProgress from '@mui/material/CircularProgress';
-import { db } from '@/lib/db';
+import SearchIcon from '@mui/icons-material/Search';
+import InfoIcon from '@mui/icons-material/Info';
+import { db, dbHelpers } from '@/lib/db';
+import { saveAs } from 'file-saver';
 import type { BibleVersion } from '@/types/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
@@ -41,6 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
     const bibleVersions = useLiveQuery(() => db.bibleVersions.toArray()) || [];
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
+    const [bibleSearchQuery, setBibleSearchQuery] = useState('');
 
     // Fetch catalog logic
     useEffect(() => {
@@ -93,12 +97,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     versionId = json.metadata?.id?.toLowerCase() || versionId;
                     name = json.metadata?.name || name;
                 } else {
-                    // For USFM, we'll try to extract the ID from the filename or header later
-                    // For now, use the filename as internal ID
                     versionId = file.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
                 }
 
-                // 1. Create version record
                 const existing = await db.bibleVersions.get(versionId);
                 if (!existing) {
                     await db.bibleVersions.add({
@@ -111,7 +112,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     });
                 }
 
-                // 2. Start worker
                 const worker = new Worker(new URL('../../workers/bibleImportWorker.ts', import.meta.url), { type: 'module' });
 
                 worker.onmessage = (event) => {
@@ -141,7 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         };
 
         if (isJSON) reader.readAsText(file);
-        else reader.readAsText(file); // Both are text-based
+        else reader.readAsText(file);
     };
 
     const handleDeleteVersion = async (id: string) => {
@@ -149,12 +149,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         try {
             setImportingState({ status: 'Deleting...', progress: 0 });
-            // 1. Delete verses
             await db.bibleVerses.where('versionId').equals(id).delete();
-            // 2. Delete version metadata
             await db.bibleVersions.delete(id);
 
-            // 3. If this was the preferred version, reset it
             if (settings.preferredBibleVersion === id) {
                 const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
                 updateSettings({ preferredBibleVersion: remaining?.abbreviation || 'KJV' });
@@ -180,15 +177,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
     };
 
-    if (!isOpen) return null;
+    const handleBackup = async () => {
+        try {
+            const backup = await dbHelpers.exportDatabase();
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            saveAs(blob, `parchments-backup-${new Date().toISOString().split('T')[0]}.json`);
+        } catch (err) {
+            console.error('Backup failed:', err);
+            alert('Backup failed.');
+        }
+    };
 
-    const accentColors = [
-        { name: 'Deep Blue', value: '#1a73e8' },
-        { name: 'Charcoal', value: '#3c4043' },
-        { name: 'Forest Green', value: '#137333' },
-        { name: 'Crimson', value: '#d93025' },
-        { name: 'Purple', value: '#9334e6' },
-    ];
+    const handleRestore = async (file: File) => {
+        if (!confirm('Are you sure you want to restore this backup? This will overwrite your current settings and data.')) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const json = JSON.parse(e.target?.result as string);
+                await dbHelpers.importDatabase(json);
+                window.location.reload();
+            } catch (err) {
+                console.error('Restore failed:', err);
+                alert('Restore failed. Invalid file format.');
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    if (!isOpen) return null;
 
     return (
         <AnimatePresence>
@@ -202,7 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 >
                     {/* Sidebar Tabs */}
                     <div className="w-64 bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border p-4 flex flex-col shrink-0">
-                        <h2 className="text-xl font-bold mb-6 px-2">Settings</h2>
+                        <h2 className="text-xl font-bold mb-6 px-2 text-light-text-primary dark:text-dark-text-primary">Settings</h2>
                         <nav className="space-y-1">
                             {TABS.map((tab) => (
                                 <button
@@ -219,15 +236,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             ))}
                         </nav>
                         <div className="mt-auto pt-4 border-t border-light-border dark:border-dark-border opacity-50">
-                            <p className="text-xs text-center">Parchments v1.0.0</p>
+                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v1.0.0</p>
                         </div>
                     </div>
 
                     {/* Content Area */}
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between shrink-0">
-                            <h3 className="font-bold">{TABS.find(t => t.id === activeTab)?.label}</h3>
-                            <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><CloseIcon /></button>
+                            <h3 className="font-bold text-light-text-primary dark:text-dark-text-primary">{TABS.find(t => t.id === activeTab)?.label}</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-secondary dark:text-dark-text-secondary"><CloseIcon /></button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -258,35 +275,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 }`}>
                                                                 {settings.theme === t && <CheckCircleIcon style={{ color: t === 'dark' ? 'white' : '#1a73e8' }} fontSize="small" />}
                                                             </div>
-                                                            <span className="text-sm font-medium">{t}</span>
+                                                            <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary">{t}</span>
                                                         </button>
                                                     ))}
                                                 </div>
                                             </section>
 
-                                            <section className="space-y-4">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Accent Color</h4>
-                                                <div className="flex flex-wrap gap-4">
-                                                    {accentColors.map((color) => (
-                                                        <button
-                                                            key={color.value}
-                                                            onClick={() => updateSettings({ accentColor: color.value })}
-                                                            className="flex flex-col items-center gap-2 group"
-                                                        >
-                                                            <div
-                                                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${settings.accentColor === color.value ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-dark-surface' : 'hover:scale-110'
-                                                                    }`}
-                                                                style={{ backgroundColor: color.value }}
-                                                            >
-                                                                {settings.accentColor === color.value && <CheckCircleIcon style={{ color: 'white' }} />}
-                                                            </div>
-                                                            <span className="text-xs">{color.name}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </section>
-
-                                            <section className="grid grid-cols-2 gap-8">
+                                            <section className="grid grid-cols-1 max-w-sm">
                                                 <div className="space-y-4">
                                                     <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Interface Density</h4>
                                                     <div className="flex bg-light-background dark:bg-dark-background p-1 rounded-lg border border-light-border dark:border-dark-border">
@@ -298,21 +293,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                     }`}
                                                             >
                                                                 {d}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Default Sidebar</h4>
-                                                    <div className="flex bg-light-background dark:bg-dark-background p-1 rounded-lg border border-light-border dark:border-dark-border">
-                                                        {['expanded', 'collapsed'].map((s) => (
-                                                            <button
-                                                                key={s}
-                                                                onClick={() => updateSettings({ sidebarDefaultState: s as any })}
-                                                                className={`flex-1 py-2 text-sm font-medium rounded capitalize transition-all ${settings.sidebarDefaultState === s ? 'bg-light-surface dark:bg-dark-surface shadow-sm text-primary' : 'text-light-text-secondary hover:text-light-text-primary'
-                                                                    }`}
-                                                            >
-                                                                {s}
                                                             </button>
                                                         ))}
                                                     </div>
@@ -329,7 +309,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     <select
                                                         value={settings.preferredBibleVersion}
                                                         onChange={(e) => updateSettings({ preferredBibleVersion: e.target.value })}
-                                                        className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                                                        className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                     >
                                                         {installedVersions.length > 0 ? (
                                                             installedVersions.map(v => (
@@ -358,7 +338,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 <select
                                                                     value={selectedCatalogId}
                                                                     onChange={(e) => setSelectedCatalogId(e.target.value)}
-                                                                    className="w-full p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
+                                                                    className="w-full p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                                 >
                                                                     <option value="">Select a version to download...</option>
                                                                     {catalog.map((v: CatalogBibleVersion) => {
@@ -394,7 +374,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             </button>
                                                         </div>
 
-                                                        {/* Selected Version Details Preview */}
                                                         {selectedCatalogId && (
                                                             <motion.div
                                                                 initial={{ opacity: 0, y: -10 }}
@@ -405,7 +384,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                     const v = catalog.find(c => c.id === selectedCatalogId);
                                                                     if (!v) return null;
                                                                     return (
-                                                                        <div className="flex justify-between items-center">
+                                                                        <div className="flex justify-between items-center text-light-text-primary dark:text-dark-text-primary">
                                                                             <div>
                                                                                 <h5 className="font-bold">{v.name}</h5>
                                                                                 <p className="text-xs text-light-text-secondary mt-1">{v.copyright}</p>
@@ -432,7 +411,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         <div className="flex flex-col items-center gap-4 w-full max-w-xs">
                                                             <CircularProgress variant="determinate" value={importingState.progress} size={48} thickness={5} className="text-primary" />
                                                             <div className="space-y-1">
-                                                                <p className="text-sm font-bold uppercase tracking-widest">{importingState.status}</p>
+                                                                <p className="text-sm font-bold uppercase tracking-widest text-light-text-primary dark:text-dark-text-primary">{importingState.status}</p>
                                                                 <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
                                                                     <div className="bg-primary h-full transition-all duration-300" style={{ width: `${importingState.progress}%` }} />
                                                                 </div>
@@ -443,9 +422,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             <div className="w-16 h-16 bg-light-background dark:bg-dark-background rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                                                                 <CloudUploadIcon className="text-light-text-disabled group-hover:text-primary" fontSize="large" />
                                                             </div>
-                                                            <div>
-                                                                <p className="text-sm font-bold">Import Custom Bible Version</p>
-                                                                <p className="text-xs text-light-text-disabled mt-1 max-w-xs mx-auto">Upload a <b>JSON</b> or <b>USFM</b> file to add it to your local library. (Requires Offline-Conversion)</p>
+                                                            <div className="px-4">
+                                                                <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">Import Custom Bible Version</p>
+                                                                <p className="text-xs text-light-text-disabled mt-1 max-w-xs mx-auto">Upload a <b>JSON</b> or <b>USFM</b> file to add it to your local library.</p>
+                                                                <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-primary bg-primary/5 py-1 px-3 rounded-full border border-primary/10">
+                                                                    <InfoIcon style={{ fontSize: '12px' }} />
+                                                                    <span>Download free formats from <b>ebible.org</b></span>
+                                                                </div>
                                                             </div>
                                                             <div className="flex gap-3">
                                                                 <label className="px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
@@ -460,7 +443,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         }}
                                                                     />
                                                                 </label>
-                                                                <button className="px-6 py-2 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold hover:bg-light-background">Help</button>
                                                             </div>
                                                         </>
                                                     )}
@@ -470,7 +452,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             <section className="space-y-4">
                                                 <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background/40 rounded-xl border border-light-border dark:border-dark-border group">
                                                     <div>
-                                                        <p className="text-sm font-bold">Verse Hover Previews</p>
+                                                        <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">Verse Hover Previews</p>
                                                         <p className="text-xs text-light-text-secondary group-hover:text-light-text-primary transition-colors">Show floating preview when hovering linked references</p>
                                                     </div>
                                                     <button
@@ -491,7 +473,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Typography</h4>
                                                     <div className="space-y-4">
                                                         <div>
-                                                            <label className="text-xs font-medium mb-1.5 block">Font Family</label>
+                                                            <label className="text-xs font-medium mb-1.5 block text-light-text-primary dark:text-dark-text-primary">Font Family</label>
                                                             <div className="flex bg-light-background dark:bg-dark-background p-1 rounded-lg border border-light-border dark:border-dark-border">
                                                                 {['sans', 'serif'].map((f) => (
                                                                     <button
@@ -507,7 +489,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         </div>
                                                         <div className="flex gap-4">
                                                             <div className="flex-1">
-                                                                <label className="text-xs font-medium mb-1.5 block">Font Size ({settings.editorFontSize}px)</label>
+                                                                <label className="text-xs font-medium mb-1.5 block text-light-text-primary dark:text-dark-text-primary">Font Size ({settings.editorFontSize}px)</label>
                                                                 <input
                                                                     type="range" min="12" max="24" step="1"
                                                                     value={settings.editorFontSize}
@@ -516,7 +498,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 />
                                                             </div>
                                                             <div className="flex-1">
-                                                                <label className="text-xs font-medium mb-1.5 block">Line Spacing ({settings.editorLineSpacing})</label>
+                                                                <label className="text-xs font-medium mb-1.5 block text-light-text-primary dark:text-dark-text-primary">Line Spacing ({settings.editorLineSpacing})</label>
                                                                 <input
                                                                     type="range" min="1" max="2.5" step="0.1"
                                                                     value={settings.editorLineSpacing}
@@ -546,7 +528,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                             <section className="space-y-6">
                                                 <div className="flex items-center justify-between">
-                                                    <div>
+                                                    <div className="text-light-text-primary dark:text-dark-text-primary">
                                                         <p className="text-sm font-bold">Auto-save Frequency</p>
                                                         <p className="text-xs text-light-text-secondary">Delay before saving changes to local database</p>
                                                     </div>
@@ -555,14 +537,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             type="number"
                                                             value={settings.autoSaveFrequency}
                                                             onChange={(e) => updateSettings({ autoSaveFrequency: Number(e.target.value) })}
-                                                            className="w-20 p-2 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-sm text-center"
+                                                            className="w-20 p-2 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-sm text-center text-light-text-primary dark:text-dark-text-primary"
                                                         />
                                                         <span className="text-xs text-light-text-disabled">ms</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
-                                                    <div>
+                                                    <div className="text-light-text-primary dark:text-dark-text-primary">
                                                         <p className="text-sm font-bold">Markdown Support</p>
                                                         <p className="text-xs text-light-text-secondary">Use ### for headers, * for lists, etc.</p>
                                                     </div>
@@ -581,58 +563,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         <>
                                             <section className="grid grid-cols-2 gap-1.5 [&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
                                                 <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
-                                                    <div className="flex items-center gap-3 mb-4">
+                                                    <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
                                                             <CloudUploadIcon />
                                                         </div>
                                                         <h4 className="font-bold text-sm">Backup Library</h4>
                                                     </div>
                                                     <p className="text-xs text-light-text-secondary mb-4">Export all notes, folders, and settings into a single file.</p>
-                                                    <button className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={handleBackup}
+                                                        className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 text-light-text-primary dark:text-dark-text-primary"
+                                                    >
                                                         <DownloadIcon fontSize="inherit" /> Export Now
                                                     </button>
                                                 </div>
                                                 <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
-                                                    <div className="flex items-center gap-3 mb-4">
+                                                    <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
                                                             <StorageIcon />
                                                         </div>
                                                         <h4 className="font-bold text-sm">Restore Data</h4>
                                                     </div>
-                                                    <p className="text-xs text-light-text-secondary mb-4">Upload a previously exported .parchment backup file.</p>
-                                                    <button className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2">
+                                                    <p className="text-xs text-light-text-secondary mb-4">Upload a previously exported .json backup file.</p>
+                                                    <label className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 cursor-pointer text-light-text-primary dark:text-dark-text-primary">
                                                         <CloudUploadIcon fontSize="inherit" /> Upload Backup
-                                                    </button>
+                                                        <input
+                                                            type="file"
+                                                            className="hidden"
+                                                            accept=".json"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) handleRestore(file);
+                                                            }}
+                                                        />
+                                                    </label>
                                                 </div>
                                             </section>
 
                                             <section className="space-y-4 pt-4">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Offline Manager</h4>
-                                                <div className="space-y-1">
-                                                    {installedVersions.length === 0 && (
-                                                        <p className="text-xs text-light-text-disabled italic p-3">No offline data installed.</p>
-                                                    )}
-                                                    {installedVersions.map((v: BibleVersion) => (
-                                                        <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                    <StorageIcon fontSize="inherit" />
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Offline Manager</h4>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="text"
+                                                            value={bibleSearchQuery}
+                                                            onChange={(e) => setBibleSearchQuery(e.target.value)}
+                                                            placeholder="Search..."
+                                                            className="pl-8 pr-2 py-1 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary"
+                                                        />
+                                                        <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-light-text-disabled" style={{ fontSize: '12px' }} />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                                                    {(() => {
+                                                        const filtered = installedVersions.filter(v =>
+                                                            v.name.toLowerCase().includes(bibleSearchQuery.toLowerCase()) ||
+                                                            v.abbreviation.toLowerCase().includes(bibleSearchQuery.toLowerCase())
+                                                        );
+
+                                                        if (filtered.length === 0) {
+                                                            return <p className="text-xs text-light-text-disabled italic p-3">No matching bibles.</p>;
+                                                        }
+
+                                                        return filtered.map((v: BibleVersion) => (
+                                                            <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
+                                                                <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
+                                                                    <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
+                                                                        <StorageIcon fontSize="inherit" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-sm font-medium">{v.name}</p>
+                                                                        <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <p className="text-sm font-medium">{v.name}</p>
-                                                                    <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
-                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleDeleteVersion(v.id)}
+                                                                    className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                                                                >
+                                                                    Delete
+                                                                </button>
                                                             </div>
-                                                            <button
-                                                                onClick={() => handleDeleteVersion(v.id)}
-                                                                className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    {/* AI Models can be added here once we have a registry for them */}
-                                                    <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50">
+                                                        ));
+                                                    })()}
+
+                                                    <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
                                                                 <StorageIcon fontSize="inherit" />
@@ -649,7 +663,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                             <section className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
                                                 <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
-                                                    <div>
+                                                    <div className="text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm font-bold">Higher Accuracy Transcription</p>
                                                             <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Beta</span>
@@ -695,4 +709,3 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </AnimatePresence>
     );
 };
-

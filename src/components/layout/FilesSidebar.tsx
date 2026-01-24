@@ -259,14 +259,19 @@ export const FilesSidebar: React.FC = () => {
                             Open Folder
                         </button>
                     </div>
-                ) : isLocalMode ? (
-                    localFiles.filter(f => !f.parentId).length > 0 ? (
-                        localFiles.filter(f => !f.parentId).map((file: any) => renderTreeItem(file, 0))
-                    ) : (
-                        <div className="py-8 text-center opacity-40">
-                            <p className="text-[10px] font-bold uppercase tracking-widest italic">Studyspace is empty</p>
+                ) : isLocalMode && localFiles.filter(f => !f.parentId).length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
+                        <div className="w-10 h-10 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center">
+                            <InsertDriveFileIcon className="text-light-text-disabled" fontSize="small" />
                         </div>
-                    )
+                        <p className="text-[10px] text-light-text-secondary font-medium italic">This studyspace is empty.</p>
+                        <button
+                            onClick={handleCreateNote}
+                            className="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-lg border border-primary/20 hover:bg-primary/20 transition-all"
+                        >
+                            + Create First Note
+                        </button>
+                    </div>
                 ) : (
                     <>
                         {rootFolders.map(folder => renderTreeItem(folder, 0))}

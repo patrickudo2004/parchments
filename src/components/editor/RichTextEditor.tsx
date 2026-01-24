@@ -98,6 +98,14 @@ export const RichTextEditor: React.FC = () => {
         }
     }, [currentNote?.id, editor]);
 
+    const { setEditor } = useUIStore();
+    useEffect(() => {
+        if (editor) {
+            setEditor(editor);
+            return () => setEditor(null);
+        }
+    }, [editor, setEditor]);
+
     // Update word count stats
     useEffect(() => {
         if (editor) {

@@ -19,8 +19,8 @@ interface SearchResult {
     handler: () => void;
 }
 
-export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-    const [query, setQuery] = useState('');
+export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; initialQuery?: string }> = ({ isOpen, onClose, initialQuery = '' }) => {
+    const [query, setQuery] = useState(initialQuery);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -32,11 +32,11 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     // Reset when opening
     useEffect(() => {
         if (isOpen) {
-            setQuery('');
+            setQuery(initialQuery);
             setSelectedIndex(0);
             setTimeout(() => inputRef.current?.focus(), 50);
         }
-    }, [isOpen]);
+    }, [isOpen, initialQuery]);
 
     const performSearch = useCallback(async (searchQuery: string) => {
         if (!searchQuery.trim()) {

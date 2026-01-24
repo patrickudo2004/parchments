@@ -8,6 +8,7 @@ import { BibleModal } from '@/components/bible/BibleModal';
 import { BibleReader } from '@/components/bible/BibleReader';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
+import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { AnimatePresence } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
@@ -19,12 +20,15 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const {
         theme,
+        density,
         isBibleModalOpen,
         isStrongsModalOpen,
         selectedStrongsId,
         toggleStrongsModal,
         isSettingsModalOpen,
         toggleSettingsModal,
+        isShortcutModalOpen,
+        toggleShortcutModal,
         setLeftSidebarWidth,
         rightSidebarWidth,
         setRightSidebarWidth,
@@ -33,6 +37,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         toggleRightSidebar,
         isLeftSidebarOpen,
         isSearchModalOpen,
+        searchQuery,
         toggleSearchModal
     } = useUIStore();
 
@@ -106,7 +111,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }, [toggleSearchModal]);
 
     return (
-        <div className={`flex flex-col h-screen overflow-hidden bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${isResizingLeft || isResizingRight ? 'cursor-col-resize select-none' : ''}`}>
+        <div className={`flex flex-col h-screen overflow-hidden bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary density-${density} ${isResizingLeft || isResizingRight ? 'cursor-col-resize select-none' : ''}`}>
             <TopBar />
             <MenuBar />
 
@@ -195,8 +200,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 onClose={toggleSettingsModal}
             />
 
+            <ShortcutModal
+                isOpen={isShortcutModalOpen}
+                onClose={toggleShortcutModal}
+            />
+
             <CommandPalette
                 isOpen={isSearchModalOpen}
+                initialQuery={searchQuery}
                 onClose={toggleSearchModal}
             />
         </div>

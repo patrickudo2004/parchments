@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Editor } from '@tiptap/react';
 
 interface UIStore {
     theme: 'light' | 'dark' | 'system';
-    accentColor: string;
     density: 'comfortable' | 'compact';
-    sidebarDefaultState: 'expanded' | 'collapsed';
 
     // Bible & Study
     preferredBibleVersion: string;
@@ -31,6 +30,9 @@ interface UIStore {
     selectedStrongsId: string | null;
     isSettingsModalOpen: boolean;
     isSearchModalOpen: boolean;
+    searchQuery: string;
+    isShortcutModalOpen: boolean;
+    activeEditor: Editor | null;
 
     // Bible Navigation
     bibleFocus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null;
@@ -46,7 +48,9 @@ interface UIStore {
     toggleBibleModal: () => void;
     toggleStrongsModal: (id?: string | null) => void;
     toggleSettingsModal: () => void;
-    toggleSearchModal: () => void;
+    toggleSearchModal: (query?: string) => void;
+    toggleShortcutModal: () => void;
+    setEditor: (editor: Editor | null) => void;
     toggleInterlinear: () => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search') => void;
@@ -62,9 +66,7 @@ export const useUIStore = create<UIStore>()(
     persist(
         (set) => ({
             theme: 'light',
-            accentColor: '#1a73e8', // Default blue
             density: 'comfortable',
-            sidebarDefaultState: 'expanded',
 
             preferredBibleVersion: 'KJV',
             verseHoverPreviews: true,
@@ -88,6 +90,9 @@ export const useUIStore = create<UIStore>()(
             selectedStrongsId: null,
             isSettingsModalOpen: false,
             isSearchModalOpen: false,
+            searchQuery: '',
+            isShortcutModalOpen: false,
+            activeEditor: null,
 
             bibleFocus: null,
 
@@ -120,7 +125,12 @@ export const useUIStore = create<UIStore>()(
                 };
             }),
             toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
-            toggleSearchModal: () => set((state) => ({ isSearchModalOpen: !state.isSearchModalOpen })),
+            toggleSearchModal: (query) => set((state) => ({
+                isSearchModalOpen: !state.isSearchModalOpen,
+                searchQuery: query || ''
+            })),
+            toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
+            setEditor: (editor) => set({ activeEditor: editor }),
             toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),

@@ -9,7 +9,16 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GTranslateIcon from '@mui/icons-material/GTranslate';
 
 export const MenuBar: React.FC = () => {
-    const { toggleBibleModal, toggleStrongsModal, toggleSettingsModal, toggleRightSidebar, toggleLeftSidebar } = useUIStore();
+    const {
+        toggleBibleModal,
+        toggleStrongsModal,
+        toggleSettingsModal,
+        toggleRightSidebar,
+        toggleLeftSidebar,
+        toggleSearchModal,
+        toggleShortcutModal,
+        activeEditor
+    } = useUIStore();
     const { createNote, createVoiceNote, createFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
@@ -38,6 +47,39 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Strong\'s Lookup':
                 toggleStrongsModal();
+                break;
+            case 'Keyboard Shortcuts':
+                toggleShortcutModal();
+                break;
+            case 'Find in Bible':
+                toggleSearchModal('bible:');
+                break;
+            case 'Undo':
+                activeEditor?.chain().focus().undo().run();
+                break;
+            case 'Redo':
+                activeEditor?.chain().focus().redo().run();
+                break;
+            case 'Sermon Template':
+                if (activeEditor) {
+                    activeEditor.chain().focus().insertContent(`
+                        <h1>Sermon Title</h1>
+                        <p><strong>Scripture:</strong> [Reference]</p>
+                        <p><strong>Theme:</strong> [Theme]</p>
+                        <hr />
+                        <h2>I. Introduction</h2>
+                        <p>[Introduction hook and context]</p>
+                        <h2>II. Points</h2>
+                        <h3>1. [Point One]</h3>
+                        <p>[Scripture and Explanation]</p>
+                        <h3>2. [Point Two]</h3>
+                        <p>[Scripture and Explanation]</p>
+                        <h2>III. Application</h2>
+                        <p>[Life application points]</p>
+                        <h2>IV. Conclusion</h2>
+                        <p>[Summary and Closing prayer]</p>
+                    `).run();
+                }
                 break;
             default:
                 console.log(`Clicked ${label}`);

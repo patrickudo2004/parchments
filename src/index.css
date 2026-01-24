@@ -216,3 +216,22 @@ body.dark {
 .dark ::-webkit-scrollbar-thumb:hover {
     @apply bg-dark-text-disabled;
 }
+
+/* Density Styles */
+.density-comfortable {
+    --density-padding-sm: 0.5rem;
+    --density-padding-md: 1rem;
+    --density-padding-lg: 2rem;
+    --density-font-sm: 0.875rem;
+    --density-font-md: 1rem;
+    --density-icon-size: 1.25rem;
+}
+
+.density-compact {
+    --density-padding-sm: 0.25rem;
+    --density-padding-md: 0.5rem;
+    --density-padding-lg: 1rem;
+    --density-font-sm: 0.75rem;
+    --density-font-md: 0.875rem;
+    --density-icon-size: 1rem;
+}

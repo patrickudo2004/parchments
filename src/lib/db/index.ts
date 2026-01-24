@@ -159,5 +159,39 @@ export const dbHelpers = {
             console.error('Error fetching verse:', error);
             return null;
         }
+    },
+    // Backup & Restore
+    exportDatabase: async () => {
+        const notes = await db.notes.toArray();
+        const folders = await db.folders.toArray();
+        const bibleVersions = await db.bibleVersions.toArray();
+        const settings = localStorage.getItem('parchments-ui');
+
+        return {
+            version: '1.0',
+            timestamp: Date.now(),
+            data: {
+                notes,
+                folders,
+                bibleVersions,
+                uiSettings: settings ? JSON.parse(settings) : null
+            }
+        };
+    },
+
+    importDatabase: async (json: any) => {
+        if (!json.data) throw new Error('Invalid backup file');
+
+        const { notes, folders, bibleVersions, uiSettings } = json.data;
+
+        await db.transaction('rw', [db.notes, db.folders, db.bibleVersions], async () => {
+            if (notes) await db.notes.bulkPut(notes);
+            if (folders) await db.folders.bulkPut(folders);
+            if (bibleVersions) await db.bibleVersions.bulkPut(bibleVersions);
+        });
+
+        if (uiSettings) {
+            localStorage.setItem('parchments-ui', JSON.stringify(uiSettings));
+        }
     }
 };

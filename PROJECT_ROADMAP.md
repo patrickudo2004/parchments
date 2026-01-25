@@ -19,25 +19,17 @@ The goal was to build a rock-solid, local-first editor that works 100% offline a
 ---
 
 ## 📖 Phase 2: Bible Intelligence
-*Goal: Transform the editor into a deep research tool.*
+*Status: Complete*
 
-We move from "writing" to "studying," integrating advanced data layers directly into the workspace.
+We moved from "writing" to "studying," integrating advanced data layers directly into the workspace.
 
-### 1. Parallel Bible View
-- View multiple Bible versions side-by-side in the right sidebar.
-- Synchronized scrolling: Moving through one version keeps the others in sync.
-
-### 2. Strong’s Concordance Integration
-- Hover or click on specific words in the Bible reader to see original Hebrew/Greek meanings.
-- Dictionary sidebar for in-depth lexicon study.
-
-### 3. Cross-Reference Engine
-- Automated side-bar that shows related verses (Chain References) based on the currently read chapter.
-- User-created cross-references: Link your own notes to multiple Bible verses.
+- [x] **Parallel Bible View**: View multiple versions side-by-side with synced scrolling.
+- [x] **Strong’s Concordance**: Integrated Lexicon Sidebar with search and history.
+- [x] **Cross-Reference Engine**: Link private notes to verses and view automated chains.
 
 ---
 
-## ✍️ Phase 3: Study & Composition
+## ✍️ Phase 3: Study & Composition (Current)
 *Goal: Optimize for sermon preparation and academic writing.*
 
 Tools to help convert Bible research into structured messages and documents.

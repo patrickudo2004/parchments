@@ -79,3 +79,12 @@ export interface ChapterSummary {
     chapter: number;
     summary: string;
 }
+
+export interface BibleCrossRef {
+    id: string;
+    sourceVerseId: string; // book-chapter-verse
+    targetType: 'verse' | 'note' | 'external';
+    targetId: string; // verseId or noteId or URL
+    linkType: 'citation' | 'parallel' | 'user' | 'tsk';
+    metadata?: any;
+}

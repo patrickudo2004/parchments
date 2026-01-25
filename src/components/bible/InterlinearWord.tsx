@@ -1,14 +1,15 @@
 import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { useUIStore } from '@/stores/uiStore';
 
 interface InterlinearWordProps {
     word: { text: string; number: string };
-    onClick: (id: string) => void;
 }
 
-export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word, onClick }) => {
+export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word }) => {
     const entry = useLiveQuery(() => db.strongsEntries.get(word.number.toUpperCase()), [word.number]);
+    const { openLexicon } = useUIStore();
 
     return (
         <div className="flex flex-col items-start min-w-fit">
@@ -16,7 +17,7 @@ export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word, onClick 
                 {word.text}
             </span>
             <button
-                onClick={() => onClick(word.number.toUpperCase())}
+                onClick={() => openLexicon(word.number.toUpperCase())}
                 className="group flex flex-col items-start"
             >
                 <span className="text-base font-serif text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors">

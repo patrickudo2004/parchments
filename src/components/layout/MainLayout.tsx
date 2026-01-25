@@ -6,13 +6,16 @@ import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
 import { BibleModal } from '@/components/bible/BibleModal';
 import { BibleReader } from '@/components/bible/BibleReader';
-import { StrongsModal } from '@/components/bible/StrongsModal';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { AnimatePresence, motion } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
+import { Book as BookIcon, GitBranch } from 'lucide-react';
+import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -23,9 +26,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         theme,
         density,
         isBibleModalOpen,
-        isStrongsModalOpen,
-        selectedStrongsId,
-        toggleStrongsModal,
         isSettingsModalOpen,
         toggleSettingsModal,
         isShortcutModalOpen,
@@ -150,16 +150,42 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative group"
                             style={{ width: `${rightSidebarWidth}px` }}
                         >
-                            {/* Sidebar Header */}
-                            <div className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 shrink-0">
-                                <span className="text-xs font-bold uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary">{rightSidebarContent === 'bible' ? 'Bible Panel' : 'Reference Panel'}</span>
-                                <button onClick={() => toggleRightSidebar()} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><CloseIcon fontSize="small" /></button>
+                            {/* Sidebar Header with Tabs */}
+                            <div className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-2 shrink-0 bg-light-background/20 dark:bg-dark-background/10">
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => toggleRightSidebar('bible')}
+                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'bible' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
+                                    >
+                                        <MenuBookIcon sx={{ fontSize: 16 }} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Bible</span>
+                                    </button>
+                                    <button
+                                        onClick={() => toggleRightSidebar('lexicon')}
+                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'lexicon' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
+                                    >
+                                        <BookIcon size={14} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Lexicon</span>
+                                    </button>
+                                    <button
+                                        onClick={() => toggleRightSidebar('crossrefs')}
+                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'crossrefs' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
+                                    >
+                                        <GitBranch size={14} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Refs</span>
+                                    </button>
+                                </div>
+                                <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><CloseIcon style={{ fontSize: '18px' }} /></button>
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 overflow-hidden">
                                 {rightSidebarContent === 'bible' ? (
                                     <BibleReader />
+                                ) : rightSidebarContent === 'lexicon' ? (
+                                    <LexiconSidebar />
+                                ) : rightSidebarContent === 'crossrefs' ? (
+                                    <CrossRefSidebar />
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
                                         <div className="w-16 h-16 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm opacity-50">
@@ -170,11 +196,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                             <p className="text-xs text-light-text-secondary leading-relaxed max-w-[200px] mx-auto opacity-70">
                                                 Lexicons, Cross-references and Parallel views will appear here.
                                             </p>
-                                        </div>
-                                        <div className="pt-4">
-                                            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-tighter rounded-full border border-primary/20">
-                                                Coming in Phase 2
-                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -194,14 +215,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         {isBibleModalOpen && (
                             <div key="bible-modal-wrapper" className="pointer-events-auto">
                                 <BibleModal />
-                            </div>
-                        )}
-                        {isStrongsModalOpen && (
-                            <div key="strongs-modal-wrapper" className="pointer-events-auto">
-                                <StrongsModal
-                                    strongsId={selectedStrongsId}
-                                    onClose={() => toggleStrongsModal(null)}
-                                />
                             </div>
                         )}
                     </AnimatePresence>

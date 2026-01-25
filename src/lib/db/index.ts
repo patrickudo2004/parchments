@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry } from '@/types/database';
+import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry, BibleCrossRef } from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ParchmentsDatabase extends Dexie {
@@ -11,6 +11,7 @@ export class ParchmentsDatabase extends Dexie {
     chapterSummaries!: Table<ChapterSummary>;
     strongsEntries!: Table<StrongsEntry>;
     strongsConcordance!: Table<{ verseId: string; strongsNumbers: string[] }>;
+    crossReferences!: Table<BibleCrossRef>;
 
     constructor() {
         super('ParchmentsDB');
@@ -39,8 +40,8 @@ export class ParchmentsDatabase extends Dexie {
             chapterSummaries: 'id, book, [book+chapter]'
         });
 
-        // Version 6: Fix missing indices for BibleReader and Ingestion
-        this.version(6).stores({
+        // Version 7: Add Cross-References table
+        this.version(7).stores({
             notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
             folders: 'id, name, parentId, order, [parentId+order]',
             users: 'id, email, fullName',
@@ -48,7 +49,8 @@ export class ParchmentsDatabase extends Dexie {
             bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
             chapterSummaries: 'id, book, [book+chapter]',
             strongsEntries: 'id',
-            strongsConcordance: 'verseId'
+            strongsConcordance: 'verseId',
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]'
         });
     }
 }

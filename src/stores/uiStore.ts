@@ -19,10 +19,11 @@ interface UIStore {
     isLeftSidebarOpen: boolean;
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
-    rightSidebarContent: 'bible' | 'search' | null;
+    rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | null;
     isBibleModalOpen: boolean;
     isStrongsModalOpen: boolean;
     selectedStrongsId: string | null;
+    selectedVerseId: string | null;
     isSettingsModalOpen: boolean;
     isSearchModalOpen: boolean;
     searchQuery: string;
@@ -52,11 +53,13 @@ interface UIStore {
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
     toggleLeftSidebar: () => void;
-    toggleRightSidebar: (content?: 'bible' | 'search') => void;
+    toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs') => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
-    openRightSidebar: (content: 'bible' | 'search') => void;
+    openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs') => void;
     closeRightSidebar: () => void;
+    openLexicon: (id?: string) => void;
+    openCrossRefs: (verseId?: string) => void;
     setEditorStats: (words: number, characters: number) => void;
 }
 
@@ -82,6 +85,7 @@ export const useUIStore = create<UIStore>()(
             isBibleModalOpen: false,
             isStrongsModalOpen: false,
             selectedStrongsId: null,
+            selectedVerseId: null,
             isSettingsModalOpen: false,
             isSearchModalOpen: false,
             searchQuery: '',
@@ -138,12 +142,39 @@ export const useUIStore = create<UIStore>()(
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
 
             toggleRightSidebar: (content) => set((state) => {
-                const isOpen = !state.rightSidebarOpen;
+                // If sidebar is closed, open it with the provided content
+                if (!state.rightSidebarOpen) {
+                    return {
+                        rightSidebarOpen: true,
+                        rightSidebarContent: content || state.rightSidebarContent || 'bible'
+                    };
+                }
+
+                // If sidebar is open and content is same OR no content provided, toggle close
+                if (!content || state.rightSidebarContent === content) {
+                    return {
+                        rightSidebarOpen: false,
+                        rightSidebarContent: null
+                    };
+                }
+
+                // If sidebar is open and content is different, switch content (keep open)
                 return {
-                    rightSidebarOpen: isOpen,
-                    rightSidebarContent: isOpen ? (content || state.rightSidebarContent || 'bible') : null
+                    rightSidebarContent: content
                 };
             }),
+
+            openLexicon: (id) => set((state) => ({
+                rightSidebarOpen: true,
+                rightSidebarContent: 'lexicon',
+                selectedStrongsId: id || state.selectedStrongsId
+            })),
+
+            openCrossRefs: (verseId) => set((state) => ({
+                rightSidebarOpen: true,
+                rightSidebarContent: 'crossrefs',
+                selectedVerseId: verseId || state.selectedVerseId
+            })),
 
             setTheme: (theme) =>
                 set(() => {

@@ -7,6 +7,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BoltIcon from '@mui/icons-material/Bolt';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import { dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
 
@@ -27,7 +28,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const { setCurrentNote, isLocalMode, localFiles, openLocalFile } = useNoteStore();
-    const { toggleTheme, setBibleFocus, openRightSidebar } = useUIStore();
+    const { toggleTheme, openRightSidebar } = useUIStore();
+    const { setBibleFocus } = useBibleStore();
 
     // Reset when opening
     useEffect(() => {

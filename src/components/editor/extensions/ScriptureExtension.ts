@@ -2,6 +2,7 @@ import { Mark, mergeAttributes, InputRule } from '@tiptap/react';
 import { Plugin } from '@tiptap/pm/state';
 import { parseScriptureReference, SCRIPTURE_REGEX } from '@/lib/scriptureParser';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {
@@ -160,8 +161,9 @@ export const ScriptureExtension = Mark.create({
                             // Prevent default text selection
                             event.preventDefault();
 
-                            // Use UIStore (direct access via getState to avoid hook rules in vanilla JS/plugin)
-                            const { openRightSidebar, setBibleFocus } = useUIStore.getState();
+                            // Use stores (direct access via getState to avoid hook rules in vanilla JS/plugin)
+                            const { openRightSidebar } = useUIStore.getState();
+                            const { setBibleFocus } = useBibleStore.getState();
 
                             openRightSidebar('bible');
                             setBibleFocus({ book, chapter, verse, verseEnd });

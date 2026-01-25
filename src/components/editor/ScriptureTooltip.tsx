@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { db } from '@/lib/db';
-import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import type { BibleVerse } from '@/types/database';
 
 interface ScriptureTooltipProps {
@@ -9,7 +9,7 @@ interface ScriptureTooltipProps {
 }
 
 export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ children }) => {
-    const { verseHoverPreviews } = useUIStore();
+    const { verseHoverPreviews } = useBibleStore();
 
     if (!verseHoverPreviews) return <>{children}</>;
 
@@ -22,7 +22,7 @@ export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ chil
 };
 
 const GlobalScriptureListener: React.FC = () => {
-    const { preferredBibleVersion } = useUIStore();
+    const { mainVersion } = useBibleStore();
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [content, setContent] = useState<{ ref: string; verses: BibleVerse[]; version: string } | null>(null);
@@ -37,7 +37,7 @@ const GlobalScriptureListener: React.FC = () => {
                 const verseEnd = parseInt(target.getAttribute('verseend') || '0');
 
                 if (book && chapter && verse) {
-                    const versionId = preferredBibleVersion.toLowerCase(); // Lowercase to match catalog IDs
+                    const versionId = mainVersion.toLowerCase(); // Lowercase to match catalog IDs
 
                     // Fetch from DB
                     let verses: BibleVerse[] = [];
@@ -59,7 +59,7 @@ const GlobalScriptureListener: React.FC = () => {
                         setContent({
                             ref: refString,
                             verses: verses,
-                            version: preferredBibleVersion
+                            version: mainVersion
                         });
 
                         const rect = target.getBoundingClientRect();
@@ -87,7 +87,7 @@ const GlobalScriptureListener: React.FC = () => {
             document.removeEventListener('mouseover', handleMouseOver);
             document.removeEventListener('mouseout', handleMouseOut);
         };
-    }, [preferredBibleVersion]);
+    }, [mainVersion]);
 
     // We use a custom anchor for Radix Tooltip
     // This is a "virtual element" implementation for React

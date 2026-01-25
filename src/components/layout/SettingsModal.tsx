@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
 import PaletteIcon from '@mui/icons-material/Palette';
@@ -34,6 +35,7 @@ const TABS = [
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const settings = useUIStore();
+    const { mainVersion, setMainVersion, verseHoverPreviews, toggleVerseHoverPreviews } = useBibleStore();
     const { updateSettings, setTheme } = settings;
     const [activeTab, setActiveTab] = useState('appearance');
 
@@ -152,9 +154,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             await db.bibleVerses.where('versionId').equals(id).delete();
             await db.bibleVersions.delete(id);
 
-            if (settings.preferredBibleVersion === id) {
+            if (mainVersion === id) {
                 const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
-                updateSettings({ preferredBibleVersion: remaining?.abbreviation || 'KJV' });
+                setMainVersion(remaining?.id || 'kjv');
             }
 
             setImportingState(null);
@@ -307,8 +309,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Preferred Version</h4>
                                                 <div className="max-w-md">
                                                     <select
-                                                        value={settings.preferredBibleVersion}
-                                                        onChange={(e) => updateSettings({ preferredBibleVersion: e.target.value })}
+                                                        value={mainVersion}
+                                                        onChange={(e) => setMainVersion(e.target.value)}
                                                         className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                     >
                                                         {installedVersions.length > 0 ? (
@@ -456,10 +458,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         <p className="text-xs text-light-text-secondary group-hover:text-light-text-primary transition-colors">Show floating preview when hovering linked references</p>
                                                     </div>
                                                     <button
-                                                        onClick={() => updateSettings({ verseHoverPreviews: !settings.verseHoverPreviews })}
-                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${settings.verseHoverPreviews ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                        onClick={() => toggleVerseHoverPreviews()}
+                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${verseHoverPreviews ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
                                                     >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.verseHoverPreviews ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${verseHoverPreviews ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
                                                 </div>
                                             </section>

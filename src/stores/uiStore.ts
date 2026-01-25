@@ -6,11 +6,6 @@ interface UIStore {
     theme: 'light' | 'dark' | 'system';
     density: 'comfortable' | 'compact';
 
-    // Bible & Study
-    preferredBibleVersion: string;
-    verseHoverPreviews: boolean;
-    interlinearEnabled: boolean;
-
     // Editor
     editorFontFamily: 'sans' | 'serif';
     editorFontSize: number;
@@ -38,9 +33,6 @@ interface UIStore {
     isExportModalOpen: boolean;
     exportFormat: 'pdf' | 'docx' | 'md' | 'html' | 'txt' | null;
 
-    // Bible Navigation
-    bibleFocus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null;
-
     // Editor stats
     wordCount: number;
     characterCount: number;
@@ -59,7 +51,6 @@ interface UIStore {
     setEditor: (editor: Editor | null) => void;
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
-    toggleInterlinear: () => void;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search') => void;
     setLeftSidebarWidth: (width: number) => void;
@@ -67,7 +58,6 @@ interface UIStore {
     openRightSidebar: (content: 'bible' | 'search') => void;
     closeRightSidebar: () => void;
     setEditorStats: (words: number, characters: number) => void;
-    setBibleFocus: (focus: { book: string; chapter: number; verse: number | null; verseEnd?: number | null } | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -75,10 +65,6 @@ export const useUIStore = create<UIStore>()(
         (set) => ({
             theme: 'light',
             density: 'comfortable',
-
-            preferredBibleVersion: 'KJV',
-            verseHoverPreviews: true,
-            interlinearEnabled: false,
 
             editorFontFamily: 'serif',
             editorFontSize: 16,
@@ -105,8 +91,6 @@ export const useUIStore = create<UIStore>()(
             toast: null,
             isExportModalOpen: false,
             exportFormat: null,
-
-            bibleFocus: null,
 
             wordCount: 0,
             characterCount: 0,
@@ -150,7 +134,6 @@ export const useUIStore = create<UIStore>()(
             setEditor: (editor) => set({ activeEditor: editor }),
             openExportModal: (format) => set({ isExportModalOpen: true, exportFormat: format }),
             closeExportModal: () => set({ isExportModalOpen: false, exportFormat: null }),
-            toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
 
@@ -190,17 +173,12 @@ export const useUIStore = create<UIStore>()(
 
             setEditorStats: (words, characters) =>
                 set({ wordCount: words, characterCount: characters }),
-
-            setBibleFocus: (focus) => set({ bibleFocus: focus }),
         }),
         {
             name: 'parchments-ui',
             partialize: (state) => ({
                 theme: state.theme,
                 density: state.density,
-                preferredBibleVersion: state.preferredBibleVersion,
-                verseHoverPreviews: state.verseHoverPreviews,
-                interlinearEnabled: state.interlinearEnabled,
                 editorFontFamily: state.editorFontFamily,
                 editorFontSize: state.editorFontSize,
                 editorLineSpacing: state.editorLineSpacing,
@@ -213,7 +191,6 @@ export const useUIStore = create<UIStore>()(
                 rightSidebarWidth: state.rightSidebarWidth,
                 rightSidebarOpen: state.rightSidebarOpen,
                 rightSidebarContent: state.rightSidebarContent,
-                bibleFocus: state.bibleFocus,
             }),
             onRehydrateStorage: () => (state) => {
                 if (state && state.theme === 'dark') {

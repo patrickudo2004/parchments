@@ -1,38 +1,71 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
 import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { Languages } from 'lucide-react';
+import { ParallelVerseRow } from './ParallelVerseRow';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
 }
 
 export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false }) => {
-    const { bibleFocus, preferredBibleVersion } = useUIStore();
+    const {
+        bibleFocus,
+        mainVersion,
+        parallelVersions,
+        setMainVersion,
+        addParallelVersion,
+        removeParallelVersion,
+        setBibleFocus,
+        interlinearEnabled,
+        toggleInterlinear
+    } = useBibleStore();
+
+    const { showToast } = useUIStore();
     const contentRef = useRef<HTMLDivElement>(null);
 
     // Current Navigation State
-    const [versionId, setVersionId] = useState(preferredBibleVersion.toLowerCase());
     const [book, setBook] = useState(bibleFocus?.book || 'John');
     const [chapter, setChapter] = useState(bibleFocus?.chapter || 1);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [isAddParallelOpen, setIsAddParallelOpen] = useState(false);
 
-    const { interlinearEnabled, toggleInterlinear, toggleStrongsModal, showToast } = useUIStore();
+    const activeVersions = [mainVersion, ...parallelVersions];
 
     const installedVersions = useLiveQuery(async () => {
         const all = await db.bibleVersions.toArray();
         return all.filter(v => v.isDownloaded);
     }) || [];
 
-    const verses = useLiveQuery(() =>
-        db.bibleVerses.where('[versionId+book+chapter]').equals([versionId, book, chapter]).sortBy('verse')
-        , [versionId, book, chapter]) || [];
+    // Fetch all verses for all active versions in the current chapter
+    const allVerses = useLiveQuery(async () => {
+        return db.bibleVerses
+            .where('versionId')
+            .anyOf(activeVersions)
+            .and(v => v.book === book && v.chapter === chapter)
+            .toArray();
+    }, [activeVersions, book, chapter]) || [];
+
+    // Group verses by verse number
+    const groupedVerses = React.useMemo(() => {
+        const groups: Record<number, Record<string, BibleVerse>> = {};
+        allVerses.forEach(v => {
+            if (!groups[v.verse]) groups[v.verse] = {};
+            groups[v.verse][v.versionId] = v;
+        });
+        return groups;
+    }, [allVerses]);
+
+    const sortedVerseNums = Object.keys(groupedVerses).map(Number).sort((a, b) => a - b);
 
     // Sync with bibleFocus from global store (only if NOT independent)
     useEffect(() => {
@@ -40,87 +73,104 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             setBook(bibleFocus.book);
             setChapter(bibleFocus.chapter);
 
-            // Wait for render then scroll to focused verse
             if (bibleFocus.verse !== null && bibleFocus.verse !== undefined) {
                 setTimeout(() => {
-                    const start = bibleFocus.verse!;
-                    const end = bibleFocus.verseEnd || start;
-
-                    for (let i = start; i <= end; i++) {
-                        const el = document.getElementById(`verse-${i}`);
-                        if (el) {
-                            if (i === start) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            el.classList.add('bg-primary/10', 'border-l-4', 'border-primary', 'pl-2');
-                            setTimeout(() => el.classList.remove('bg-primary/10', 'border-l-4', 'border-primary', 'pl-2'), 4000);
-                        }
-                    }
+                    const el = document.getElementById(`verse-${bibleFocus.verse}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 100);
             }
         }
     }, [bibleFocus, isIndependent]);
 
-    const handleVersionChange = (newVersion: string) => {
-        setVersionId(newVersion.toLowerCase());
-    };
-
     const handleNavigation = (direction: 'next' | 'prev') => {
         const currentBookIndex = BIBLE_BOOKS.findIndex(b => b.name === book);
         const currentBookData = BIBLE_BOOKS[currentBookIndex];
+        let newBook = book;
+        let newChapter = chapter;
 
         if (direction === 'next') {
             if (chapter < currentBookData.chapters) {
-                setChapter(prev => prev + 1);
+                newChapter = chapter + 1;
             } else if (currentBookIndex < BIBLE_BOOKS.length - 1) {
                 const nextBook = BIBLE_BOOKS[currentBookIndex + 1];
-                setBook(nextBook.name);
-                setChapter(1);
+                newBook = nextBook.name;
+                newChapter = 1;
             }
         } else {
             if (chapter > 1) {
-                setChapter(prev => prev - 1);
+                newChapter = chapter - 1;
             } else if (currentBookIndex > 0) {
                 const prevBook = BIBLE_BOOKS[currentBookIndex - 1];
-                setBook(prevBook.name);
-                setChapter(prevBook.chapters);
+                newBook = prevBook.name;
+                newChapter = prevBook.chapters;
             }
         }
 
-        // Scroll back to top
+        if (newBook !== book || newChapter !== chapter) {
+            setBook(newBook);
+            setChapter(newChapter);
+            if (!isIndependent) {
+                setBibleFocus({ book: newBook, chapter: newChapter, verse: null });
+            }
+        }
         contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     const handlePickerSelect = (newBook: string, newChapter: number) => {
         setBook(newBook);
         setChapter(newChapter);
+        if (!isIndependent) {
+            setBibleFocus({ book: newBook, chapter: newChapter, verse: null });
+        }
         setIsPickerOpen(false);
         contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative">
+        <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">
             {/* Nav Header */}
             <div className={`h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between pl-4 ${!isIndependent ? 'pr-14' : 'pr-4'} bg-light-background/30 dark:bg-dark-background/20 shrink-0`}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[60%]">
                     <select
-                        value={versionId.toUpperCase()}
-                        onChange={(e) => handleVersionChange(e.target.value)}
-                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors"
+                        value={mainVersion}
+                        onChange={(e) => setMainVersion(e.target.value)}
+                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0"
                     >
                         {installedVersions.map((v: BibleVersion) => (
-                            <option key={v.id} value={v.id.toUpperCase()}>{v.abbreviation}</option>
+                            <option key={v.id} value={v.id}>{v.abbreviation}</option>
                         ))}
-                        {installedVersions.length === 0 && <option disabled>No Bibles</option>}
                     </select>
-                    <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
+
+                    {parallelVersions.map(vid => (
+                        <div key={vid} className="flex items-center bg-primary/10 rounded-full pl-2 pr-1 py-0.5 shrink-0">
+                            <span className="text-[10px] font-black uppercase tracking-tighter text-primary mr-1">
+                                {installedVersions.find(v => v.id === vid)?.abbreviation || vid.toUpperCase()}
+                            </span>
+                            <button onClick={() => removeParallelVersion(vid)} className="text-primary hover:text-primary/70">
+                                <CloseIcon style={{ fontSize: '12px' }} />
+                            </button>
+                        </div>
+                    ))}
+
+                    {activeVersions.length < 4 && (
+                        <button
+                            onClick={() => setIsAddParallelOpen(!isAddParallelOpen)}
+                            className={`p-1 rounded-full hover:bg-primary/10 text-primary transition-colors ${isAddParallelOpen ? 'bg-primary/20' : ''}`}
+                        >
+                            <AddIcon style={{ fontSize: '18px' }} />
+                        </button>
+                    )}
+
+                    <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1 shrink-0" />
                     <button
                         onClick={() => setIsPickerOpen(!isPickerOpen)}
-                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors ${isPickerOpen ? 'text-primary' : ''}`}
+                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors shrink-0 ${isPickerOpen ? 'text-primary' : ''}`}
                     >
                         {book} {chapter} {isPickerOpen ? '▴' : '▾'}
                     </button>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                     <button
                         onClick={toggleInterlinear}
                         className={`p-1.5 rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
@@ -134,6 +184,37 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 </div>
             </div>
 
+            {/* Parallel Selector Popover */}
+            {isAddParallelOpen && (
+                <div className="absolute top-16 left-4 z-[100] bg-white dark:bg-dark-surface shadow-2xl rounded-xl border border-light-border dark:border-dark-border p-2 min-w-[200px]">
+                    <div className="p-2 text-[10px] font-black uppercase text-light-text-disabled border-b border-light-border dark:border-dark-border mb-1">Add Parallel View</div>
+                    {installedVersions.filter(v => !activeVersions.includes(v.id)).map(v => (
+                        <button
+                            key={v.id}
+                            onClick={() => {
+                                addParallelVersion(v.id);
+                                setIsAddParallelOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm font-bold hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex justify-between items-center"
+                        >
+                            {v.name}
+                            <span className="text-[10px] opacity-50 uppercase">{v.abbreviation}</span>
+                        </button>
+                    ))}
+                    {installedVersions.length <= activeVersions.length && (
+                        <div className="p-4 text-center">
+                            <p className="text-xs text-light-text-disabled italic mb-2">No other bibles found.</p>
+                            <button
+                                onClick={() => showToast('Go to Settings to download more versions', 'info')}
+                                className="text-[10px] font-black text-primary uppercase"
+                            >
+                                Download Bibles
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Picker Overlay */}
             {isPickerOpen && (
                 <BookChapterPicker
@@ -145,45 +226,26 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             )}
 
             {/* Reading Content */}
-            <div ref={contentRef} className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
-                <div className="max-w-prose mx-auto">
-                    <h1 className="text-4xl font-black mb-8 text-light-text-primary dark:text-dark-text-primary tracking-tight">
+            <div ref={contentRef} className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="max-w-[1400px] mx-auto p-4 sm:p-12">
+                    <h1 className="text-5xl font-black mb-12 text-light-text-primary dark:text-dark-text-primary tracking-tight">
                         {book} <span className="text-primary">{chapter}</span>
                     </h1>
 
-                    {/* Scripture Text */}
-                    <div className="space-y-6 text-xl leading-relaxed text-light-text-main dark:text-dark-text-main font-serif">
-                        {verses.length > 0 ? (
-                            verses.map((v: BibleVerse) => (
-                                <div key={v.id} id={`verse-${v.verse}`} className="transition-all duration-500 rounded p-1 -mx-1">
-                                    <sup
-                                        className="text-primary font-black mr-3 select-none opacity-90 relative -top-1"
-                                        style={{ fontSize: '20px' }}
-                                    >
-                                        {v.verse}
-                                    </sup>
-                                    <span className="opacity-90">
-                                        {interlinearEnabled && v.interlinear ? (
-                                            <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2">
-                                                {v.interlinear.map((word, idx) => (
-                                                    <InterlinearWord key={idx} word={word} onClick={toggleStrongsModal} />
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            v.text
-                                        )}
-                                    </span>
-                                </div>
+                    {/* Scripture Text - Grid Version */}
+                    <div className="flex flex-col">
+                        {sortedVerseNums.length > 0 ? (
+                            sortedVerseNums.map((vNum) => (
+                                <ParallelVerseRow
+                                    key={vNum}
+                                    verseNum={vNum}
+                                    versions={activeVersions}
+                                    versesByVersion={groupedVerses[vNum]}
+                                />
                             ))
                         ) : (
                             <div className="py-20 text-center space-y-4">
-                                <p className="text-light-text-disabled italic">Scripture text not available for this version offline (Chapter {chapter}).</p>
-                                <button
-                                    onClick={() => showToast(`Download for ${versionId.toUpperCase()} coming in Phase 2`, 'info')}
-                                    className="text-xs font-black uppercase tracking-widest text-primary hover:underline"
-                                >
-                                    Download {versionId.toUpperCase()}
-                                </button>
+                                <p className="text-light-text-disabled italic text-xl font-serif">Scripture text loading or not available.</p>
                             </div>
                         )}
                     </div>
@@ -195,50 +257,31 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                             className="flex flex-col items-start gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
                         >
                             <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Previous</span>
-                            <span className="font-bold flex items-center"><NavigateBeforeIcon fontSize="small" /> Previous Chapter</span>
+                            <span className="font-bold flex items-center text-lg"><NavigateBeforeIcon /> Previous Chapter</span>
                         </button>
                         <button
                             onClick={() => handleNavigation('next')}
                             className="flex flex-col items-end gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
                         >
                             <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Next</span>
-                            <span className="font-bold flex items-center">Next Chapter <NavigateNextIcon fontSize="small" /></span>
+                            <span className="font-bold flex items-center text-lg">Next Chapter <NavigateNextIcon /></span>
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Footer Navigation */}
-            <div className="h-12 border-t border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10 flex items-center justify-between px-6 shrink-0 text-[10px] font-black uppercase tracking-widest text-light-text-disabled select-none">
-                <button onClick={() => handleNavigation('prev')} className="flex items-center hover:text-primary transition-colors"><NavigateBeforeIcon fontSize="inherit" className="mr-1" /> Previous</button>
-                <span className="hidden sm:block">
-                    {installedVersions.find((v: BibleVersion) => v.id === versionId)?.name || 'Translation'}
-                </span>
-                <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors">Next <NavigateNextIcon fontSize="inherit" className="ml-1" /></button>
+            <div className="h-10 border-t border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10 flex items-center justify-between px-6 shrink-0 text-[9px] font-black uppercase tracking-widest text-light-text-disabled select-none">
+                <button onClick={() => handleNavigation('prev')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform"><NavigateBeforeIcon fontSize="inherit" className="mr-1" /> Previous</button>
+                <div className="flex gap-4">
+                    {activeVersions.map(vid => (
+                        <span key={vid}>
+                            {installedVersions.find(v => v.id === vid)?.abbreviation || vid.toUpperCase()}
+                        </span>
+                    ))}
+                </div>
+                <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform">Next <NavigateNextIcon fontSize="inherit" className="ml-1" /></button>
             </div>
-        </div>
-    );
-};
-
-const InterlinearWord: React.FC<{ word: { text: string; number: string }; onClick: (id: string) => void }> = ({ word, onClick }) => {
-    const entry = useLiveQuery(() => db.strongsEntries.get(word.number.toUpperCase()), [word.number]);
-
-    return (
-        <div className="flex flex-col items-start min-w-fit">
-            <span className="text-[10px] font-black uppercase tracking-tight text-light-text-disabled leading-none mb-1">
-                {word.text}
-            </span>
-            <button
-                onClick={() => onClick(word.number.toUpperCase())}
-                className="group flex flex-col items-start"
-            >
-                <span className="text-base font-serif text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors">
-                    {entry?.lemma || '...'}
-                </span>
-                <span className="text-[9px] font-bold text-primary opacity-50 group-hover:opacity-100 transition-opacity">
-                    {word.number.toUpperCase()}
-                </span>
-            </button>
         </div>
     );
 };

@@ -13,20 +13,42 @@ self.addEventListener('message', async (event) => {
             const versesToInsert: BibleVerse[] = [];
 
             if (data.books) {
-                // Format 1: Nested { books: [{ name, chapters: [...] }] }
-                const { books } = data;
+                // Determine if books is an array or an object
+                const isArray = Array.isArray(data.books);
+                const bookEntries = isArray ? data.books : Object.entries(data.books);
+
                 let totalChapters = 0;
-                books.forEach((b: any) => totalChapters += b.chapters.length);
+                if (isArray) {
+                    data.books.forEach((b: any) => totalChapters += b.chapters.length);
+                } else {
+                    Object.values(data.books).forEach((b: any) => totalChapters += Object.keys(b.chapters).length);
+                }
+
                 let processedChapters = 0;
 
-                for (const bookData of books) {
-                    const bookName = bookData.name;
-                    for (let cIdx = 0; cIdx < bookData.chapters.length; cIdx++) {
-                        const chapterNum = cIdx + 1;
-                        const verses = bookData.chapters[cIdx];
-                        for (let vIdx = 0; vIdx < verses.length; vIdx++) {
-                            const verseNum = vIdx + 1;
-                            const text = verses[vIdx];
+                for (const entry of bookEntries) {
+                    let bookName = isArray ? (entry as any).name : (entry as any)[0];
+                    const bookData = isArray ? (entry as any) : (entry as any)[1];
+
+                    // Normalize book name (Roman numerals to Arabic)
+                    if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
+                    else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
+                    else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
+
+                    const chaptersArr = isArray ? bookData.chapters : Object.entries(bookData.chapters);
+
+                    for (const chEntry of chaptersArr) {
+                        const chapterNum = isArray ? (chaptersArr.indexOf(chEntry) + 1) : parseInt((chEntry as any)[0]);
+                        const chapterData = isArray ? chEntry : (chEntry as any)[1];
+
+                        // Hierarchical Object has a "verses" property inside chapter
+                        const versesSource = isArray ? chapterData : (chapterData.verses ? Object.entries(chapterData.verses) : []);
+                        const isVerseArray = Array.isArray(versesSource);
+
+                        for (const vEntry of versesSource) {
+                            const verseNum = isVerseArray ? (versesSource.indexOf(vEntry) + 1) : parseInt((vEntry as any)[0]);
+                            const text = isVerseArray ? vEntry : (vEntry as any)[1];
+
                             versesToInsert.push({
                                 id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
                                 versionId,
@@ -36,6 +58,7 @@ self.addEventListener('message', async (event) => {
                                 text,
                             });
                         }
+
                         processedChapters++;
                         if (processedChapters % 10 === 0) {
                             self.postMessage({

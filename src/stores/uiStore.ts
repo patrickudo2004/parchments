@@ -25,6 +25,7 @@ interface UIStore {
     selectedStrongsId: string | null;
     selectedVerseId: string | null;
     isSettingsModalOpen: boolean;
+    isTemplateModalOpen: boolean;
     isSearchModalOpen: boolean;
     searchQuery: string;
     isShortcutModalOpen: boolean;
@@ -45,6 +46,7 @@ interface UIStore {
     toggleBibleModal: () => void;
     toggleStrongsModal: (id?: string | null) => void;
     toggleSettingsModal: () => void;
+    toggleTemplateModal: () => void;
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
     toggleFocusMode: () => void;
@@ -87,6 +89,7 @@ export const useUIStore = create<UIStore>()(
             selectedStrongsId: null,
             selectedVerseId: null,
             isSettingsModalOpen: false,
+            isTemplateModalOpen: false,
             isSearchModalOpen: false,
             searchQuery: '',
             isShortcutModalOpen: false,
@@ -125,6 +128,7 @@ export const useUIStore = create<UIStore>()(
                 };
             }),
             toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+            toggleTemplateModal: () => set((state) => ({ isTemplateModalOpen: !state.isTemplateModalOpen })),
             toggleSearchModal: (query) => set((state) => ({
                 isSearchModalOpen: !state.isSearchModalOpen,
                 searchQuery: query || ''

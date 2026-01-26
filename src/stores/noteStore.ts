@@ -11,6 +11,85 @@ export interface LocalItem {
     parentId: string | null;
 }
 
+export const STUDY_TEMPLATES = {
+    soap: {
+        id: 'soap',
+        name: 'SOAP Method',
+        description: 'Scripture, Observation, Application, Prayer. A simple devotional structure.',
+        content: `
+            <h1>SOAP Devotional</h1>
+            <h2>Scripture</h2>
+            <p>Write the verse(s) that stood out to you today.</p>
+            <p></p>
+            <h2>Observation</h2>
+            <p>What did you notice about this text? Who is talking? What is the context?</p>
+            <p></p>
+            <h2>Application</h2>
+            <p>How does this scripture apply to your life right now? What is God saying to you?</p>
+            <p></p>
+            <h2>Prayer</h2>
+            <p>Write a prayer in response to what you've studied.</p>
+            <p></p>
+        `
+    },
+    inductive: {
+        id: 'inductive',
+        name: 'Inductive Study',
+        description: 'Observation, Interpretation, Application. A deep-dive research approach.',
+        content: `
+            <h1>Inductive Bible Study</h1>
+            <h2>Observation</h2>
+            <p>What does it say? Note words, transitions, and repeated terms.</p>
+            <p></p>
+            <h2>Interpretation</h2>
+            <p>What does it mean? What was the author's original intent to the original audience?</p>
+            <p></p>
+            <h2>Application</h2>
+            <p>How do I live this out? What change is required in my character or actions?</p>
+            <p></p>
+        `
+    },
+    expository: {
+        id: 'expository',
+        name: 'Expository Sermon',
+        description: 'Title, Introduction, Points, Conclusion. For structured teaching.',
+        content: `
+            <h1>Sermon Outline</h1>
+            <p><strong>Main Idea:</strong> </p>
+            <h2>Introduction</h2>
+            <p>Hook, background, and the primary tension of the text.</p>
+            <p></p>
+            <h2>Point 1: [Executive Title]</h2>
+            <p>Exegesis and illustration.</p>
+            <p></p>
+            <h2>Point 2: [Executive Title]</h2>
+            <p>Exegesis and illustration.</p>
+            <p></p>
+            <h2>Point 3: [Executive Title]</h2>
+            <p>Exegesis and illustration.</p>
+            <p></p>
+            <h2>Conclusion</h2>
+            <p>Summary and the "So What?" (Final Call to Action).</p>
+            <p></p>
+        `
+    },
+    journal: {
+        id: 'journal',
+        name: 'Daily Reflection',
+        description: 'A free-form space for daily thoughts and scripture interactions.',
+        content: `
+            <h1>Daily Reflection</h1>
+            <p><em>Date: ${new Date().toLocaleDateString()}</em></p>
+            <p></p>
+            <h2>Thoughts & Meditations</h2>
+            <p>What is on your heart today?</p>
+            <p></p>
+            <h2>Scripture Integration</h2>
+            <p></p>
+        `
+    }
+};
+
 interface NoteStore {
     currentNote: Note | null;
     notes: Note[];
@@ -26,6 +105,7 @@ interface NoteStore {
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
     createNote: (folderId: string | null) => Promise<Note>;
+    createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number) => Promise<Note>;
     createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
@@ -36,11 +116,11 @@ interface NoteStore {
     openLocalFolder: () => Promise<void>;
     openLocalFile: (item: LocalItem) => Promise<void>;
     // Local Creation Actions
-    createLocalNote: (fileName: string, targetFolderId: string | null) => Promise<void>;
-    createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
-    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null) => Promise<void>;
     saveCurrentNote: (title: string, content: string) => Promise<void>;
     setLocalMode: (enabled: boolean) => void;
+    createLocalNote: (fileName: string, targetFolderId: string | null, content?: string) => Promise<void>;
+    createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
+    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null) => Promise<void>;
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
@@ -66,6 +146,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createNote: async (folderId) => {
+        const { isLocalMode, createLocalNote } = get();
+        if (isLocalMode) {
+            const name = prompt('Name your new note:', 'Untitled Note');
+            if (!name) return {} as Note;
+            await createLocalNote(name, folderId);
+            return {} as Note;
+        }
+
         const note = await dbHelpers.createNote({
             title: 'Untitled Note',
             content: '',
@@ -78,7 +166,38 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         return note;
     },
 
+    createNoteFromTemplate: async (folderId, templateId) => {
+        const { isLocalMode, createLocalNote } = get();
+        const template = STUDY_TEMPLATES[templateId as keyof typeof STUDY_TEMPLATES];
+        if (!template) throw new Error('Template not found');
+
+        const dateStr = new Date().toLocaleDateString().replace(/[/:]/g, '-');
+        const title = `${template.name} - ${dateStr}`;
+
+        if (isLocalMode) {
+            await createLocalNote(title, folderId, template.content);
+            return {} as Note; // In local mode, refreshing file list handles selection
+        }
+
+        const note = await dbHelpers.createNote({
+            title,
+            content: template.content,
+            folderId,
+            tags: [],
+            type: 'text',
+        });
+        const { notes } = get();
+        set({ notes: [...notes, note], currentNote: note });
+        return note;
+    },
+
     createVoiceNote: async (folderId, audioBlob, duration) => {
+        const { isLocalMode, createLocalVoiceNote } = get();
+        if (isLocalMode) {
+            await createLocalVoiceNote(audioBlob, folderId);
+            return {} as Note;
+        }
+
         const note = await dbHelpers.createNote({
             title: 'Voice Note',
             content: '', // Can be transcript later
@@ -236,7 +355,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    createLocalNote: async (fileName: string, targetFolderId: string | null) => {
+    createLocalNote: async (fileName, targetFolderId, content = '') => {
         const { localDirectoryHandle, localFiles, openLocalFile } = get();
         if (!localDirectoryHandle) return;
 
@@ -250,8 +369,6 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
 
-            // Default to empty HTML
-            const content = '';
             const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
             const handle = await fileSystem.createFile(parentHandle, name, content);
 

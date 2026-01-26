@@ -16,6 +16,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { Book as BookIcon, GitBranch } from 'lucide-react';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
+import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -26,6 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         theme,
         density,
         isBibleModalOpen,
+        isTemplateModalOpen,
         isSettingsModalOpen,
         toggleSettingsModal,
         isShortcutModalOpen,
@@ -215,6 +217,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         {isBibleModalOpen && (
                             <div key="bible-modal-wrapper" className="pointer-events-auto">
                                 <BibleModal />
+                            </div>
+                        )}
+                        {isTemplateModalOpen && (
+                            <div key="template-modal-wrapper" className="pointer-events-auto">
+                                <TemplatePickerModal />
                             </div>
                         )}
                     </AnimatePresence>

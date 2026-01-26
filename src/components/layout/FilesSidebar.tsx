@@ -14,6 +14,7 @@ import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
+import { PenTool } from 'lucide-react';
 
 
 export const FilesSidebar: React.FC = () => {
@@ -21,10 +22,10 @@ export const FilesSidebar: React.FC = () => {
         setCurrentNote, createNote, createVoiceNote, createFolder,
         notes, folders, deleteNote, deleteFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
-        createLocalNote, createLocalFolder, createLocalVoiceNote,
+        createLocalFolder,
         hasStudyspace
     } = useNoteStore();
-    const { leftSidebarWidth } = useUIStore();
+    const { leftSidebarWidth, toggleTemplateModal } = useUIStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -69,14 +70,7 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleCreateNote = async () => {
-        if (isLocalMode) {
-            const name = prompt('Enter note name:');
-            if (name) {
-                await createLocalNote(name, selectedFolderId);
-            }
-        } else {
-            await createNote(selectedFolderId);
-        }
+        await createNote(selectedFolderId);
     };
 
     const handleCreateFolder = async () => {
@@ -207,6 +201,14 @@ export const FilesSidebar: React.FC = () => {
                         <NoteAddIcon fontSize="small" />
                     </button>
                     <button
+                        onClick={toggleTemplateModal}
+                        disabled={!hasStudyspace}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background text-primary'}`}
+                        title={!hasStudyspace ? "Open a Studyspace first" : "New Study Template"}
+                    >
+                        <PenTool size={16} />
+                    </button>
+                    <button
                         onClick={() => hasStudyspace && setShowRecorder(true)}
                         disabled={!hasStudyspace}
                         className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'}`}
@@ -232,11 +234,7 @@ export const FilesSidebar: React.FC = () => {
                 <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
                         onSave={async (blob, duration) => {
-                            if (isLocalMode) {
-                                await createLocalVoiceNote(blob, selectedFolderId);
-                            } else {
-                                await createVoiceNote(selectedFolderId, blob, duration);
-                            }
+                            await createVoiceNote(selectedFolderId, blob, duration);
                             setShowRecorder(false);
                         }}
                         onCancel={() => setShowRecorder(false)}

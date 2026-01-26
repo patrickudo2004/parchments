@@ -9,12 +9,14 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
+import { PenTool } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
     const {
         theme, toggleTheme, toggleSettingsModal, toggleSearchModal,
-        isExportModalOpen, exportFormat, closeExportModal, openExportModal
+        isExportModalOpen, exportFormat, closeExportModal, openExportModal,
+        toggleTemplateModal
     } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -67,6 +69,14 @@ export const TopBar: React.FC = () => {
                     </div>
                     <span className="font-extrabold text-xl text-primary tracking-tight hidden sm:block">Parchments</span>
                 </div>
+
+                <button
+                    onClick={toggleTemplateModal}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95"
+                >
+                    <PenTool size={14} />
+                    <span>New Study</span>
+                </button>
             </div>
 
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">

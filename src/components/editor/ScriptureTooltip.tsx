@@ -31,10 +31,10 @@ const GlobalScriptureListener: React.FC = () => {
         const handleMouseOver = async (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             if (target.classList.contains('scripture-ref')) {
-                const book = target.getAttribute('book');
-                const chapter = parseInt(target.getAttribute('chapter') || '0');
-                const verse = parseInt(target.getAttribute('verse') || '0');
-                const verseEnd = parseInt(target.getAttribute('verseend') || '0');
+                const book = target.getAttribute('data-book');
+                const chapter = parseInt(target.getAttribute('data-chapter') || '0');
+                const verse = parseInt(target.getAttribute('data-verse') || '0');
+                const verseEnd = parseInt(target.getAttribute('data-verse-end') || '0');
 
                 if (book && chapter && verse) {
                     const versionId = mainVersion.toLowerCase(); // Lowercase to match catalog IDs

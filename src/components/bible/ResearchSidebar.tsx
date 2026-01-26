@@ -47,7 +47,7 @@ export const ResearchSidebar: React.FC = () => {
         if (refOnly) {
             const { book, chapter, verse, verseEnd } = pin.metadata || {};
             if (book && chapter && verse) {
-                content = `<span class="scripture-ref" data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${pin.reference}</span>`;
+                content = `<span data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${pin.reference}</span>`;
             } else {
                 content = `<span class="font-bold text-primary">${pin.reference}</span>`;
             }
@@ -79,7 +79,7 @@ export const ResearchSidebar: React.FC = () => {
             content = selectedPins.map(p => {
                 const { book, chapter, verse, verseEnd } = p.metadata || {};
                 if (book && chapter && verse) {
-                    return `<span class="scripture-ref" data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${p.reference}</span>`;
+                    return `<span data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${p.reference}</span>`;
                 }
                 return `<span class="font-bold text-primary">${p.reference}</span>`;
             }).join(', ');

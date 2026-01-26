@@ -138,15 +138,10 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         const start = Math.min(selectionRange.start, selectionRange.end);
         const end = Math.max(selectionRange.start, selectionRange.end);
 
-        // Find all verses in this range from the current groupedVerses
-        const rangeVerses = [];
-        const sortedNums = Object.keys(groupedVerses).map(Number).sort((a, b) => a - b);
-        for (const vNum of sortedNums) {
-            if (vNum >= start && vNum <= end) {
-                const v = groupedVerses[vNum]?.[mainVersion];
-                if (v) rangeVerses.push(v);
-            }
-        }
+        // Find all verses in this range from allVerses for the main version
+        const rangeVerses = allVerses
+            .filter(v => v.versionId === mainVersion && v.verse >= start && v.verse <= end)
+            .sort((a, b) => a.verse - b.verse);
 
         if (rangeVerses.length === 0) return;
 
@@ -160,8 +155,14 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             title: ref,
             content: combinedText,
             reference: ref,
-            metadata: { book, chapter, verse: start, verseEnd: end, versionId: mainVersion },
-            sourceIds: rangeVerses.map(v => `${mainVersion}-${v.book.toLowerCase()}-${v.chapter}-${v.verse}`)
+            metadata: {
+                book,
+                chapter,
+                verse: start,
+                verseEnd: end !== start ? end : undefined,
+                versionId: mainVersion
+            },
+            sourceIds: rangeVerses.map(v => v.id)
         });
 
         showToast(`Pinned ${rangeVerses.length} verses!`, 'success');

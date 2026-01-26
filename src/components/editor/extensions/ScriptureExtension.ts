@@ -29,22 +29,34 @@ export const ScriptureExtension = Mark.create({
             book: {
                 default: null,
                 parseHTML: element => element.getAttribute('data-book'),
-                renderHTML: attributes => ({ 'data-book': attributes.book }),
+                renderHTML: attributes => {
+                    if (!attributes.book) return {};
+                    return { 'data-book': attributes.book };
+                },
             },
             chapter: {
                 default: null,
                 parseHTML: element => element.getAttribute('data-chapter'),
-                renderHTML: attributes => ({ 'data-chapter': attributes.chapter }),
+                renderHTML: attributes => {
+                    if (!attributes.chapter) return {};
+                    return { 'data-chapter': attributes.chapter };
+                },
             },
             verse: {
                 default: null,
                 parseHTML: element => element.getAttribute('data-verse'),
-                renderHTML: attributes => ({ 'data-verse': attributes.verse }),
+                renderHTML: attributes => {
+                    if (!attributes.verse) return {};
+                    return { 'data-verse': attributes.verse };
+                },
             },
             verseEnd: {
                 default: null,
                 parseHTML: element => element.getAttribute('data-verse-end'),
-                renderHTML: attributes => ({ 'data-verse-end': attributes.verseEnd }),
+                renderHTML: attributes => {
+                    if (!attributes.verseEnd) return {};
+                    return { 'data-verse-end': attributes.verseEnd };
+                },
             },
         };
     },
@@ -52,7 +64,11 @@ export const ScriptureExtension = Mark.create({
     parseHTML() {
         return [
             {
-                tag: 'span.scripture-ref',
+                tag: 'span',
+                getAttrs: element => {
+                    const hasBook = (element as HTMLElement).hasAttribute('data-book');
+                    return hasBook ? {} : false;
+                },
             },
         ];
     },

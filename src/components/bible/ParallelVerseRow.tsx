@@ -4,6 +4,8 @@ import { useUIStore } from '@/stores/uiStore';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { InterlinearWord } from './InterlinearWord';
+import { Pin } from 'lucide-react';
+import { useResearchStore } from '@/stores/researchStore';
 
 interface ParallelVerseRowProps {
     verseNum: number;
@@ -18,6 +20,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
 }) => {
     const { interlinearEnabled } = useBibleStore();
     const { openCrossRefs, selectedVerseId } = useUIStore();
+    const { pinItem, unpinItem, isItemPinned } = useResearchStore();
 
     // Base verse ID (book-chapter-verse) from any available verse
     const firstVerse = Object.values(versesByVersion)[0];
@@ -51,6 +54,29 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                             {hasRefs && (
                                 <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
                             )}
+                        </button>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const id = `${vid}-${verseId}`;
+                                if (isItemPinned(id)) {
+                                    unpinItem(id);
+                                } else if (v) {
+                                    pinItem({
+                                        id,
+                                        type: 'verse',
+                                        title: `${vid.toUpperCase()} - ${v.book} ${v.chapter}:${v.verse}`,
+                                        content: v.text,
+                                        reference: `${v.book} ${v.chapter}:${v.verse} (${vid.toUpperCase()})`,
+                                        metadata: { versionId: vid, verseId }
+                                    });
+                                }
+                            }}
+                            className={`inline-flex p-1 rounded transition-all opacity-0 group-hover:opacity-100 mr-2 ${isItemPinned(`${vid}-${verseId}`) ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-primary hover:bg-primary/5'}`}
+                            title="Pin to Research"
+                        >
+                            <Pin size={12} />
                         </button>
 
                         <div className="inline-block text-lg leading-relaxed font-serif text-light-text-main dark:text-dark-text-main">

@@ -14,7 +14,8 @@ import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
-import { PenTool } from 'lucide-react';
+import { PenTool, Pin } from 'lucide-react';
+import { useResearchStore } from '@/stores/researchStore';
 
 
 export const FilesSidebar: React.FC = () => {
@@ -26,6 +27,7 @@ export const FilesSidebar: React.FC = () => {
         hasStudyspace
     } = useNoteStore();
     const { leftSidebarWidth, toggleTemplateModal } = useUIStore();
+    const { pinItem, unpinItem, isItemPinned } = useResearchStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -159,13 +161,39 @@ export const FilesSidebar: React.FC = () => {
                         <span className="truncate">{item.name}</span>
                     </div>
 
-                    <button
-                        onClick={(e) => handleDeleteClick(e, item)}
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
-                        title="Delete"
-                    >
-                        <DeleteIcon style={{ fontSize: '14px' }} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {!hasChildren && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const id = `note-${item.id}`;
+                                    if (isItemPinned(id)) {
+                                        unpinItem(id);
+                                    } else {
+                                        pinItem({
+                                            id,
+                                            type: 'note',
+                                            title: item.name,
+                                            content: `Note Reference: ${item.name}`,
+                                            reference: `Note: ${item.name}`,
+                                            metadata: { noteId: item.id }
+                                        });
+                                    }
+                                }}
+                                className={`p-1 opacity-0 group-hover:opacity-100 transition-all ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
+                                title="Pin to Research"
+                            >
+                                <Pin size={12} />
+                            </button>
+                        )}
+                        <button
+                            onClick={(e) => handleDeleteClick(e, item)}
+                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                            title="Delete"
+                        >
+                            <DeleteIcon style={{ fontSize: '14px' }} />
+                        </button>
+                    </div>
                 </div>
 
                 {hasChildren && isExpanded && (

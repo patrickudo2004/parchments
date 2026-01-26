@@ -11,12 +11,11 @@ import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { AnimatePresence, motion } from 'framer-motion';
 import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
-import { Book as BookIcon, GitBranch } from 'lucide-react';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
+import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
+import { GitBranch, BookOpen, Search, Pin } from 'lucide-react';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -149,49 +148,56 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         />
 
                         <aside
-                            className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col shrink-0 overflow-hidden relative group"
+                            className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out"
                             style={{ width: `${rightSidebarWidth}px` }}
                         >
-                            {/* Sidebar Header with Tabs */}
-                            <div className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-2 shrink-0 bg-light-background/20 dark:bg-dark-background/10">
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => toggleRightSidebar('bible')}
-                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'bible' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
-                                    >
-                                        <MenuBookIcon sx={{ fontSize: 16 }} />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Bible</span>
-                                    </button>
-                                    <button
-                                        onClick={() => toggleRightSidebar('lexicon')}
-                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'lexicon' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
-                                    >
-                                        <BookIcon size={14} />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Lexicon</span>
-                                    </button>
-                                    <button
-                                        onClick={() => toggleRightSidebar('crossrefs')}
-                                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all ${rightSidebarContent === 'crossrefs' ? 'bg-white dark:bg-dark-background shadow-sm text-primary' : 'text-light-text-disabled hover:text-light-text-secondary hover:bg-light-background/50 dark:hover:bg-dark-background/50'}`}
-                                    >
-                                        <GitBranch size={14} />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Refs</span>
-                                    </button>
-                                </div>
-                                <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><CloseIcon style={{ fontSize: '18px' }} /></button>
+                            {/* Sidebar Tabs */}
+                            <div className="flex border-b border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10">
+                                <button
+                                    onClick={() => toggleRightSidebar('bible')}
+                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'bible' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
+                                >
+                                    <BookOpen size={16} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Bible</span>
+                                    {rightSidebarContent === 'bible' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                                </button>
+                                <button
+                                    onClick={() => toggleRightSidebar('lexicon')}
+                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'lexicon' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
+                                >
+                                    <Search size={16} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Lexicon</span>
+                                    {rightSidebarContent === 'lexicon' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                                </button>
+                                <button
+                                    onClick={() => toggleRightSidebar('crossrefs')}
+                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'crossrefs' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
+                                >
+                                    <GitBranch size={16} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Refs</span>
+                                    {rightSidebarContent === 'crossrefs' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                                </button>
+                                <button
+                                    onClick={() => toggleRightSidebar('pins')}
+                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'pins' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
+                                >
+                                    <Pin size={14} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Pins</span>
+                                    {rightSidebarContent === 'pins' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                                </button>
                             </div>
-
+                            <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><CloseIcon style={{ fontSize: '18px' }} /></button>
                             {/* Content */}
                             <div className="flex-1 overflow-hidden">
-                                {rightSidebarContent === 'bible' ? (
-                                    <BibleReader />
-                                ) : rightSidebarContent === 'lexicon' ? (
-                                    <LexiconSidebar />
-                                ) : rightSidebarContent === 'crossrefs' ? (
-                                    <CrossRefSidebar />
-                                ) : (
+                                {rightSidebarContent === 'bible' && <BibleReader />}
+                                {rightSidebarContent === 'lexicon' && <LexiconSidebar />}
+                                {rightSidebarContent === 'crossrefs' && <CrossRefSidebar />}
+                                {rightSidebarContent === 'pins' && <ResearchSidebar />}
+
+                                {!rightSidebarContent && (
                                     <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
                                         <div className="w-16 h-16 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm opacity-50">
-                                            <SearchIcon className="text-light-text-disabled" fontSize="large" />
+                                            <Search size={32} className="text-light-text-disabled" />
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-widest mb-1">Reference Tool</p>

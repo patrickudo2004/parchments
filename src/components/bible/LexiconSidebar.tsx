@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
-import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2 } from 'lucide-react';
+import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin } from 'lucide-react';
+import { useResearchStore } from '@/stores/researchStore';
 
 export const LexiconSidebar: React.FC = () => {
     const { selectedStrongsId } = useUIStore();
@@ -10,6 +11,7 @@ export const LexiconSidebar: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [history, setHistory] = useState<string[]>([]);
+    const { pinItem, unpinItem, isItemPinned } = useResearchStore();
 
     // Load entry when selectedStrongsId changes
     useEffect(() => {
@@ -90,6 +92,26 @@ export const LexiconSidebar: React.FC = () => {
                                 <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded uppercase tracking-tighter">
                                     {entry.id}
                                 </span>
+                                <button
+                                    onClick={() => {
+                                        if (isItemPinned(entry.id)) {
+                                            unpinItem(entry.id);
+                                        } else {
+                                            pinItem({
+                                                id: entry.id,
+                                                type: 'lexicon',
+                                                title: `${entry.id}: ${entry.lemma}`,
+                                                content: entry.strongs_def,
+                                                reference: `${entry.id} (${entry.lemma})`,
+                                                metadata: { strongsId: entry.id }
+                                            });
+                                        }
+                                    }}
+                                    className={`ml-auto p-1.5 rounded-lg transition-all ${isItemPinned(entry.id) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-light-background dark:bg-dark-background text-light-text-disabled hover:text-primary hover:border-primary/50'}`}
+                                    title="Pin to Research"
+                                >
+                                    <Pin size={14} />
+                                </button>
                             </div>
                             <h2 className="text-4xl font-serif text-light-text-primary dark:text-dark-text-primary">
                                 {entry.lemma}

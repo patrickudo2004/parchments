@@ -33,8 +33,8 @@ export const VoiceSidebar: React.FC = () => {
                 </div>
 
                 <VoiceRecorder
-                    onSave={async (blob, duration) => {
-                        await createVoiceNote(null, blob, duration);
+                    onSave={async (blob, duration, transcript) => {
+                        await createVoiceNote(null, blob, duration, transcript);
                         showToast('Voice note created!', 'success');
                     }}
                     onCancel={() => { }}

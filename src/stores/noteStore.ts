@@ -106,7 +106,7 @@ interface NoteStore {
     loadFolders: () => Promise<void>;
     createNote: (folderId: string | null) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
-    createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number) => Promise<Note>;
+    createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
     createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
@@ -120,7 +120,7 @@ interface NoteStore {
     setLocalMode: (enabled: boolean) => void;
     createLocalNote: (fileName: string, targetFolderId: string | null, content?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
-    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null) => Promise<void>;
+    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, transcript: string) => Promise<void>;
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
@@ -191,16 +191,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         return note;
     },
 
-    createVoiceNote: async (folderId, audioBlob, duration) => {
+    createVoiceNote: async (folderId, audioBlob, duration, transcript) => {
         const { isLocalMode, createLocalVoiceNote } = get();
         if (isLocalMode) {
-            await createLocalVoiceNote(audioBlob, folderId);
+            await createLocalVoiceNote(audioBlob, folderId, transcript);
             return {} as Note;
         }
 
         const note = await dbHelpers.createNote({
             title: 'Voice Note',
-            content: '', // Can be transcript later
+            content: `<p>${transcript}</p>`,
             folderId,
             tags: [],
             type: 'voice',
@@ -434,7 +434,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    createLocalVoiceNote: async (audioBlob: Blob, targetFolderId: string | null) => {
+    createLocalVoiceNote: async (audioBlob: Blob, targetFolderId: string | null, transcript: string) => {
         const { localDirectoryHandle, localFiles } = get();
         if (!localDirectoryHandle) return;
 
@@ -449,8 +449,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             }
 
             // Generate a name with timestamp
-            const name = `Recording ${new Date().toLocaleString().replace(/[/:]/g, '-')}.webm`;
-            await fileSystem.createFile(parentHandle, name, audioBlob);
+            const timestamp = new Date().toLocaleString().replace(/[/:]/g, '-');
+            const audioName = `Recording ${timestamp}.webm`;
+            const noteName = `Transcript ${timestamp}.html`;
+
+            // Save the audio file
+            await fileSystem.createFile(parentHandle, audioName, audioBlob);
+
+            // Save the transcript as an HTML note
+            const content = `<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh file list
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
@@ -461,7 +469,19 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 handle: f.handle,
                 parentId: f.parentId
             }));
+
             set({ localFiles: files });
+
+            // Automatically open the new transcript note
+            const newId = targetFolderId ? `${targetFolderId}/${noteName}` : noteName;
+            const { openLocalFile } = get();
+            await openLocalFile({
+                id: newId,
+                name: noteName,
+                kind: 'file',
+                handle: noteHandle,
+                parentId: targetFolderId
+            });
         } catch (error) {
             console.error('Failed to create local voice note:', error);
             throw error;

@@ -8,16 +8,20 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 interface VoiceRecorderProps {
-    onSave: (audioBlob: Blob, duration: number) => void;
+    onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
     onCancel: () => void;
 }
 
 export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }) => {
     const [status, setStatus] = useState<'idle' | 'recording' | 'paused' | 'review'>('idle');
     const [duration, setDuration] = useState(0);
+    const [transcript, setTranscript] = useState('');
+    const [interimTranscript, setInterimTranscript] = useState('');
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [volumeScale, setVolumeScale] = useState(1.0);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recognitionRef = useRef<any>(null);
+    const transcriptRef = useRef<string>('');
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<number | null>(null);
     const startTimeRef = useRef<number>(0);
@@ -112,6 +116,41 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             mediaRecorder.start();
             setStatus('recording');
 
+            // Initialize Speech Recognition
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event: any) => {
+                    let interim = '';
+                    let newFinal = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            newFinal += event.results[i][0].transcript;
+                        } else {
+                            interim += event.results[i][0].transcript;
+                        }
+                    }
+
+                    if (newFinal) {
+                        transcriptRef.current += newFinal + ' ';
+                        setTranscript(transcriptRef.current);
+                    }
+                    setInterimTranscript(interim);
+                };
+
+                recognition.onerror = (event: any) => {
+                    console.error('Speech recognition error:', event.error);
+                };
+
+                recognition.start();
+                recognitionRef.current = recognition;
+            }
+
             // Start volume analysis
             analyzeVolume();
 
@@ -140,11 +179,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 animationFrameRef.current = null;
             }
 
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
             pausedTimeRef.current = Date.now() - startTimeRef.current - pausedTimeRef.current;
+
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
         }
     };
 
@@ -164,6 +203,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             timerRef.current = window.setInterval(() => {
                 setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
             }, 1000);
+
+            if (recognitionRef.current) {
+                recognitionRef.current.start();
+            }
         }
     };
 
@@ -191,6 +234,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 clearInterval(timerRef.current);
                 timerRef.current = null;
             }
+
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
         }
     };
 
@@ -200,7 +247,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
 
         setTimeout(() => {
             const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-            onSave(blob, duration);
+            onSave(blob, duration, transcriptRef.current);
+            setTranscript('');
+            setInterimTranscript('');
+            transcriptRef.current = '';
         }, 100);
     };
 
@@ -243,11 +293,20 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 {formatTime(duration)}
             </div>
 
-            <div className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-8 uppercase tracking-wider">
+            <div className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-4 uppercase tracking-wider">
                 {status === 'idle' ? 'Ready to Record' :
                     status === 'recording' ? 'Recording...' :
                         status === 'paused' ? 'Paused' : 'Recorded'}
             </div>
+
+            {(transcript || interimTranscript) && (
+                <div className="w-full bg-light-background dark:bg-dark-background/50 rounded-lg p-3 mb-6 border border-light-border dark:border-dark-border max-h-32 overflow-y-auto custom-scrollbar shadow-inner">
+                    <p className="text-xs leading-relaxed text-light-text-primary dark:text-dark-text-primary">
+                        {transcript}
+                        <span className="text-primary/60 italic">{interimTranscript}</span>
+                    </p>
+                </div>
+            )}
 
             <div className="flex items-center gap-3 w-full">
                 <button

@@ -11,13 +11,10 @@ import {
     FileText,
     Clock,
     Sparkles,
-    Clock,
-    Sparkles,
     Check,
     Link as LinkIcon,
     Layers,
     PlusSquare,
-    ChevronDown,
     X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -48,7 +45,12 @@ export const ResearchSidebar: React.FC = () => {
     const handleInsertToEditor = (pin: PinItem, refOnly = false) => {
         let content = '';
         if (refOnly) {
-            content = `<a href="#" class="font-bold text-primary hover:underline">${pin.reference}</a>`;
+            const { book, chapter, verse, verseEnd } = pin.metadata || {};
+            if (book && chapter && verse) {
+                content = `<span class="scripture-ref" data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${pin.reference}</span>`;
+            } else {
+                content = `<span class="font-bold text-primary">${pin.reference}</span>`;
+            }
         } else {
             content = `<blockquote>${pin.content}<cite>— ${pin.reference}</cite></blockquote><p></p>`;
         }
@@ -74,7 +76,13 @@ export const ResearchSidebar: React.FC = () => {
 
         let content = '';
         if (refOnly) {
-            content = selectedPins.map(p => `<a href="#" class="font-bold text-primary hover:underline">${p.reference}</a>`).join(', ');
+            content = selectedPins.map(p => {
+                const { book, chapter, verse, verseEnd } = p.metadata || {};
+                if (book && chapter && verse) {
+                    return `<span class="scripture-ref" data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${p.reference}</span>`;
+                }
+                return `<span class="font-bold text-primary">${p.reference}</span>`;
+            }).join(', ');
         } else {
             content = selectedPins.map(p => `<blockquote>${p.content}<cite>— ${p.reference}</cite></blockquote>`).join('<p></p>');
             content += '<p></p>';

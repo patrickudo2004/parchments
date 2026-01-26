@@ -140,9 +140,12 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
         // Find all verses in this range from the current groupedVerses
         const rangeVerses = [];
-        for (let i = start; i <= end; i++) {
-            const v = groupedVerses[i]?.[mainVersion];
-            if (v) rangeVerses.push(v);
+        const sortedNums = Object.keys(groupedVerses).map(Number).sort((a, b) => a - b);
+        for (const vNum of sortedNums) {
+            if (vNum >= start && vNum <= end) {
+                const v = groupedVerses[vNum]?.[mainVersion];
+                if (v) rangeVerses.push(v);
+            }
         }
 
         if (rangeVerses.length === 0) return;
@@ -157,7 +160,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             title: ref,
             content: combinedText,
             reference: ref,
-            metadata: { book, chapter, start, end, versionId: mainVersion },
+            metadata: { book, chapter, verse: start, verseEnd: end, versionId: mainVersion },
             sourceIds: rangeVerses.map(v => `${mainVersion}-${v.book.toLowerCase()}-${v.chapter}-${v.verse}`)
         });
 
@@ -324,7 +327,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Floating Selection Bar */}
             <AnimatePresence>
-                {selectionRange && (selectionRange.start !== selectionRange.end || true) && (
+                {selectionRange && (
                     <motion.div
                         initial={{ y: 100, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}

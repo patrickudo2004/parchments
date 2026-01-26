@@ -26,10 +26,26 @@ export const ScriptureExtension = Mark.create({
 
     addAttributes() {
         return {
-            book: { default: null },
-            chapter: { default: null },
-            verse: { default: null },
-            verseEnd: { default: null },
+            book: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-book'),
+                renderHTML: attributes => ({ 'data-book': attributes.book }),
+            },
+            chapter: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-chapter'),
+                renderHTML: attributes => ({ 'data-chapter': attributes.chapter }),
+            },
+            verse: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-verse'),
+                renderHTML: attributes => ({ 'data-verse': attributes.verse }),
+            },
+            verseEnd: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-verse-end'),
+                renderHTML: attributes => ({ 'data-verse-end': attributes.verseEnd }),
+            },
         };
     },
 

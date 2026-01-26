@@ -18,7 +18,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
     versions,
     versesByVersion
 }) => {
-    const { interlinearEnabled } = useBibleStore();
+    const { interlinearEnabled, selectionRange, setSelectionRange } = useBibleStore();
     const { openCrossRefs, selectedVerseId } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
 
@@ -33,10 +33,12 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
     ) || 0;
     const hasRefs = hasRefsCount > 0;
 
+    const isSelected = selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end);
+
     return (
         <div
             id={`verse-${verseNum}`}
-            className={`grid gap-8 py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/20 dark:hover:bg-dark-background/10 transition-colors ${selectedVerseId === verseId ? 'bg-primary/5' : ''}`}
+            className={`grid gap-8 py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/20 dark:hover:bg-dark-background/10 transition-colors ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}
             style={{ gridTemplateColumns: `repeat(${versions.length}, minmax(0, 1fr))` }}
         >
             {versions.map((vid) => {
@@ -45,10 +47,17 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                     <div key={vid} className="relative group">
                         {/* Verse Number & Ref Indicator */}
                         <button
-                            onClick={() => verseId && openCrossRefs(verseId)}
+                            onClick={(e) => {
+                                if (e.shiftKey && selectionRange) {
+                                    setSelectionRange({ ...selectionRange, end: verseNum });
+                                } else {
+                                    setSelectionRange({ start: verseNum, end: verseNum });
+                                    if (verseId) openCrossRefs(verseId);
+                                }
+                            }}
                             className="inline-flex items-center gap-1 mr-2 select-none group/num"
                         >
-                            <sup className={`font-black text-xs transition-colors ${selectedVerseId === verseId ? 'text-primary' : 'text-primary/50 group-hover/num:text-primary'}`}>
+                            <sup className={`font-black text-xs transition-colors ${selectedVerseId === verseId || isSelected ? 'text-primary' : 'text-primary/50 group-hover/num:text-primary'}`}>
                                 {verseNum}
                             </sup>
                             {hasRefs && (

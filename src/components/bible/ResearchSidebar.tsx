@@ -11,7 +11,14 @@ import {
     FileText,
     Clock,
     Sparkles,
-    Check
+    Clock,
+    Sparkles,
+    Check,
+    Link as LinkIcon,
+    Layers,
+    PlusSquare,
+    ChevronDown,
+    X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -26,26 +33,84 @@ const formatTimeAgo = (timestamp: number) => {
 };
 
 export const ResearchSidebar: React.FC = () => {
-    const { pins, unpinItem, clearPins } = useResearchStore();
+    const { pins, unpinItem, clearPins, pinItem } = useResearchStore();
     const { activeEditor, showToast } = useUIStore();
     const [copiedId, setCopiedId] = React.useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
-    const handleInsertToEditor = (pin: PinItem) => {
-        const citation = `<blockquote>${pin.content}<cite>— ${pin.reference}</cite></blockquote><p></p>`;
+    const toggleSelection = (id: string) => {
+        const next = new Set(selectedIds);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setSelectedIds(next);
+    };
+
+    const handleInsertToEditor = (pin: PinItem, refOnly = false) => {
+        let content = '';
+        if (refOnly) {
+            content = `<a href="#" class="font-bold text-primary hover:underline">${pin.reference}</a>`;
+        } else {
+            content = `<blockquote>${pin.content}<cite>— ${pin.reference}</cite></blockquote><p></p>`;
+        }
 
         if (activeEditor) {
-            activeEditor.chain().focus().insertContent(citation).run();
-            setCopiedId(pin.id);
-            showToast('Inserted research into note!', 'success');
+            activeEditor.chain().focus().insertContent(content).run();
+            setCopiedId(pin.id + (refOnly ? '-ref' : ''));
+            showToast(refOnly ? 'Reference inserted!' : 'Citation inserted!', 'success');
             setTimeout(() => setCopiedId(null), 2000);
         } else {
             // Fallback to clipboard
-            navigator.clipboard.writeText(citation).then(() => {
-                setCopiedId(pin.id);
+            navigator.clipboard.writeText(content).then(() => {
+                setCopiedId(pin.id + (refOnly ? '-ref' : ''));
                 showToast('No active note. Copied to clipboard!', 'info');
                 setTimeout(() => setCopiedId(null), 2000);
             });
         }
+    };
+
+    const handleGroupInsert = (refOnly = false) => {
+        if (selectedIds.size === 0) return;
+        const selectedPins = pins.filter(p => selectedIds.has(p.id));
+
+        let content = '';
+        if (refOnly) {
+            content = selectedPins.map(p => `<a href="#" class="font-bold text-primary hover:underline">${p.reference}</a>`).join(', ');
+        } else {
+            content = selectedPins.map(p => `<blockquote>${p.content}<cite>— ${p.reference}</cite></blockquote>`).join('<p></p>');
+            content += '<p></p>';
+        }
+
+        if (activeEditor) {
+            activeEditor.chain().focus().insertContent(content).run();
+            showToast(`Inserted ${selectedPins.length} items!`, 'success');
+        } else {
+            navigator.clipboard.writeText(content);
+            showToast('Copied group to clipboard!', 'info');
+        }
+        setSelectedIds(new Set());
+    };
+
+    const handleMerge = () => {
+        if (selectedIds.size < 2) return;
+        const selectedPins = pins.filter(p => selectedIds.has(p.id));
+
+        const combinedContent = selectedPins.map(p => p.content).join('<br/><br/>');
+        const refs = selectedPins.map(p => p.reference).join(', ');
+
+        const newPin: Omit<PinItem, 'timestamp'> = {
+            id: `merge-${Date.now()}`,
+            type: 'note',
+            title: `Merged: ${selectedPins[0].reference}...`,
+            content: combinedContent,
+            reference: refs,
+            metadata: { mergedFrom: selectedPins.map(p => p.id) },
+            sourceIds: selectedPins.flatMap(p => p.sourceIds || [p.id])
+        };
+
+        pinItem(newPin);
+        selectedPins.forEach(p => unpinItem(p.id));
+        setSelectedIds(new Set());
+        showToast('Pins merged into one!', 'success');
     };
 
     const getTypeIcon = (type: PinItem['type']) => {
@@ -113,6 +178,12 @@ export const ResearchSidebar: React.FC = () => {
                                     {/* Item Header */}
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(pin.id)}
+                                                onChange={() => toggleSelection(pin.id)}
+                                                className="w-3 h-3 rounded border-light-border dark:border-dark-border text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                                            />
                                             {getTypeIcon(pin.type)}
                                             <span className="text-[10px] font-black uppercase tracking-wider text-light-text-primary dark:text-dark-text-primary">
                                                 {pin.reference}
@@ -120,9 +191,16 @@ export const ResearchSidebar: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
+                                                onClick={() => handleInsertToEditor(pin, true)}
+                                                className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                                                title="Insert Reference Only"
+                                            >
+                                                {copiedId === pin.id + '-ref' ? <Check size={14} /> : <LinkIcon size={14} />}
+                                            </button>
+                                            <button
                                                 onClick={() => handleInsertToEditor(pin)}
                                                 className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
-                                                title="Copy as Citation"
+                                                title="Insert Full Citation"
                                             >
                                                 {copiedId === pin.id ? <Check size={14} /> : <Copy size={14} />}
                                             </button>
@@ -156,11 +234,58 @@ export const ResearchSidebar: React.FC = () => {
                 </AnimatePresence>
             </div>
 
+            {/* Group Actions Bar */}
+            <AnimatePresence>
+                {selectedIds.size > 0 && (
+                    <motion.div
+                        initial={{ y: 50, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 50, opacity: 0 }}
+                        className="bg-dark-surface border-t border-white/10 p-3 shadow-2xl"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded bg-primary flex items-center justify-center text-[10px] font-black">{selectedIds.size}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Selected</span>
+                            </div>
+                            <button onClick={() => setSelectedIds(new Set())} className="text-white/50 hover:text-white transition-colors">
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => handleGroupInsert(false)}
+                                className="flex items-center justify-center gap-2 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                            >
+                                <PlusSquare size={12} />
+                                Insert Group
+                            </button>
+                            <button
+                                onClick={handleMerge}
+                                disabled={selectedIds.size < 2}
+                                className="flex items-center justify-center gap-2 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Layers size={12} />
+                                Merge Pins
+                            </button>
+                            <button
+                                onClick={() => handleGroupInsert(true)}
+                                className="col-span-2 flex items-center justify-center gap-2 py-2 border border-white/10 hover:bg-white/5 text-white/70 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all mt-1"
+                            >
+                                <LinkIcon size={12} />
+                                Insert Selected Refs Only
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Hint */}
-            {pins.length > 0 && (
+            {pins.length > 0 && selectedIds.size === 0 && (
                 <div className="p-4 bg-primary/5 border-t border-primary/10">
                     <p className="text-[9px] text-primary/70 text-center font-medium leading-relaxed">
-                        Copy items to your clipboard to paste them into your study with automatic citation formatting.
+                        Select multiple items to merge them or insert them as a single group.
                     </p>
                 </div>
             )}

@@ -19,6 +19,7 @@ interface BibleStore {
     // View Settings
     interlinearEnabled: boolean;
     verseHoverPreviews: boolean;
+    selectionRange: { start: number, end: number } | null;
 
     // Actions
     setMainVersion: (version: string) => void;
@@ -27,6 +28,7 @@ interface BibleStore {
     setBibleFocus: (focus: BibleFocus | null) => void;
     toggleInterlinear: () => void;
     toggleVerseHoverPreviews: () => void;
+    setSelectionRange: (range: { start: number, end: number } | null) => void;
 }
 
 export const useBibleStore = create<BibleStore>()(
@@ -56,6 +58,7 @@ export const useBibleStore = create<BibleStore>()(
             toggleInterlinear: () => set((state) => ({ interlinearEnabled: !state.interlinearEnabled })),
 
             toggleVerseHoverPreviews: () => set((state) => ({ verseHoverPreviews: !state.verseHoverPreviews })),
+            setSelectionRange: (range) => set({ selectionRange: range }),
         }),
         {
             name: 'parchments-bible-v2', // Increment version to clear KJV vs kjv confusion

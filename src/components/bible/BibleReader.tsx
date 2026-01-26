@@ -12,6 +12,9 @@ import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { Languages } from 'lucide-react';
 import { ParallelVerseRow } from './ParallelVerseRow';
+import { Pin, X } from 'lucide-react';
+import { useResearchStore } from '@/stores/researchStore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
@@ -27,8 +30,12 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         removeParallelVersion,
         setBibleFocus,
         interlinearEnabled,
-        toggleInterlinear
+        toggleInterlinear,
+        selectionRange,
+        setSelectionRange
     } = useBibleStore();
+
+    const { pinItem } = useResearchStore();
 
     const { showToast } = useUIStore();
     const contentRef = useRef<HTMLDivElement>(null);
@@ -124,6 +131,38 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         }
         setIsPickerOpen(false);
         contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    };
+
+    const handlePinSelection = () => {
+        if (!selectionRange) return;
+        const start = Math.min(selectionRange.start, selectionRange.end);
+        const end = Math.max(selectionRange.start, selectionRange.end);
+
+        // Find all verses in this range from the current groupedVerses
+        const rangeVerses = [];
+        for (let i = start; i <= end; i++) {
+            const v = groupedVerses[i]?.[mainVersion];
+            if (v) rangeVerses.push(v);
+        }
+
+        if (rangeVerses.length === 0) return;
+
+        const combinedText = rangeVerses.map(v => `<sup class="text-[10px] opacity-50 mr-1">${v.verse}</sup>${v.text}`).join(' ');
+        const ref = `${book} ${chapter}:${start}${start !== end ? `-${end}` : ''} (${mainVersion.toUpperCase()})`;
+        const id = `range-${book}-${chapter}-${start}-${end}-${mainVersion}`;
+
+        pinItem({
+            id,
+            type: 'verse',
+            title: ref,
+            content: combinedText,
+            reference: ref,
+            metadata: { book, chapter, start, end, versionId: mainVersion },
+            sourceIds: rangeVerses.map(v => `${mainVersion}-${v.book.toLowerCase()}-${v.chapter}-${v.verse}`)
+        });
+
+        showToast(`Pinned ${rangeVerses.length} verses!`, 'success');
+        setSelectionRange(null);
     };
 
     return (
@@ -282,6 +321,48 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 </div>
                 <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform">Next <NavigateNextIcon fontSize="inherit" className="ml-1" /></button>
             </div>
+
+            {/* Floating Selection Bar */}
+            <AnimatePresence>
+                {selectionRange && (selectionRange.start !== selectionRange.end || true) && (
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[100] bg-dark-surface border border-white/10 shadow-2xl rounded-2xl p-2 px-4 flex items-center gap-4 text-white"
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                                <Pin size={16} />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                                    {book} {chapter}:{Math.min(selectionRange.start, selectionRange.end)}{selectionRange.start !== selectionRange.end ? `-${Math.max(selectionRange.start, selectionRange.end)}` : ''}
+                                </span>
+                                <span className="text-[8px] opacity-50 font-medium">
+                                    {selectionRange.start === selectionRange.end ? '1 verse selected' : `${Math.abs(selectionRange.end - selectionRange.start) + 1} verses selected`}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="w-[1px] h-6 bg-white/10" />
+
+                        <button
+                            onClick={handlePinSelection}
+                            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
+                        >
+                            Pin Range
+                        </button>
+
+                        <button
+                            onClick={() => setSelectionRange(null)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

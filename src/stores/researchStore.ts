@@ -7,6 +7,7 @@ export interface PinItem {
     title: string;
     content: string; // HTML or Markdown content to be inserted
     reference: string; // Human readable ref (e.g., "John 3:16" or "G2424")
+    sourceIds?: string[]; // IDs of individual items included in this pin
     metadata: any;
     timestamp: number;
 }
@@ -45,7 +46,8 @@ export const useResearchStore = create<ResearchStore>()(
             clearPins: () => set({ pins: [] }),
 
             isItemPinned: (id) => {
-                return get().pins.some(p => p.id === id);
+                const { pins } = get();
+                return pins.some(p => p.id === id || p.sourceIds?.includes(id));
             }
         }),
         {

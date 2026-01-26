@@ -8,7 +8,7 @@ import {
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 export const ActivityBar: React.FC = () => {
     const {
@@ -35,8 +35,8 @@ export const ActivityBar: React.FC = () => {
                             key={item.id}
                             onClick={() => toggleLeftSidebar(item.id as any)}
                             className={`group relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isActive
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
                                 }`}
                             title={item.label}
                         >

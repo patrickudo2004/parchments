@@ -98,11 +98,11 @@ export const EmptyState: React.FC = () => {
             {showVoiceRecorder && (
                 <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
-                        onSave={async (blob, duration) => {
+                        onSave={async (blob, duration, transcript) => {
                             if (isLocalMode) {
-                                await useNoteStore.getState().createLocalVoiceNote(blob, null);
+                                await useNoteStore.getState().createLocalVoiceNote(blob, null, transcript);
                             } else {
-                                await createVoiceNote(null, blob, duration);
+                                await createVoiceNote(null, blob, duration, transcript);
                             }
                             setShowVoiceRecorder(false);
                         }}

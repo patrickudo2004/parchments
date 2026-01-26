@@ -1,11 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckIcon from '@mui/icons-material/Check';
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import PauseIcon from '@mui/icons-material/Pause';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { Button } from '@/components/ui/Button';
+import { Mic, StopCircle, Pause, Play, Trash2, CheckCircle2 } from 'lucide-react';
 
 interface VoiceRecorderProps {
     onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
@@ -266,7 +261,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center p-8 bg-light-surface dark:bg-dark-surface rounded-lg border border-light-border dark:border-dark-border shadow-lg max-w-sm mx-auto w-full">
+        <div className="flex flex-col items-center justify-center p-4 bg-light-surface/50 dark:bg-dark-surface/50 rounded-2xl border border-light-border dark:border-dark-border shadow-sm w-full">
             <div
                 className={`relative w-24 h-24 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 
                 ${status === 'recording' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
@@ -280,12 +275,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 onClick={status === 'idle' ? startRecording : undefined}
             >
                 {status === 'recording' && (
-                    <div className="absolute inset-0 rounded-full border-4 border-red-500 opacity-20 animate-ping"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-primary opacity-20 animate-ping"></div>
                 )}
-                {status === 'idle' ? <MicIcon style={{ fontSize: 48 }} /> :
-                    status === 'recording' ? <MicIcon style={{ fontSize: 48 }} /> :
-                        status === 'paused' ? <PauseIcon style={{ fontSize: 48 }} /> :
-                            <CheckIcon style={{ fontSize: 48 }} />
+                {status === 'idle' ? <Mic size={48} /> :
+                    status === 'recording' ? <Mic size={48} /> :
+                        status === 'paused' ? <Pause size={48} /> :
+                            <CheckCircle2 size={48} />
                 }
             </div>
 
@@ -293,10 +288,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 {formatTime(duration)}
             </div>
 
-            <div className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary mb-4 uppercase tracking-wider">
-                {status === 'idle' ? 'Ready to Record' :
-                    status === 'recording' ? 'Recording...' :
-                        status === 'paused' ? 'Paused' : 'Recorded'}
+            <div className="text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary mb-6 uppercase tracking-[0.2em] opacity-60">
+                {status === 'idle' ? 'Ready' :
+                    status === 'recording' ? 'Live' :
+                        status === 'paused' ? 'Paused' : 'Complete'}
             </div>
 
             {(transcript || interimTranscript) && (
@@ -308,65 +303,73 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 </div>
             )}
 
-            <div className="flex items-center gap-3 w-full">
-                <button
-                    onClick={handleCancel}
-                    className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors"
-                >
-                    <DeleteIcon fontSize="small" />
-                    Discard
-                </button>
-
+            <div className="flex flex-col gap-2 w-full">
                 {status === 'idle' ? (
-                    <button
+                    <Button
                         onClick={startRecording}
-                        className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg shadow-red-500/30"
+                        variant="primary"
+                        className="w-full justify-center !py-3"
+                        icon={<Mic size={16} className="mr-2" />}
                     >
-                        <FiberManualRecordIcon fontSize="small" />
-                        Start
-                    </button>
+                        Start Recording
+                    </Button>
                 ) : status === 'recording' ? (
-                    <>
-                        <button
+                    <div className="flex gap-2 w-full">
+                        <Button
                             onClick={pauseRecording}
-                            className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white font-medium transition-colors shadow-lg shadow-yellow-500/30"
+                            variant="secondary"
+                            className="flex-1 justify-center"
+                            icon={<Pause size={16} className="mr-2" />}
                         >
-                            <PauseIcon fontSize="small" />
                             Pause
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={stopRecording}
-                            className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg shadow-red-500/30"
+                            variant="primary"
+                            className="flex-1 justify-center !bg-red-500 hover:!bg-red-600 border-none"
+                            icon={<StopCircle size={16} className="mr-2" />}
                         >
-                            <StopIcon fontSize="small" />
                             Stop
-                        </button>
-                    </>
+                        </Button>
+                    </div>
                 ) : status === 'paused' ? (
-                    <>
-                        <button
+                    <div className="flex gap-2 w-full">
+                        <Button
                             onClick={resumeRecording}
-                            className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors shadow-lg shadow-green-500/30"
+                            variant="primary"
+                            className="flex-1 justify-center"
+                            icon={<Play size={16} className="mr-2" />}
                         >
-                            <PlayArrowIcon fontSize="small" />
                             Resume
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={stopRecording}
-                            className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg shadow-red-500/30"
+                            variant="secondary"
+                            className="flex-1 justify-center"
+                            icon={<StopCircle size={16} className="mr-2" />}
                         >
-                            <StopIcon fontSize="small" />
-                            Stop
-                        </button>
-                    </>
+                            Finish
+                        </Button>
+                    </div>
                 ) : (
-                    <button
-                        onClick={handleSave}
-                        className="flex-1 p-3 flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition-colors shadow-lg shadow-primary/30"
-                    >
-                        <CheckIcon fontSize="small" />
-                        Save Note
-                    </button>
+                    <div className="flex flex-col gap-2 w-full">
+                        <Button
+                            onClick={handleSave}
+                            variant="primary"
+                            className="w-full justify-center !py-3"
+                            icon={<CheckCircle2 size={16} className="mr-2" />}
+                        >
+                            Save Note
+                        </Button>
+                        <Button
+                            onClick={handleCancel}
+                            variant="ghost"
+                            className="w-full justify-center"
+                            icon={<Trash2 size={16} className="mr-2" />}
+                        >
+                            Discard
+                        </Button>
+                    </div>
                 )}
             </div>
         </div>

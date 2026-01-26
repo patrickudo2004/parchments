@@ -1,7 +1,6 @@
 import React from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { LayoutList, ChevronRight, Hash } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 interface HeadingItem {
     id: string;

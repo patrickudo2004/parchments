@@ -5,7 +5,7 @@ import type { StrongsEntry } from '@/types/database';
 import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2 } from 'lucide-react';
 
 export const LexiconSidebar: React.FC = () => {
-    const { selectedStrongsId, openLexicon } = useUIStore();
+    const { selectedStrongsId } = useUIStore();
     const [entry, setEntry] = useState<StrongsEntry | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -169,8 +169,8 @@ export const LexiconSidebar: React.FC = () => {
                                     key={h}
                                     onClick={() => loadEntry(h)}
                                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${selectedStrongsId === h
-                                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
-                                            : 'bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border text-light-text-secondary hover:border-primary/50'
+                                        ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                                        : 'bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border text-light-text-secondary hover:border-primary/50'
                                         }`}
                                 >
                                     {h}

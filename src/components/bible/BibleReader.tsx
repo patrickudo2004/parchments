@@ -133,17 +133,23 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    const handlePinSelection = () => {
+    const handlePinSelection = async () => {
         if (!selectionRange) return;
         const start = Math.min(selectionRange.start, selectionRange.end);
         const end = Math.max(selectionRange.start, selectionRange.end);
 
-        // Find all verses in this range from allVerses for the main version
-        const rangeVerses = allVerses
-            .filter(v => v.versionId === mainVersion && v.verse >= start && v.verse <= end)
-            .sort((a, b) => a.verse - b.verse);
+        // Fetch direct from DB to ensure we have all verses in the range
+        // regardless of local state/loading
+        const rangeVerses = await db.bibleVerses
+            .where('[versionId+book+chapter]')
+            .equals([mainVersion, book, chapter])
+            .and(v => v.verse >= start && v.verse <= end)
+            .sortBy('verse');
 
-        if (rangeVerses.length === 0) return;
+        if (rangeVerses.length === 0) {
+            showToast('No verses found in selection', 'error');
+            return;
+        }
 
         const combinedText = rangeVerses.map(v => `<sup class="text-[10px] opacity-50 mr-1">${v.verse}</sup>${v.text}`).join(' ');
         const ref = `${book} ${chapter}:${start}${start !== end ? `-${end}` : ''} (${mainVersion.toUpperCase()})`;
@@ -157,9 +163,9 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             reference: ref,
             metadata: {
                 book,
-                chapter,
-                verse: start,
-                verseEnd: end !== start ? end : undefined,
+                chapter: Number(chapter),
+                verse: Number(start),
+                verseEnd: end !== start ? Number(end) : undefined,
                 versionId: mainVersion
             },
             sourceIds: rangeVerses.map(v => v.id)

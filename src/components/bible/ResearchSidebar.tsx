@@ -47,6 +47,7 @@ export const ResearchSidebar: React.FC = () => {
         if (refOnly) {
             const { book, chapter, verse, verseEnd } = pin.metadata || {};
             if (book && chapter && verse) {
+                // We use structured HTML that TipTap's ScriptureExtension will recognize
                 content = `<span data-book="${book}" data-chapter="${chapter}" data-verse="${verse}" ${verseEnd ? `data-verse-end="${verseEnd}"` : ''}>${pin.reference}</span>`;
             } else {
                 content = `<span class="font-bold text-primary">${pin.reference}</span>`;
@@ -56,12 +57,13 @@ export const ResearchSidebar: React.FC = () => {
         }
 
         if (activeEditor) {
-            activeEditor.chain().focus().insertContent(content).run();
+            // Use parseOptions to ensure HTML is parsed into marks, not escaped
+            activeEditor.chain().focus().insertContent(content, { parseOptions: { preserveWhitespace: true } }).run();
             setCopiedId(pin.id + (refOnly ? '-ref' : ''));
             showToast(refOnly ? 'Reference inserted!' : 'Citation inserted!', 'success');
             setTimeout(() => setCopiedId(null), 2000);
         } else {
-            // Fallback to clipboard
+            // Fallback to clipboard (raw HTML)
             navigator.clipboard.writeText(content).then(() => {
                 setCopiedId(pin.id + (refOnly ? '-ref' : ''));
                 showToast('No active note. Copied to clipboard!', 'info');
@@ -89,7 +91,7 @@ export const ResearchSidebar: React.FC = () => {
         }
 
         if (activeEditor) {
-            activeEditor.chain().focus().insertContent(content).run();
+            activeEditor.chain().focus().insertContent(content, { parseOptions: { preserveWhitespace: true } }).run();
             showToast(`Inserted ${selectedPins.length} items!`, 'success');
         } else {
             navigator.clipboard.writeText(content);

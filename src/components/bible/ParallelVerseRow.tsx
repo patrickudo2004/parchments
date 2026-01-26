@@ -38,16 +38,26 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
     return (
         <div
             id={`verse-${verseNum}`}
-            className={`grid gap-8 py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/20 dark:hover:bg-dark-background/10 transition-colors ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}
+            onClick={(e) => {
+                // If it's a verse number button click, it's handled there. 
+                // But we want clicking the row to also select.
+                if (e.shiftKey && selectionRange) {
+                    setSelectionRange({ ...selectionRange, end: verseNum });
+                } else if (!e.shiftKey) {
+                    setSelectionRange({ start: verseNum, end: verseNum });
+                }
+            }}
+            className={`grid gap-8 py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/40 dark:hover:bg-dark-background/20 transition-all cursor-pointer select-none group/row ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}
             style={{ gridTemplateColumns: `repeat(${versions.length}, minmax(0, 1fr))` }}
         >
             {versions.map((vid) => {
                 const v = versesByVersion[vid];
                 return (
-                    <div key={vid} className="relative group">
+                    <div key={vid} className="relative group/verse">
                         {/* Verse Number & Ref Indicator */}
                         <button
                             onClick={(e) => {
+                                e.stopPropagation(); // Prevent row click from firing
                                 if (e.shiftKey && selectionRange) {
                                     setSelectionRange({ ...selectionRange, end: verseNum });
                                 } else {

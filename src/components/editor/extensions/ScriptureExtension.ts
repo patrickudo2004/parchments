@@ -36,7 +36,7 @@ export const ScriptureExtension = Mark.create({
             },
             chapter: {
                 default: null,
-                parseHTML: element => element.getAttribute('data-chapter'),
+                parseHTML: element => Number(element.getAttribute('data-chapter')) || null,
                 renderHTML: attributes => {
                     if (!attributes.chapter) return {};
                     return { 'data-chapter': attributes.chapter };
@@ -44,7 +44,7 @@ export const ScriptureExtension = Mark.create({
             },
             verse: {
                 default: null,
-                parseHTML: element => element.getAttribute('data-verse'),
+                parseHTML: element => Number(element.getAttribute('data-verse')) || null,
                 renderHTML: attributes => {
                     if (!attributes.verse) return {};
                     return { 'data-verse': attributes.verse };
@@ -52,7 +52,7 @@ export const ScriptureExtension = Mark.create({
             },
             verseEnd: {
                 default: null,
-                parseHTML: element => element.getAttribute('data-verse-end'),
+                parseHTML: element => Number(element.getAttribute('data-verse-end')) || null,
                 renderHTML: attributes => {
                     if (!attributes.verseEnd) return {};
                     return { 'data-verse-end': attributes.verseEnd };
@@ -64,11 +64,7 @@ export const ScriptureExtension = Mark.create({
     parseHTML() {
         return [
             {
-                tag: 'span',
-                getAttrs: element => {
-                    const hasBook = (element as HTMLElement).hasAttribute('data-book');
-                    return hasBook ? {} : false;
-                },
+                tag: 'span[data-book]',
             },
         ];
     },

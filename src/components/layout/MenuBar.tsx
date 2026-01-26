@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
-import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import AddIcon from '@mui/icons-material/Add';
 import MicIcon from '@mui/icons-material/Mic';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -24,14 +23,9 @@ export const MenuBar: React.FC = () => {
         openExportModal,
         showToast
     } = useUIStore();
-    const { currentNote, saveCurrentNote, createNote, createVoiceNote, createFolder } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
-    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
-
-    const handleCreateVoiceNote = () => {
-        setShowVoiceRecorder(true);
-    };
 
     const handleItemClick = (label: string) => {
         if (!activeEditor && ['Undo', 'Redo', 'Sermon Template', 'Current Date', 'Horizontal Line', 'Find in Note'].includes(label)) {
@@ -97,7 +91,7 @@ export const MenuBar: React.FC = () => {
                 activeEditor?.chain().focus().setHorizontalRule().run();
                 break;
             case 'Voice Dictation':
-                handleCreateVoiceNote();
+                toggleLeftSidebar('voice');
                 break;
             case 'Sermon Template':
                 if (activeEditor) {
@@ -127,7 +121,6 @@ export const MenuBar: React.FC = () => {
     };
 
     const MENU_STRUCTURE = [
-        // ... same structure ...
         {
             label: 'File',
             items: [
@@ -240,7 +233,7 @@ export const MenuBar: React.FC = () => {
                                         <button
                                             key={index}
                                             onClick={() => {
-                                                const label = ('label' in item && typeof item.label === 'string') ? item.label : '';
+                                                const label = ('label' in item && typeof item.label === 'string') ? (item.label as string) : '';
                                                 handleItemClick(label);
                                             }}
                                             className="w-full text-left px-4 py-2 text-sm text-light-text-primary dark:text-dark-text-primary hover:bg-primary hover:text-white flex justify-between items-center group"
@@ -261,23 +254,12 @@ export const MenuBar: React.FC = () => {
             {/* Right: Big Actions (Filled, Spacious) */}
             <div className="flex items-center gap-3">
                 <Button onClick={() => createNote(null)} variant="primary" icon={<AddIcon />}>Note</Button>
-                <Button onClick={() => handleCreateVoiceNote()} variant="primary" icon={<MicIcon />}>Voice</Button>
+                <Button onClick={() => toggleLeftSidebar('voice')} variant="primary" icon={<MicIcon />}>Voice</Button>
                 <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
                 <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
             </div>
 
-            {/* Voice Recorder Modal */}
-            {showVoiceRecorder && (
-                <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <VoiceRecorder
-                        onSave={async (blob, duration) => {
-                            await createVoiceNote(null, blob, duration);
-                            setShowVoiceRecorder(false);
-                        }}
-                        onCancel={() => setShowVoiceRecorder(false)}
-                    />
-                </div>
-            )}
+            {/* Voice Recorder Modal (Removed - Now in Sidebar) */}
         </div>
     );
 };

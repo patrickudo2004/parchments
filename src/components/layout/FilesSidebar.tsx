@@ -214,8 +214,7 @@ export const FilesSidebar: React.FC = () => {
 
     return (
         <div
-            className="bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 select-none overflow-hidden"
-            style={{ width: `${leftSidebarWidth}px` }}
+            className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>

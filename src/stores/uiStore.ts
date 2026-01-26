@@ -17,6 +17,7 @@ interface UIStore {
 
     leftSidebarWidth: number;
     isLeftSidebarOpen: boolean;
+    leftSidebarContent: 'files' | 'outline' | 'voice' | null;
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
     rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | null;
@@ -54,7 +55,7 @@ interface UIStore {
     setEditor: (editor: Editor | null) => void;
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
-    toggleLeftSidebar: () => void;
+    toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
     toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins') => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
@@ -81,6 +82,7 @@ export const useUIStore = create<UIStore>()(
 
             leftSidebarWidth: 280,
             isLeftSidebarOpen: true,
+            leftSidebarContent: 'files',
             rightSidebarWidth: 350,
             rightSidebarOpen: false,
             rightSidebarContent: null,
@@ -143,7 +145,28 @@ export const useUIStore = create<UIStore>()(
             openExportModal: (format) => set({ isExportModalOpen: true, exportFormat: format }),
             closeExportModal: () => set({ isExportModalOpen: false, exportFormat: null }),
 
-            toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+            toggleLeftSidebar: (content) => set((state) => {
+                // If sidebar is closed, open it with provided content or default to 'files'
+                if (!state.isLeftSidebarOpen) {
+                    return {
+                        isLeftSidebarOpen: true,
+                        leftSidebarContent: content || state.leftSidebarContent || 'files'
+                    };
+                }
+
+                // If sidebar is open and content matches or none provided, close it
+                if (!content || state.leftSidebarContent === content) {
+                    return {
+                        isLeftSidebarOpen: false,
+                        leftSidebarContent: null
+                    };
+                }
+
+                // Switch content (keep open)
+                return {
+                    leftSidebarContent: content
+                };
+            }),
 
             toggleRightSidebar: (content) => set((state) => {
                 // If sidebar is closed, open it with the provided content
@@ -223,6 +246,7 @@ export const useUIStore = create<UIStore>()(
                 highAccuracyTranscription: state.highAccuracyTranscription,
                 leftSidebarWidth: state.leftSidebarWidth,
                 isLeftSidebarOpen: state.isLeftSidebarOpen,
+                leftSidebarContent: state.leftSidebarContent,
                 rightSidebarWidth: state.rightSidebarWidth,
                 rightSidebarOpen: state.rightSidebarOpen,
                 rightSidebarContent: state.rightSidebarContent,

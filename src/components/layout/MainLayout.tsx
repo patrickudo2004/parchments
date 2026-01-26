@@ -14,8 +14,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
-import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 import { GitBranch, BookOpen, Search, Pin } from 'lucide-react';
+import { ActivityBar } from './ActivityBar';
+import { OutlineSidebar } from '@/components/bible/OutlineSidebar';
+import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
+import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -32,6 +35,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isShortcutModalOpen,
         toggleShortcutModal,
         setLeftSidebarWidth,
+        leftSidebarWidth, // Added
+        leftSidebarContent, // Added
         rightSidebarWidth,
         setRightSidebarWidth,
         rightSidebarOpen,
@@ -120,15 +125,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {!isFocusMode && <MenuBar />}
 
             <div className="flex-1 flex overflow-hidden relative">
-                {/* Left Sidebar - Files/Explorer */}
+                {/* Activity Bar - Always visible unless focus mode */}
+                {!isFocusMode && <ActivityBar />}
+
+                {/* Left Sidebar - Tabbed Content */}
                 {!isFocusMode && isLeftSidebarOpen && (
                     <>
-                        <FilesSidebar />
+                        <aside
+                            className="bg-light-sidebar dark:bg-dark-sidebar flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out"
+                            style={{ width: `${leftSidebarWidth}px` }}
+                        >
+                            {leftSidebarContent === 'files' && <FilesSidebar />}
+                            {leftSidebarContent === 'outline' && <OutlineSidebar />}
+                            {leftSidebarContent === 'voice' && <VoiceSidebar />}
+                        </aside>
 
                         {/* Left Resize Handle */}
                         <div
                             onMouseDown={startResizingLeft}
-                            className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
+                            className="w-1 px-0.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
                         />
                     </>
                 )}

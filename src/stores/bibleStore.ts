@@ -39,6 +39,7 @@ export const useBibleStore = create<BibleStore>()(
             bibleFocus: { book: 'John', chapter: 1, verse: null },
             interlinearEnabled: false,
             verseHoverPreviews: true,
+            selectionRange: null,
 
             setMainVersion: (version) => set({ mainVersion: version.toLowerCase() }),
 

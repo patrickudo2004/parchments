@@ -15,58 +15,71 @@ When you first open Parchments, you'll find a clean workspace. To begin your stu
 ## 🎨 The Workspace
 
 The interface is divided into three main zones:
--   **Left Sidebar (Explorer)**: Manage your library with hierarchical folders. Organize by topic, project, or date.
+-   **Left Sidebar (Explorer & Outline)**: Manage your library with hierarchical folders and navigate your document structure.
 -   **Center (Editor)**: A distraction-free, professional writing surface. Supports standard formatting, markdown-shorthand, and high-accuracy voice transcription.
--   **Right Sidebar (Study Tools)**: Your modular research panel containing the Bible Reader, Lexicon, and Cross-Reference Engine.
+-   **Right Sidebar (Study Tools)**: Your modular research panel containing the Bible Reader, Lexicon, and Research Bench.
 
 > [!TIP]
 > You can **resize** both sidebars by dragging their edges to create your perfect study layout.
 
 ---
 
-## 📖 Bible Intelligence
+## 📝 Structural Editing & Outline
 
-The built-in Bible application is more than just a reader; it's a parallel research tool.
+Parchments treats your notes as living structures. Use the **Outline** tab in the Left Sidebar to manage long documents.
 
-### Parallel View
-Compare up to **4 translations** side-by-side. 
--   **Sync Scrolling**: All columns stay perfectly aligned by verse.
--   **Add Version**: Click the **+** in the Bible header to add a parallel translation.
--   **Navigation**: Use the dropdown or the **Book/Chapter Picker** to jump between books.
+### 1. Drag-to-Reorder
+You can physically reshuffle your document's content directly from the outline.
+- **Move Sections**: Grab the handle (vertical dots) next to any heading and drag it up or down.
+- **Atomic Reshuffle**: Moving a heading automatically moves all associated text, lists, and scriptures with it.
 
-### Interlinear Mode
-Click the **Languages** icon in the Bible header to toggle Interlinear mode. 
--   View the original Greek or Hebrew lemma directly below the English text.
--   Access Strong's Concordance numbers for every word.
-
----
-
-## 🔍 Advanced Study Tools
-
-Parchments connects the dots between the original languages and your own reflections.
-
-### 1. The Lexicon (Dictionary)
-Click any word in **Interlinear Mode** to open the Lexicon Sidebar.
--   **Definitions**: See precise Strong's definitions.
--   **Pronunciation**: Learn how the original words sound.
--   **Search History**: Quickly jump back to words you previously studied using the "Recent Lookups" list.
-
-### 2. Cross-Reference Engine
-The **Refs** tab in the right sidebar allows you to link the entire Bible to your own research.
--   **Visual Pulse**: A blue dot next to a verse number indicates it has associated notes or references.
--   **Link to Note**: Search and attach any of your private notes to a specific verse.
--   **TSK Chains**: Explore historical connections via the *Treasury of Scripture Knowledge* (Phase 2.1).
+### 2. Focus Mode (Zen Writing)
+Isolate a specific section to remove distractions and focus on a single thought.
+- **Activate**: Click the **Focus** icon (target) next to any heading in the outline.
+- **Effect**: Everything outside the focused section is dimmed and blurred.
+- **Exit**: Click the "Exit Focus" button in the primary editor header to return to the full view.
 
 ---
 
-## ⌨️ Efficiency & Customization
+## 🧬 Research Bench & Citations
+
+The **Research Bench** (Right Sidebar) is where you pin references for later use.
+
+### 1. Persistent Pins
+While reading the Bible, click the **Pin** icon on any verse to save it to your Bench.
+- **Context Preservation**: Pins stay even if you navigate to other books or chapters.
+- **Bulk Insert**: Use the "Insert All" button to bring all pinned verses into your current note at once.
+
+### 2. Composite Citations
+Simply type a verse reference (e.g., `John 3:16`) in the editor. Parchments will automatically detect it and create a **Smart Link**.
+- **Hover**: Preview the verse text without leaving your writing flow.
+- **Click**: Jump directly to that verse in the Bible Reader.
+
+---
+
+## 🎙️ Voice & Transcription
+
+Parchments is optimized for "thought-to-text" sermon preparation.
+-   **Voice Notes**: Record sermon ideas or reflections on the fly. 
+-   **Real-time Transcription**: Transcribe your audio directly into the editor with high precision.
+-   **Integrated Playback**: Listen to your recordings while you edit the transcript using the built-in mini-player.
+
+---
+
+## ⌨️ Efficiency & Shortcuts
+
+### Keyboard Shortcuts
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl + K` | Open Command Palette |
+| `Ctrl + +` / `-` | Zoom Editor Font (In/Out) |
+| `Ctrl + 0` | Reset Zoom |
+| `Ctrl + B` | Bold Text |
+| `Ctrl + I` | Italic Text |
+| `Ctrl + Shift + 1-3` | Heading Levels 1-3 |
 
 ### Command Palette
-Press `Ctrl + K` (or `Cmd + K` on Mac) to open the Command Palette. From here, you can search for notes, run commands, or switch themes without leaving your keyboard.
-
-### Themes & Layout
--   **Dark Mode**: Switch between a crisp Light Mode and a deep, glassmorphic Dark Mode in the Top Bar.
--   **Density**: Toggle between **Comfortable** and **Compact** density in Settings to fit more content on your screen.
+Press `Ctrl + K` to open the Command Palette. From here, you can search for notes, run commands, or switch themes without leaving your keyboard.
 
 ---
 
@@ -78,4 +91,4 @@ When your research is ready to be shared or archived:
 
 ---
 
-*Parchments is a living application. This guide is updated regularly as new Phase 3 (Study & Composition) features are released.*
+*Parchments is a living application. This guide is updated regularly as new Phase 4 (Advanced AI & Insights) features are released.*

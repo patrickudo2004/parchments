@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Parchments
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Parchments is a premium, offline-first Bible study and sermon composition workspace. Built for theologians, pastors, and scriptural researchers, it combines a high-performance rich text editor with deep Bible intelligence and structural editing tools.
 
-Currently, two official plugins are available:
+## ✨ Core Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   **Parallel Bible Reader**: Side-by-side study of up to 4 translations with synced verse scrolling.
+-   **Interlinear & Lexicon**: Access original Greek/Hebrew lemmas and Strong's Concordance definitions directly in your study flow.
+-   **Smart Outline**: Reshuffle your sermon or study notes with **Drag-to-Reorder** and isolate sections with **Focus Mode**.
+-   **Research Bench**: Persistently pin scriptures and cross-references across sessions.
+-   **Voice-to-Text**: High-accuracy real-time transcription for capturing oral reflections and sermon ideas.
+-   **Local-First Architecture**: Your data stays on your machine, always accessible, lightning fast.
 
-## React Compiler
+## 🛠️ Technology Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+-   **Frontend**: React + TypeScript + Vite
+-   **State Management**: Zustand (+ Persist)
+-   **Editor Framework**: TipTap (ProseMirror)
+-   **Styling**: Tailwind CSS + Custom Design System
+-   **Animations**: Framer Motion
+-   **Storage**: IndexedDB (Local-First)
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1.  **Clone the Repo**:
+    ```bash
+    git clone https://github.com/patrickudo2004/parchments.git
+    cd parchments
+    ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3.  **Start Development Server**:
+    ```bash
+    npm run dev
+    ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4.  **Download Bible Data**:
+    Open the app, go to **Settings > Downloads**, and fetch the translations you need.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 📖 Documentation
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+-   [User Guide](USER_GUIDE.md): How to use the app.
+-   [Project Roadmap](PROJECT_ROADMAP.md): Current status and future phases.
+-   [Technical Architecture](TECHNICAL_ARCHITECTURE.md): Deep dive into the system design.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+
+*Parchments is currently in Phase 4: Advanced AI & Metadata. Check the [Task Checklist](TASK_CHECKLIST.md) for detailed progress.*

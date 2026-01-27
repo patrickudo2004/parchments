@@ -5,7 +5,7 @@ This document outlines the strategic journey of **Parchments**, from its initial
 ---
 
 ## 🏗️ Phase 1: Foundation (Current)
-*Status: Complete / Final Polishing*
+*Status: Complete*
 
 The goal was to build a rock-solid, local-first editor that works 100% offline and puts the user in control of their data.
 
@@ -29,8 +29,8 @@ We moved from "writing" to "studying," integrating advanced data layers directly
 
 ---
 
-## ✍️ Phase 3: Study & Composition (Current)
-*Goal: Optimize for sermon preparation and academic writing.*
+## ✍️ Phase 3: Study & Composition
+*Status: Complete*
 
 Tools to help convert Bible research into structured messages and documents.
 
@@ -43,12 +43,14 @@ Tools to help convert Bible research into structured messages and documents.
 - Quick-copy from Bible reader to Editor with automatic citation.
 
 ### 3. Outlining Mode
-- High-level view of your document structure.
-- Ability to "Drill Down" into specific sections without losing sight of the whole sermon flow.
+- [x] High-level view of your document structure.
+- [x] **Drag-to-Reorder**: Physically reshuffle sections from the outline.
+- [x] **Focus Mode**: Isolate specific sections for zen-style writing.
+- [x] Atomic editor synchronization for structural changes.
 
 ---
 
-## 🤖 Phase 4: Advanced AI (Parchments Intelligence)
+## 🤖 Phase 4: Advanced AI (Parchments Intelligence) (Current)
 *Goal: Leverage on-device AI for semantic understanding.*
 
 Moving beyond simple transcription into active research assistance.

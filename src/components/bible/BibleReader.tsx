@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
+import { ChevronRight, ChevronLeft, Plus, X as CloseIcon } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
@@ -206,7 +203,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                             onClick={() => setIsAddParallelOpen(!isAddParallelOpen)}
                             className={`p-1 rounded-full hover:bg-primary/10 text-primary transition-colors ${isAddParallelOpen ? 'bg-primary/20' : ''}`}
                         >
-                            <AddIcon style={{ fontSize: '18px' }} />
+                            <Plus size={18} />
                         </button>
                     )}
 
@@ -228,8 +225,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         <Languages size={18} />
                     </button>
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
-                    <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><NavigateBeforeIcon fontSize="small" /></button>
-                    <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><NavigateNextIcon fontSize="small" /></button>
+                    <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={18} /></button>
+                    <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={18} /></button>
                 </div>
             </div>
 
@@ -306,14 +303,14 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                             className="flex flex-col items-start gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
                         >
                             <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Previous</span>
-                            <span className="font-bold flex items-center text-lg"><NavigateBeforeIcon /> Previous Chapter</span>
+                            <span className="font-bold flex items-center text-lg"><ChevronLeft /> Previous Chapter</span>
                         </button>
                         <button
                             onClick={() => handleNavigation('next')}
                             className="flex flex-col items-end gap-1 p-4 hover:bg-light-background dark:hover:bg-dark-background rounded-xl transition-all"
                         >
                             <span className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Next</span>
-                            <span className="font-bold flex items-center text-lg">Next Chapter <NavigateNextIcon /></span>
+                            <span className="font-bold flex items-center text-lg">Next Chapter <ChevronRight /></span>
                         </button>
                     </div>
                 </div>
@@ -321,7 +318,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Footer Navigation */}
             <div className="h-10 border-t border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10 flex items-center justify-between px-6 shrink-0 text-[9px] font-black uppercase tracking-widest text-light-text-disabled select-none">
-                <button onClick={() => handleNavigation('prev')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform"><NavigateBeforeIcon fontSize="inherit" className="mr-1" /> Previous</button>
+                <button onClick={() => handleNavigation('prev')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform"><ChevronLeft size={16} className="mr-1" /> Previous</button>
                 <div className="flex gap-4">
                     {activeVersions.map(vid => (
                         <span key={vid}>
@@ -329,7 +326,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         </span>
                     ))}
                 </div>
-                <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform">Next <NavigateNextIcon fontSize="inherit" className="ml-1" /></button>
+                <button onClick={() => handleNavigation('next')} className="flex items-center hover:text-primary transition-colors hover:scale-105 transform">Next <ChevronRight size={16} className="ml-1" /></button>
             </div>
 
             {/* Floating Selection Bar */}

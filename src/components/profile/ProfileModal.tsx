@@ -1,7 +1,7 @@
 import React from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import CloseIcon from '@mui/icons-material/Close';
+import { X } from 'lucide-react';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -25,7 +25,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                 >
                     <div className="p-6 border-b border-light-border dark:border-dark-border flex justify-between items-center">
                         <h2 className="text-xl font-bold">Settings</h2>
-                        <button onClick={onClose}><CloseIcon /></button>
+                        <button onClick={onClose}><X size={20} /></button>
                     </div>
                     <div className="p-6 space-y-4">
                         <div className="flex items-center justify-between">

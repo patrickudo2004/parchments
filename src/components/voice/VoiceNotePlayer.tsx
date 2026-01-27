@@ -1,7 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import { Play, Pause, Volume2, Sparkles } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 
 interface VoiceNotePlayerProps {
@@ -9,7 +7,6 @@ interface VoiceNotePlayerProps {
     audioUrl?: string;
 }
 
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CircularProgress from '@mui/material/CircularProgress';
 
 export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, audioUrl }) => {
@@ -219,7 +216,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                     onClick={togglePlay}
                     className="w-12 h-12 rounded-full bg-primary hover:scale-105 active:scale-95 text-white flex items-center justify-center transition-all shadow-lg shadow-primary/20 shrink-0"
                 >
-                    {isPlaying ? <PauseIcon /> : <PlayArrowIcon className="ml-1" />}
+                    {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
                 </button>
 
                 <div className="flex-1 flex flex-col justify-center gap-2">
@@ -246,11 +243,11 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                             onClick={handleTranscribe}
                             className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 hover:bg-primary hover:text-white px-4 py-2 rounded-full transition-all border border-primary/20"
                         >
-                            <AutoAwesomeIcon fontSize="inherit" className="group-hover:animate-pulse" />
+                            <Sparkles size={14} className="group-hover:animate-pulse" />
                             Transcribe
                         </button>
                     )}
-                    <VolumeUpIcon fontSize="small" className="text-light-text-disabled" />
+                    <Volume2 size={20} className="text-light-text-disabled" />
                 </div>
             </div>
 

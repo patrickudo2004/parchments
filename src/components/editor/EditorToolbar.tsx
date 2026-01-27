@@ -1,25 +1,26 @@
 import React from 'react';
 import { Editor } from '@tiptap/react';
-import FormatBoldIcon from '@mui/icons-material/FormatBold';
-import FormatItalicIcon from '@mui/icons-material/FormatItalic';
-import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
-import StrikethroughSIcon from '@mui/icons-material/StrikethroughS';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
-import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
-import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
-import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import LinkIcon from '@mui/icons-material/Link';
-import HighlightingIcon from '@mui/icons-material/BorderColor';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import {
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    List,
+    ListOrdered,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    Quote,
+    Link as LinkIcon,
+    Highlighter,
+    Sparkles,
+    Undo,
+    Redo,
+    RotateCcw,
+    Heading1,
+    Heading2
+} from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
-
-import UndoIcon from '@mui/icons-material/Undo';
-import RedoIcon from '@mui/icons-material/Redo';
-import FormatClearIcon from '@mui/icons-material/FormatClear';
-import LooksOneIcon from '@mui/icons-material/LooksOne';
-import LooksTwoIcon from '@mui/icons-material/LooksTwo';
 
 interface EditorToolbarProps {
     editor: Editor | null;
@@ -38,7 +39,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
             className={`p-1.5 rounded transition-all flex items-center justify-center ${isActive ? 'bg-primary text-white shadow-md' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
                 } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
         >
-            <Icon fontSize="small" />
+            <Icon size={18} />
         </button>
     );
 
@@ -66,13 +67,13 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <Button
                     onClick={() => editor.chain().focus().undo().run()}
                     disabled={!editor.can().undo()}
-                    icon={UndoIcon}
+                    icon={Undo}
                     title="Undo (Ctrl+Z)"
                 />
                 <Button
                     onClick={() => editor.chain().focus().redo().run()}
                     disabled={!editor.can().redo()}
-                    icon={RedoIcon}
+                    icon={Redo}
                     title="Redo (Ctrl+Y)"
                 />
             </div>
@@ -81,7 +82,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
             <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
                 <Button
                     onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
-                    icon={FormatClearIcon}
+                    icon={RotateCcw}
                     title="Clear All Formatting"
                 />
             </div>
@@ -91,13 +92,13 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <Button
                     onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                     isActive={editor.isActive('heading', { level: 1 })}
-                    icon={LooksOneIcon}
+                    icon={Heading1}
                     title="Heading 1"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
                     isActive={editor.isActive('heading', { level: 2 })}
-                    icon={LooksTwoIcon}
+                    icon={Heading2}
                     title="Heading 2"
                 />
             </div>
@@ -107,31 +108,31 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <Button
                     onClick={() => editor.chain().focus().toggleBold().run()}
                     isActive={editor.isActive('bold')}
-                    icon={FormatBoldIcon}
+                    icon={Bold}
                     title="Bold"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleItalic().run()}
                     isActive={editor.isActive('italic')}
-                    icon={FormatItalicIcon}
+                    icon={Italic}
                     title="Italic"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleUnderline().run()}
                     isActive={editor.isActive('underline')}
-                    icon={FormatUnderlinedIcon}
+                    icon={Underline}
                     title="Underline"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleStrike().run()}
                     isActive={editor.isActive('strike')}
-                    icon={StrikethroughSIcon}
+                    icon={Strikethrough}
                     title="Strikethrough"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleHighlight().run()}
                     isActive={editor.isActive('highlight')}
-                    icon={HighlightingIcon}
+                    icon={Highlighter}
                     title="Highlight"
                 />
             </div>
@@ -141,19 +142,19 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <Button
                     onClick={() => editor.chain().focus().setTextAlign('left').run()}
                     isActive={editor.isActive({ textAlign: 'left' })}
-                    icon={FormatAlignLeftIcon}
+                    icon={AlignLeft}
                     title="Align Left"
                 />
                 <Button
                     onClick={() => editor.chain().focus().setTextAlign('center').run()}
                     isActive={editor.isActive({ textAlign: 'center' })}
-                    icon={FormatAlignCenterIcon}
+                    icon={AlignCenter}
                     title="Align Center"
                 />
                 <Button
                     onClick={() => editor.chain().focus().setTextAlign('right').run()}
                     isActive={editor.isActive({ textAlign: 'right' })}
-                    icon={FormatAlignRightIcon}
+                    icon={AlignRight}
                     title="Align Right"
                 />
             </div>
@@ -163,19 +164,19 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <Button
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
                     isActive={editor.isActive('bulletList')}
-                    icon={FormatListBulletedIcon}
+                    icon={List}
                     title="Bullet List"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
                     isActive={editor.isActive('orderedList')}
-                    icon={FormatListNumberedIcon}
+                    icon={ListOrdered}
                     title="Numbered List"
                 />
                 <Button
                     onClick={() => editor.chain().focus().toggleBlockquote().run()}
                     isActive={editor.isActive('blockquote')}
-                    icon={FormatQuoteIcon}
+                    icon={Quote}
                     title="Quote"
                 />
             </div>
@@ -183,7 +184,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
             <div className="ml-auto flex items-center gap-2">
                 <Button
                     onClick={handleScan}
-                    icon={AutoFixHighIcon}
+                    icon={Sparkles}
                     title="Scan for Scripture References"
                 />
                 <Button

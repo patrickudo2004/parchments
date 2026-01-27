@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import SearchIcon from '@mui/icons-material/Search';
-import DescriptionIcon from '@mui/icons-material/Description';
-import FolderIcon from '@mui/icons-material/Folder';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BoltIcon from '@mui/icons-material/Bolt';
+import { Search, FileText, Folder, Sparkles, Zap } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
@@ -57,7 +53,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                 type: 'scripture',
                 title: `${scripture.book} ${scripture.chapter}${scripture.verse ? ':' + scripture.verse : ''}`,
                 subtitle: 'Jump to Bible',
-                icon: <AutoAwesomeIcon className="text-amber-500" fontSize="small" />,
+                icon: <Sparkles className="text-amber-500" size={16} />,
                 handler: () => {
                     setBibleFocus(scripture);
                     openRightSidebar('bible');
@@ -75,7 +71,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                     type: 'note',
                     title: note.title,
                     subtitle: `In ${note.type} notes`,
-                    icon: <DescriptionIcon className="text-primary" fontSize="small" />,
+                    icon: <FileText className="text-primary" size={16} />,
                     handler: () => {
                         setCurrentNote(note);
                         onClose();
@@ -90,7 +86,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                     type: file.kind === 'file' ? 'note' : 'folder',
                     title: file.name,
                     subtitle: file.kind === 'file' ? 'Local File' : 'Local Folder',
-                    icon: file.kind === 'file' ? <DescriptionIcon className="text-primary" fontSize="small" /> : <FolderIcon className="text-amber-500" fontSize="small" />,
+                    icon: file.kind === 'file' ? <FileText className="text-primary" size={16} /> : <Folder className="text-amber-500" size={16} />,
                     handler: () => {
                         if (file.kind === 'file') {
                             openLocalFile(file as any);
@@ -103,12 +99,12 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
 
         // 3. Quick Actions
         const actions: SearchResult[] = [
-            { id: 'act-theme', type: 'action', title: 'Toggle Theme', subtitle: 'Switch between light/dark', icon: <BoltIcon />, handler: toggleTheme },
-            { id: 'act-bible', type: 'action', title: 'Open Bible', subtitle: 'Open Bible reader', icon: <AutoAwesomeIcon />, handler: () => openRightSidebar('bible') },
+            { id: 'act-theme', type: 'action', title: 'Toggle Theme', subtitle: 'Switch between light/dark', icon: <Zap size={16} />, handler: toggleTheme },
+            { id: 'act-bible', type: 'action', title: 'Open Bible', subtitle: 'Open Bible reader', icon: <Sparkles size={16} />, handler: () => openRightSidebar('bible') },
         ];
 
         actions.filter(a => a.title.toLowerCase().includes(lowerQuery)).forEach(a => {
-            newResults.push({ ...a, type: 'action', icon: <BoltIcon className="text-purple-500" fontSize="small" />, handler: () => { a.handler(); onClose(); } });
+            newResults.push({ ...a, type: 'action', icon: <Zap className="text-purple-500" size={16} />, handler: () => { a.handler(); onClose(); } });
         });
 
         setResults(newResults);
@@ -167,7 +163,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                     >
                         {/* Input Area */}
                         <div className="flex items-center gap-4 px-6 py-4 border-b border-light-border dark:border-dark-border">
-                            <SearchIcon className="text-light-text-secondary dark:text-dark-text-secondary" />
+                            <Search className="text-light-text-secondary dark:text-dark-text-secondary" size={20} />
                             <input
                                 ref={inputRef}
                                 type="text"

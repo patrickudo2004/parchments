@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './Button';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { AlertTriangle } from 'lucide-react';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -47,7 +47,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         <div className="p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className={`p-2 rounded-full ${isDanger ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                                    <WarningAmberIcon />
+                                    <AlertTriangle size={24} />
                                 </div>
                                 <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
                                     {title}

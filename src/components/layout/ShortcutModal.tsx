@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import CloseIcon from '@mui/icons-material/Close';
-import KeyboardIcon from '@mui/icons-material/Keyboard';
+import { X, Keyboard } from 'lucide-react';
 
 interface ShortcutModalProps {
     isOpen: boolean;
@@ -53,10 +52,10 @@ export const ShortcutModal: React.FC<ShortcutModalProps> = ({ isOpen, onClose })
                 >
                     <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
                         <div className="flex items-center gap-2 font-bold">
-                            <KeyboardIcon className="text-primary" />
+                            <Keyboard className="text-primary" size={20} />
                             <span>Keyboard Shortcuts</span>
                         </div>
-                        <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><CloseIcon /></button>
+                        <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><X size={20} /></button>
                     </div>
 
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar">

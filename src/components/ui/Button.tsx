@@ -40,13 +40,15 @@ export const Button: React.FC<ButtonProps> = ({
         <motion.button
             whileHover={{ scale: disabled || isLoading ? 1 : 1.02 }}
             whileTap={{ scale: disabled || isLoading ? 1 : 0.98 }}
-            className={`btn ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+            className={`btn border-none flex items-center justify-center gap-3 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
             disabled={disabled || isLoading}
             {...props}
         >
             {isLoading ? (
-                <span className="animate-spin mr-2">...</span> // Simple loader for now
-            ) : icon}
+                <span className="animate-spin mr-2">...</span>
+            ) : (
+                icon && <span className="flex items-center justify-center translate-y-[1px]">{icon}</span>
+            )}
             {children}
         </motion.button>
     );

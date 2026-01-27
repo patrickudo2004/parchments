@@ -1,10 +1,7 @@
 import React, { useRef } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import { X, Search, Settings, BookOpen } from 'lucide-react';
 import { BibleReader } from './BibleReader';
 
 export const BibleModal: React.FC = () => {
@@ -25,44 +22,48 @@ export const BibleModal: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="pointer-events-auto bg-light-surface dark:bg-dark-surface rounded-lg shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden"
-                style={{ width: '600px', height: '700px', resize: 'both', overflow: 'hidden', minWidth: '400px', minHeight: '500px' }}
+                className="pointer-events-auto bg-light-surface dark:bg-dark-surface rounded-2xl shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden"
+                style={{ width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '400px', minHeight: '500px' }}
             >
                 {/* Header (Drag Handle) */}
                 <div
-                    className="h-12 border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 bg-light-background dark:bg-dark-background cursor-move select-none shrink-0"
+                    className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 bg-light-background/50 dark:bg-dark-background/50 backdrop-blur-md cursor-move select-none shrink-0"
                     onPointerDown={(e) => dragControls.start(e)}
                 >
-                    <div className="flex items-center gap-2">
-                        <MenuBookIcon sx={{ fontSize: 18 }} className="text-primary" />
-                        <span className="font-bold text-xs uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary">Mini Bible App</span>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                            <BookOpen size={18} />
+                        </div>
+                        <span className="font-black text-[10px] uppercase tracking-widest text-primary">Mini Bible Studyspace</span>
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center gap-1.5" onPointerDown={(e) => e.stopPropagation()}>
-                        <button className="p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded transition-colors" title="Search"><SearchIcon fontSize="small" /></button>
-                        <button className="p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded transition-colors" title="Settings"><TextFieldsIcon fontSize="small" /></button>
+                    <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors" title="Search"><Search size={16} /></button>
+                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors" title="Settings"><Settings size={16} /></button>
                         <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-1" />
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleBibleModal();
                             }}
-                            className="p-1.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded transition-colors"
+                            className="p-1.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full transition-colors"
                             title="Close (Esc)"
                         >
-                            <CloseIcon fontSize="small" />
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
 
                 {/* Content Area */}
-                <BibleReader isIndependent={true} />
+                <div className="flex-1 overflow-hidden">
+                    <BibleReader isIndependent={true} />
+                </div>
 
                 {/* Resize Handle (Custom) */}
                 <div className="absolute bottom-1 right-1 cursor-se-resize p-1 z-50 pointer-events-none">
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2L2 10H10V2Z" fill="#A4A9B6" />
+                        <path d="M10 2L2 10H10V2Z" className="fill-light-border dark:fill-dark-border" />
                     </svg>
                 </div>
             </motion.div>

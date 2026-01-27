@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { TopBar } from './TopBar';
 import { MenuBar } from './MenuBar';
 import { FilesSidebar } from './FilesSidebar';
@@ -9,16 +10,15 @@ import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { AnimatePresence, motion } from 'framer-motion';
-import CloseIcon from '@mui/icons-material/Close';
-import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
-import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
-import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
-import { GitBranch, BookOpen, Search, Pin } from 'lucide-react';
+import { GitBranch, BookOpen, Search, Pin, X } from 'lucide-react';
 import { ActivityBar } from './ActivityBar';
 import { OutlineSidebar } from '@/components/bible/OutlineSidebar';
 import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
 import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
+import { StrongsModal } from '@/components/bible/StrongsModal';
+import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
+import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
+import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -46,6 +46,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isSearchModalOpen,
         searchQuery,
         toggleSearchModal,
+        isStrongsModalOpen,
+        selectedStrongsId,
+        toggleStrongsModal,
         isFocusMode,
         toast
     } = useUIStore();
@@ -201,7 +204,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     {rightSidebarContent === 'pins' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                                 </button>
                             </div>
-                            <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><CloseIcon style={{ fontSize: '18px' }} /></button>
+                            <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><X size={18} /></button>
                             {/* Content */}
                             <div className="flex-1 overflow-hidden">
                                 {rightSidebarContent === 'bible' && <BibleReader />}
@@ -243,6 +246,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         {isTemplateModalOpen && (
                             <div key="template-modal-wrapper" className="pointer-events-auto">
                                 <TemplatePickerModal />
+                            </div>
+                        )}
+                        {isStrongsModalOpen && (
+                            <div key="strongs-modal-wrapper" className="pointer-events-auto">
+                                <StrongsModal
+                                    strongsId={selectedStrongsId}
+                                    onClose={() => toggleStrongsModal(null)}
+                                />
                             </div>
                         )}
                     </AnimatePresence>

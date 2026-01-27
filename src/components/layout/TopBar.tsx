@@ -1,15 +1,10 @@
 import React from 'react';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
-import SearchIcon from '@mui/icons-material/Search';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import SettingsIcon from '@mui/icons-material/Settings';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
@@ -92,7 +87,7 @@ export const TopBar: React.FC = () => {
                     onClick={() => toggleSearchModal()}
                 >
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary group-hover:text-primary transition-colors">
-                        <SearchIcon fontSize="small" />
+                        <Search size={16} />
                     </div>
                     <div className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm text-light-text-disabled w-48 flex items-center justify-between transition-all hover:border-primary/50">
                         <span>Search...</span>
@@ -108,7 +103,7 @@ export const TopBar: React.FC = () => {
                             className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
                             title="Export Note"
                         >
-                            <FileDownloadIcon fontSize="small" />
+                            <Download size={18} />
                         </button>
 
                         {showExportMenu && (
@@ -153,7 +148,7 @@ export const TopBar: React.FC = () => {
                     className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
                     title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 >
-                    {theme === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
 
                 <button
@@ -161,7 +156,7 @@ export const TopBar: React.FC = () => {
                     className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
                     title="Settings"
                 >
-                    <SettingsIcon fontSize="small" />
+                    <Settings size={18} />
                 </button>
             </div>
         </header>

@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import NoteAddIcon from '@mui/icons-material/NoteAdd';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-import MicIcon from '@mui/icons-material/Mic';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
+import { FilePlus, FolderPlus, Mic, BookOpen, FolderOpen, Upload } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 
@@ -17,8 +12,8 @@ export const EmptyState: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-700">
                 <div className="mb-8 relative">
                     <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-                    <div className="relative p-8 bg-light-sidebar dark:bg-dark-sidebar rounded-3xl shadow-xl border border-light-border dark:border-dark-border">
-                        <FolderOpenIcon style={{ fontSize: '5rem' }} className="text-primary" />
+                    <div className="relative p-10 bg-light-sidebar dark:bg-dark-sidebar rounded-3xl shadow-xl border border-light-border dark:border-dark-border">
+                        <FolderOpen size={64} className="text-primary" />
                     </div>
                 </div>
 
@@ -31,7 +26,7 @@ export const EmptyState: React.FC = () => {
                     onClick={openLocalFolder}
                     className="group relative flex items-center gap-4 px-10 py-5 bg-primary text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95"
                 >
-                    <DriveFolderUploadIcon fontSize="medium" />
+                    <Upload size={24} />
                     <span>Open Local Folder</span>
                     <div className="absolute inset-0 rounded-2xl ring-4 ring-primary/20 scale-110 opacity-0 group-hover:opacity-100 transition-all" />
                 </button>
@@ -49,7 +44,7 @@ export const EmptyState: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-700">
             <div className="mb-8 p-6 bg-light-sidebar dark:bg-dark-sidebar rounded-full shadow-inner border border-light-border dark:border-dark-border">
-                <MenuBookIcon style={{ fontSize: '4rem' }} className="text-primary/20" />
+                <BookOpen size={64} className="text-primary/20" />
             </div>
 
             <h2 className="text-2xl font-bold mb-2">Studyspace Ready</h2>
@@ -57,41 +52,41 @@ export const EmptyState: React.FC = () => {
                 Create your first study note or select a file from the sidebar to begin.
             </p>
 
-            <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
+            <div className="grid grid-cols-3 gap-6 w-full max-w-2xl">
                 <button
                     onClick={() => createNote(null)}
-                    className="flex flex-col items-center gap-3 p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
+                    className="flex flex-col items-center gap-3 p-8 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
                 >
-                    <div className="p-3 bg-primary/10 text-primary rounded-xl group-hover:bg-primary group-hover:text-white transition-colors">
-                        <NoteAddIcon />
+                    <div className="p-4 bg-primary/10 text-primary rounded-xl group-hover:bg-primary group-hover:text-white transition-colors">
+                        <FilePlus size={24} />
                     </div>
                     <div className="text-sm font-bold">New Text Note</div>
                 </button>
 
                 <button
                     onClick={() => setShowVoiceRecorder(true)}
-                    className="flex flex-col items-center gap-3 p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
+                    className="flex flex-col items-center gap-3 p-8 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
                 >
-                    <div className="p-3 bg-red-500/10 text-red-600 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors">
-                        <MicIcon />
+                    <div className="p-4 bg-red-500/10 text-red-600 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors">
+                        <Mic size={24} />
                     </div>
                     <div className="text-sm font-bold">New Voice Note</div>
                 </button>
 
                 <button
                     onClick={() => createFolder('New Folder', null)}
-                    className="flex flex-col items-center gap-3 p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
+                    className="flex flex-col items-center gap-3 p-8 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
                 >
-                    <div className="p-3 bg-secondary/10 text-secondary rounded-xl group-hover:bg-secondary group-hover:text-white transition-colors">
-                        <CreateNewFolderIcon />
+                    <div className="p-4 bg-secondary/10 text-secondary rounded-xl group-hover:bg-secondary group-hover:text-white transition-colors">
+                        <FolderPlus size={24} />
                     </div>
                     <div className="text-sm font-bold">New Folder</div>
                 </button>
             </div>
 
             <div className="mt-12 flex items-center gap-6 text-xs text-light-text-disabled uppercase tracking-widest font-bold">
-                <div className="flex items-center gap-1.5"><span className="p-1 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">Ctrl</span> + <span className="p-1 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">N</span> New Note</div>
-                <div className="flex items-center gap-1.5"><span className="p-1 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">Ctrl</span> + <span className="p-1 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">,</span> Settings</div>
+                <div className="flex items-center gap-1.5"><span className="p-1.5 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">Ctrl</span> + <span className="p-1.5 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">N</span> New Note</div>
+                <div className="flex items-center gap-1.5"><span className="p-1.5 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">Ctrl</span> + <span className="p-1.5 bg-light-sidebar dark:bg-dark-sidebar rounded border border-light-border dark:border-dark-border">,</span> Settings</div>
             </div>
 
             {/* Voice Recorder Modal */}

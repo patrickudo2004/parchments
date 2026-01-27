@@ -2,19 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import CloseIcon from '@mui/icons-material/Close';
-import PaletteIcon from '@mui/icons-material/Palette';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import EditIcon from '@mui/icons-material/Edit';
-import StorageIcon from '@mui/icons-material/Storage';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import DownloadIcon from '@mui/icons-material/Download';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import WarningIcon from '@mui/icons-material/Warning';
+import {
+    X,
+    Palette,
+    BookOpen,
+    Edit3,
+    Database,
+    Upload,
+    Download,
+    CheckCircle2,
+    Trash2,
+    AlertTriangle,
+    Search,
+    Info
+} from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
-import SearchIcon from '@mui/icons-material/Search';
-import InfoIcon from '@mui/icons-material/Info';
 import { db, dbHelpers } from '@/lib/db';
 import { saveAs } from 'file-saver';
 import type { BibleVersion } from '@/types/database';
@@ -27,10 +29,10 @@ interface SettingsModalProps {
 }
 
 const TABS = [
-    { id: 'appearance', label: 'Appearance', icon: PaletteIcon },
-    { id: 'bible', label: 'Bible Versions', icon: MenuBookIcon },
-    { id: 'editor', label: 'Editor', icon: EditIcon },
-    { id: 'storage', label: 'Data & Storage', icon: StorageIcon },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'bible', label: 'Bible Versions', icon: BookOpen },
+    { id: 'editor', label: 'Editor', icon: Edit3 },
+    { id: 'storage', label: 'Data & Storage', icon: Database },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
@@ -232,7 +234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
                                         }`}
                                 >
-                                    <tab.icon fontSize="small" />
+                                    <tab.icon size={18} />
                                     {tab.label}
                                 </button>
                             ))}
@@ -246,7 +248,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between shrink-0">
                             <h3 className="font-bold text-light-text-primary dark:text-dark-text-primary">{TABS.find(t => t.id === activeTab)?.label}</h3>
-                            <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-secondary dark:text-dark-text-secondary"><CloseIcon /></button>
+                            <button onClick={onClose} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-secondary dark:text-dark-text-secondary"><X size={20} /></button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -275,7 +277,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         >
                                                             <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${t === 'dark' ? 'bg-gray-800' : t === 'light' ? 'bg-gray-100 border' : 'bg-gradient-to-br from-gray-100 to-gray-800'
                                                                 }`}>
-                                                                {settings.theme === t && <CheckCircleIcon style={{ color: t === 'dark' ? 'white' : '#1a73e8' }} fontSize="small" />}
+                                                                {settings.theme === t && <CheckCircle2 size={16} style={{ color: t === 'dark' ? 'white' : '#1a73e8' }} />}
                                                             </div>
                                                             <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary">{t}</span>
                                                         </button>
@@ -352,9 +354,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         );
                                                                     })}
                                                                 </select>
-                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-light-text-disabled">
-                                                                    <MenuBookIcon fontSize="small" />
-                                                                </div>
+                                                                <BookOpen size={18} />
                                                             </div>
 
                                                             <button
@@ -369,9 +369,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                     }`}
                                                             >
                                                                 {bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded) ? (
-                                                                    <span className="flex items-center gap-2"><CheckCircleIcon fontSize="small" /> Installed</span>
+                                                                    <span className="flex items-center gap-2"><CheckCircle2 size={16} /> Installed</span>
                                                                 ) : (
-                                                                    <span className="flex items-center gap-2"><DownloadIcon fontSize="small" /> Download</span>
+                                                                    <span className="flex items-center gap-2"><Download size={16} /> Download</span>
                                                                 )}
                                                             </button>
                                                         </div>
@@ -422,13 +422,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     ) : (
                                                         <>
                                                             <div className="w-16 h-16 bg-light-background dark:bg-dark-background rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                                                                <CloudUploadIcon className="text-light-text-disabled group-hover:text-primary" fontSize="large" />
+                                                                <Upload size={32} />
                                                             </div>
                                                             <div className="px-4">
                                                                 <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">Import Custom Bible Version</p>
                                                                 <p className="text-xs text-light-text-disabled mt-1 max-w-xs mx-auto">Upload a <b>JSON</b> or <b>USFM</b> file to add it to your local library.</p>
                                                                 <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-primary bg-primary/5 py-1 px-3 rounded-full border border-primary/10">
-                                                                    <InfoIcon style={{ fontSize: '12px' }} />
+                                                                    <Info size={12} />
                                                                     <span>Download free formats from <b>ebible.org</b></span>
                                                                 </div>
                                                             </div>
@@ -567,7 +567,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
                                                     <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
-                                                            <CloudUploadIcon />
+                                                            <Upload size={20} />
                                                         </div>
                                                         <h4 className="font-bold text-sm">Backup Library</h4>
                                                     </div>
@@ -576,19 +576,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         onClick={handleBackup}
                                                         className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 text-light-text-primary dark:text-dark-text-primary"
                                                     >
-                                                        <DownloadIcon fontSize="inherit" /> Export Now
+                                                        <Download size={16} /> Export Now
                                                     </button>
                                                 </div>
                                                 <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
                                                     <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
-                                                            <StorageIcon />
+                                                            <Database size={20} />
                                                         </div>
                                                         <h4 className="font-bold text-sm">Restore Data</h4>
                                                     </div>
                                                     <p className="text-xs text-light-text-secondary mb-4">Upload a previously exported .json backup file.</p>
                                                     <label className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 cursor-pointer text-light-text-primary dark:text-dark-text-primary">
-                                                        <CloudUploadIcon fontSize="inherit" /> Upload Backup
+                                                        <Upload size={16} /> Upload Backup
                                                         <input
                                                             type="file"
                                                             className="hidden"
@@ -613,7 +613,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             placeholder="Search..."
                                                             className="pl-8 pr-2 py-1 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary"
                                                         />
-                                                        <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-light-text-disabled" style={{ fontSize: '12px' }} />
+                                                        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-light-text-disabled" />
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
@@ -631,7 +631,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
                                                                 <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
                                                                     <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                        <StorageIcon fontSize="inherit" />
+                                                                        <Database size={14} />
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-sm font-medium">{v.name}</p>
@@ -651,7 +651,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                <StorageIcon fontSize="inherit" />
+                                                                <Database size={14} />
                                                             </div>
                                                             <div>
                                                                 <p className="text-sm font-medium">Whisper AI (Tiny)</p>
@@ -684,7 +684,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             <section className="mt-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl">
                                                 <div className="flex items-start gap-4">
                                                     <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg shrink-0">
-                                                        <WarningIcon />
+                                                        <AlertTriangle size={20} />
                                                     </div>
                                                     <div className="flex-1">
                                                         <h4 className="font-bold text-red-600">Danger Zone: Factory Reset</h4>
@@ -695,7 +695,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             onClick={handleFactoryReset}
                                                             className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 active:scale-95 transition-all flex items-center gap-2"
                                                         >
-                                                            <DeleteForeverIcon fontSize="small" /> Factory Reset Application
+                                                            <Trash2 size={16} /> Factory Reset Application
                                                         </button>
                                                     </div>
                                                 </div>

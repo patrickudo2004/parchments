@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
-import AddIcon from '@mui/icons-material/Add';
-import MicIcon from '@mui/icons-material/Mic';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import GTranslateIcon from '@mui/icons-material/GTranslate';
+import { Plus, Mic, BookOpen, Languages } from 'lucide-react';
 
 export const MenuBar: React.FC = () => {
     const {
@@ -253,13 +250,11 @@ export const MenuBar: React.FC = () => {
 
             {/* Right: Big Actions (Filled, Spacious) */}
             <div className="flex items-center gap-3">
-                <Button onClick={() => createNote(null)} variant="primary" icon={<AddIcon />}>Note</Button>
-                <Button onClick={() => toggleLeftSidebar('voice')} variant="primary" icon={<MicIcon />}>Voice</Button>
-                <Button onClick={toggleBibleModal} variant="primary" icon={<MenuBookIcon />}>Bible</Button>
-                <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<GTranslateIcon />}>Strong's</Button>
+                <Button onClick={() => createNote(null)} variant="primary" icon={<Plus size={18} />}>Note</Button>
+                <Button onClick={() => toggleLeftSidebar('voice')} variant="primary" icon={<Mic size={18} />}>Voice</Button>
+                <Button onClick={toggleBibleModal} variant="primary" icon={<BookOpen size={18} />}>Bible</Button>
+                <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<Languages size={18} />}>Strong's</Button>
             </div>
-
-            {/* Voice Recorder Modal (Removed - Now in Sidebar) */}
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { motion } from 'framer-motion';
-import CloseIcon from '@mui/icons-material/Close';
+import { X } from 'lucide-react';
 
 interface BookChapterPickerProps {
     currentBook: string;
@@ -42,7 +42,7 @@ export const BookChapterPicker: React.FC<BookChapterPickerProps> = ({
                     {view === 'books' ? 'Select Book' : `Select Chapter: ${selectedBook}`}
                 </span>
                 <button onClick={onClose} className="p-1 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors">
-                    <CloseIcon sx={{ fontSize: 14 }} />
+                    <X size={14} />
                 </button>
             </div>
 

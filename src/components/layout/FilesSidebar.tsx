@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import FolderIcon from '@mui/icons-material/Folder';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import NoteAddIcon from '@mui/icons-material/NoteAdd';
-import MicIcon from '@mui/icons-material/Mic';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import {
+    Folder,
+    FolderOpen,
+    FileText,
+    FilePlus,
+    Mic,
+    FolderPlus,
+    Trash2,
+    Upload,
+    ChevronRight,
+    ChevronDown,
+    AlertTriangle
+} from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
@@ -143,7 +145,7 @@ export const FilesSidebar: React.FC = () => {
                                 onClick={(e) => toggleFolder(e, item.id)}
                                 className="flex items-center justify-center w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded"
                             >
-                                {isExpanded ? <ExpandMoreIcon fontSize="inherit" /> : <ChevronRightIcon fontSize="inherit" />}
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             </div>
                         ) : (
                             <div className="w-4" /> // Spacing for items without chevrons
@@ -151,12 +153,12 @@ export const FilesSidebar: React.FC = () => {
 
                         {isFolder ? (
                             isExpanded ? (
-                                <FolderOpenIcon className="text-primary shrink-0" fontSize="small" />
+                                <FolderOpen className="text-primary shrink-0" size={16} />
                             ) : (
-                                <FolderIcon className="text-primary shrink-0" fontSize="small" />
+                                <Folder className="text-primary shrink-0" size={16} />
                             )
                         ) : (
-                            <InsertDriveFileIcon className="text-light-text-secondary dark:text-dark-text-secondary shrink-0" fontSize="small" />
+                            <FileText className="text-light-text-secondary dark:text-dark-text-secondary shrink-0" size={16} />
                         )}
                         <span className="truncate">{item.name}</span>
                     </div>
@@ -191,7 +193,7 @@ export const FilesSidebar: React.FC = () => {
                             className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
                             title="Delete"
                         >
-                            <DeleteIcon style={{ fontSize: '14px' }} />
+                            <Trash2 size={14} />
                         </button>
                     </div>
                 </div>
@@ -225,7 +227,7 @@ export const FilesSidebar: React.FC = () => {
                         className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Note" : "New Note")}
                     >
-                        <NoteAddIcon fontSize="small" />
+                        <FilePlus size={16} />
                     </button>
                     <button
                         onClick={toggleTemplateModal}
@@ -241,7 +243,7 @@ export const FilesSidebar: React.FC = () => {
                         className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Voice Note" : "New Voice Note")}
                     >
-                        <MicIcon fontSize="small" />
+                        <Mic size={16} />
                     </button>
                     <button
                         onClick={handleCreateFolder}
@@ -249,10 +251,10 @@ export const FilesSidebar: React.FC = () => {
                         className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Folder" : "New Folder")}
                     >
-                        <CreateNewFolderIcon fontSize="small" />
+                        <FolderPlus size={16} />
                     </button>
                     <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors text-primary" title="Open Local Studyspace">
-                        <DriveFolderUploadIcon fontSize="small" />
+                        <Upload size={16} />
                     </button>
                 </div>
             </div>
@@ -273,7 +275,7 @@ export const FilesSidebar: React.FC = () => {
                 {!hasStudyspace ? (
                     <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
                         <div className="w-12 h-12 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm">
-                            <FolderIcon className="text-light-text-disabled" />
+                            <Folder className="text-light-text-disabled" />
                         </div>
                         <div>
                             <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">No Studyspace</p>
@@ -289,7 +291,7 @@ export const FilesSidebar: React.FC = () => {
                 ) : isLocalMode && localFiles.filter(f => !f.parentId).length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
                         <div className="w-10 h-10 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center">
-                            <InsertDriveFileIcon className="text-light-text-disabled" fontSize="small" />
+                            <FileText className="text-light-text-disabled" size={20} />
                         </div>
                         <p className="text-[10px] text-light-text-secondary font-medium italic">This studyspace is empty.</p>
                         <button
@@ -314,7 +316,7 @@ export const FilesSidebar: React.FC = () => {
                         <div className="space-y-2">
                             <p>Are you sure you want to delete <span className="font-bold">"{deleteConfig.targetName}"</span>?</p>
                             <p className="text-red-500 font-bold flex items-center gap-1 text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                                <WarningAmberIcon fontSize="small" />
+                                <AlertTriangle size={16} />
                                 WARNING: This folder contains files. Deleting it may leave those files without a home.
                             </p>
                         </div>

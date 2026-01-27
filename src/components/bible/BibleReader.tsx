@@ -52,11 +52,15 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
     // Fetch all verses for all active versions in the current chapter
     const allVerses = useLiveQuery(async () => {
-        return db.bibleVerses
-            .where('versionId')
-            .anyOf(activeVersions)
-            .and(v => v.book === book && v.chapter === chapter)
-            .toArray();
+        if (!activeVersions.length) return [];
+
+        // Use parallel queries with the compound index for maximum speed
+        const results = await Promise.all(
+            activeVersions.map(vid =>
+                db.bibleVerses.where('[versionId+book+chapter]').equals([vid, book, chapter]).toArray()
+            )
+        );
+        return results.flat();
     }, [activeVersions, book, chapter]) || [];
 
     // Group verses by verse number

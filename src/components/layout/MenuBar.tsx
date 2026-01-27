@@ -202,7 +202,7 @@ export const MenuBar: React.FC = () => {
     }, []);
 
     return (
-        <div className="h-20 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 shrink-0 relative z-40">
+        <div className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 shrink-0 relative z-40">
             {/* Left: Traditional Menu */}
             <div className="flex items-center gap-1" ref={menuRef}>
                 {MENU_STRUCTURE.map((menu) => (

@@ -106,6 +106,63 @@
 
 ---
 
+---
+
+## Phase 2: Bible Intelligence (Weeks 4-6)
+
+### Week 4: Multi-Version & Parallel View
+- [x] Implement parallel Bible columns (up to 4 versions)
+- [x] Add version selector and column removal
+- [x] Implement synchronized scrolling by verse
+- [x] Optimize Bible data fetching for multiple versions
+- [x] Add toggle for Interlinear mode in Bible header
+
+### Week 5: Lexicon & Original Languages
+- [x] Build Strong's Concordance sidebar
+- [x] Implement Greek/Hebrew lemma display in Interlinear
+- [x] Add click-to-lookup functionality for Strong's numbers
+- [x] Create "Recent Lookups" history for Lexicon
+- [x] Implement pronunciation audio for Strong's entries
+
+### Week 6: Cross-References & Linking
+- [x] Build Cross-Reference (Refs) sidebar
+- [x] Implement manual note-to-verse linking
+- [x] Add visual "indicators" (Pulse) for linked verses
+- [x] Integrate Treasury of Scripture Knowledge (TSK) database
+- [x] Implement hover previews for cross-references
+
+---
+
+## Phase 3: Study & Composition (Weeks 7-9)
+
+### Week 7: Structural Outlining
+- [x] Build Document Outline sidebar with heading extraction
+- [x] **Drag-to-Reorder**: Implement atomic section moves
+- [x] **Focus Mode**: Implement zen-style section isolation
+- [x] Optimize editor performance for long structured documents
+
+### Week 8: Research Bench & Citations
+- [x] Build Research Bench sidebar
+- [x] Implement persistent verse "Pinning"
+- [x] Add "Bulk Insert" for pins with automatic citation
+- [x] Enhance auto-linking for more Bible reference formats
+
+### Week 9: Templates & Guided Study
+- [/] Implement Template selection menu in Editor Toolbar
+- [ ] Create pre-defined templates (SOAP, Inductive, etc.)
+- [ ] Add "Guided Study" prompts to template structures
+- [ ] Finalize Phase 3 polishing and documentation
+
+---
+
+## Progress Tracking
+
+**Phase 1 Total:** [x] 64/64 tasks completed (100%)  
+**Phase 2 Total:** [x] 15/15 tasks completed (100%)  
+**Phase 3 Progress:** [/] 10/14 tasks completed (71%)  
+
+---
+
 ## User Information
 
 - **GitHub Repository:** https://github.com/patrickudo2004/parchments

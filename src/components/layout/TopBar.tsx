@@ -55,7 +55,7 @@ export const TopBar: React.FC = () => {
     };
 
     return (
-        <header className="h-16 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
+        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
             {/* ... branding and note title ... */}
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-4">

@@ -146,7 +146,7 @@ export const OutlineSidebar: React.FC = () => {
         ];
 
         // Perform the update
-        activeEditor.commands.setContent({ type: 'doc', content: newDocContent }, false);
+        activeEditor.commands.setContent({ type: 'doc', content: newDocContent }, { emitUpdate: false });
 
         // Brief delay before re-enabling updates to allow editor to sync
         setTimeout(() => {

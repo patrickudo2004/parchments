@@ -19,12 +19,22 @@ import { ScriptureExtension } from './extensions/ScriptureExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
 import { EditorToolbar } from './EditorToolbar';
+import { FocusExtension } from './extensions/FocusExtension';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, saveCurrentNote } = useNoteStore();
-    const { writingLayout, editorFontFamily, editorFontSize, editorLineSpacing, setEditorStats, updateSettings } = useUIStore();
+    const {
+        writingLayout,
+        editorFontFamily,
+        editorFontSize,
+        editorLineSpacing,
+        setEditorStats,
+        updateSettings,
+        focusedHeadingPos,
+        setFocusedHeadingPos
+    } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
 
@@ -84,6 +94,7 @@ export const RichTextEditor: React.FC = () => {
             }),
             CharacterCount,
             ScriptureExtension,
+            FocusExtension,
         ],
         content: currentNote?.content || '',
         onUpdate: ({ editor }) => {
@@ -105,6 +116,15 @@ export const RichTextEditor: React.FC = () => {
             return () => setEditor(null);
         }
     }, [editor, setEditor]);
+
+    // Sync Focus Mode with Editor (only when the target heading changes in the store)
+    useEffect(() => {
+        if (editor) {
+            // We only need to tell the editor to switch focus if the target changes
+            // The extension's apply() method handles position mapping during edits
+            editor.commands.setFocusHeading(focusedHeadingPos);
+        }
+    }, [focusedHeadingPos, editor]); // Removing editor instance as a trigger if possible, or being careful here.
 
     // Zoom Keyboard Shortcuts
     useEffect(() => {
@@ -181,6 +201,23 @@ export const RichTextEditor: React.FC = () => {
         <div className="flex-1 flex flex-col h-full bg-white dark:bg-dark-surface overflow-hidden">
             <EditorToolbar editor={editor} />
 
+            {focusedHeadingPos !== null && (
+                <div className="bg-primary/5 border-b border-primary/10 px-6 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                    <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center text-primary">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Focused on Section</span>
+                    </div>
+                    <button
+                        onClick={() => setFocusedHeadingPos(null)}
+                        className="text-[10px] font-black uppercase tracking-widest bg-primary text-white px-3 py-1 rounded hover:bg-primary-hover transition-colors"
+                    >
+                        Exit Focus
+                    </button>
+                </div>
+            )}
+
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div
                     className={`mx-auto py-16 px-8 min-h-full transition-all duration-500 ${writingLayout === 'centered' ? 'max-w-4xl shadow-sm bg-light-surface dark:bg-dark-background/30' : 'max-w-none'
@@ -195,7 +232,7 @@ export const RichTextEditor: React.FC = () => {
                         value={title}
                         onChange={handleTitleChange}
                         placeholder="Note Title"
-                        className="w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30"
+                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''}`}
                     />
 
                     {/* Meta Info */}
@@ -221,7 +258,7 @@ export const RichTextEditor: React.FC = () => {
                     {/* Tiptap Editor */}
                     <ScriptureTooltipProvider>
                         <div
-                            className="prose prose-lg dark:prose-invert max-w-none tiptap-editor"
+                            className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''}`}
                             style={{
                                 fontSize: `${editorFontSize}px`,
                                 lineHeight: editorLineSpacing,

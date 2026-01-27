@@ -133,11 +133,11 @@ export const FilesSidebar: React.FC = () => {
             <React.Fragment key={item.id}>
                 <div
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items - center justify - between p - 1.5 rounded cursor - pointer text - sm transition - colors ${selectedFolderId === item.id
+                    className={`group flex items-center justify-between p-1.5 rounded cursor-pointer text-sm transition-colors ${selectedFolderId === item.id
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'hover:bg-light-background dark:hover:bg-dark-background'
-                        } `}
-                    style={{ paddingLeft: `${level * 12 + 8} px` }}
+                        }`}
+                    style={{ paddingLeft: `${level * 12 + 8}px` }}
                 >
                     <div className="flex items-center gap-1.5 overflow-hidden flex-1">
                         {hasChildren ? (
@@ -168,7 +168,7 @@ export const FilesSidebar: React.FC = () => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    const id = `note - ${item.id} `;
+                                    const id = `note-${item.id}`;
                                     if (isItemPinned(id)) {
                                         unpinItem(id);
                                     } else {
@@ -176,13 +176,13 @@ export const FilesSidebar: React.FC = () => {
                                             id,
                                             type: 'note',
                                             title: item.name,
-                                            content: `Note Reference: ${item.name} `,
-                                            reference: `Note: ${item.name} `,
+                                            content: `Note Reference: ${item.name}`,
+                                            reference: `Note: ${item.name}`,
                                             metadata: { noteId: item.id }
                                         });
                                     }
                                 }}
-                                className={`p - 1 opacity - 0 group - hover: opacity - 100 transition - all ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'} `}
+                                className={`p-1 opacity-0 group-hover:opacity-100 transition-all ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
                                 title="Pin to Research"
                             >
                                 <Pin size={12} />
@@ -224,7 +224,7 @@ export const FilesSidebar: React.FC = () => {
                     <button
                         onClick={handleCreateNote}
                         disabled={!hasStudyspace}
-                        className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Note" : "New Note")}
                     >
                         <FilePlus size={16} />
@@ -232,7 +232,7 @@ export const FilesSidebar: React.FC = () => {
                     <button
                         onClick={toggleTemplateModal}
                         disabled={!hasStudyspace}
-                        className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background text-primary'} `}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background text-primary'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : "New Study Template"}
                     >
                         <PenTool size={16} />
@@ -240,7 +240,7 @@ export const FilesSidebar: React.FC = () => {
                     <button
                         onClick={() => hasStudyspace && setShowRecorder(true)}
                         disabled={!hasStudyspace}
-                        className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Voice Note" : "New Voice Note")}
                     >
                         <Mic size={16} />
@@ -248,7 +248,7 @@ export const FilesSidebar: React.FC = () => {
                     <button
                         onClick={handleCreateFolder}
                         disabled={!hasStudyspace}
-                        className={`p - 1 rounded transition - colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
+                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
                         title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Folder" : "New Folder")}
                     >
                         <FolderPlus size={16} />
@@ -310,7 +310,7 @@ export const FilesSidebar: React.FC = () => {
 
             <ConfirmModal
                 isOpen={deleteConfig.isOpen}
-                title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'} `}
+                title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'}`}
                 message={
                     deleteConfig.targetType === 'folder' && !isFolderEmpty(deleteConfig.targetId) ? (
                         <div className="space-y-2">

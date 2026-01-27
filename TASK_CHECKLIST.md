@@ -23,6 +23,9 @@
 - [x] Create comprehensive color palette for light mode
 - [x] Create comprehensive color palette for dark mode
 - [x] Define typography scale (headings, body text, code, etc.)
+- [x] Click to scroll to headings
+- [x] Drag to reorder sections in outline
+- [x] Focus mode for specific headings (dim other content), code, etc.)
 - [x] Build base UI components (Button, Input, Select, Modal, Dropdown)
 - [x] Implement ThemeProvider and theme toggle functionality
 - [x] Test theme switching between light and dark modes

@@ -31,6 +31,7 @@ interface UIStore {
     searchQuery: string;
     isShortcutModalOpen: boolean;
     isFocusMode: boolean;
+    focusedHeadingPos: number | null;
     activeEditor: Editor | null;
     toast: { message: string, type: 'success' | 'error' | 'info' } | null;
     isExportModalOpen: boolean;
@@ -51,6 +52,7 @@ interface UIStore {
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
     toggleFocusMode: () => void;
+    setFocusedHeadingPos: (pos: number | null) => void;
     showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
     setEditor: (editor: Editor | null) => void;
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
@@ -96,6 +98,7 @@ export const useUIStore = create<UIStore>()(
             searchQuery: '',
             isShortcutModalOpen: false,
             isFocusMode: false,
+            focusedHeadingPos: null,
             activeEditor: null,
             toast: null,
             isExportModalOpen: false,
@@ -137,6 +140,7 @@ export const useUIStore = create<UIStore>()(
             })),
             toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
             toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode })),
+            setFocusedHeadingPos: (pos) => set({ focusedHeadingPos: pos }),
             showToast: (message, type = 'success') => {
                 set({ toast: { message, type } });
                 setTimeout(() => set({ toast: null }), 3000);
@@ -250,6 +254,7 @@ export const useUIStore = create<UIStore>()(
                 rightSidebarWidth: state.rightSidebarWidth,
                 rightSidebarOpen: state.rightSidebarOpen,
                 rightSidebarContent: state.rightSidebarContent,
+                focusedHeadingPos: null,
             }),
             onRehydrateStorage: () => (state) => {
                 if (state && state.theme === 'dark') {

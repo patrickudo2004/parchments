@@ -61,6 +61,26 @@
         color: #495057;
     }
 
+    /* Focus Mode Styles */
+    .focus-active .tiptap>* {
+        opacity: 0.1 !important;
+        filter: blur(2px) grayscale(0.5);
+        pointer-events: none;
+        transition: all 0.4s ease;
+    }
+
+    .focus-active .tiptap>.focus-visible {
+        opacity: 1 !important;
+        filter: none !important;
+        pointer-events: auto !important;
+        transition: all 0.4s ease;
+    }
+
+    .focus-active .tiptap .focus-visible * {
+        opacity: 1 !important;
+        filter: none !important;
+    }
+
     /* Tiptap specific styles to ensure lists and quotes are visible */
     .tiptap ul {
         list-style-type: disc;

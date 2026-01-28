@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { db } from '@/lib/db';
+import { useNoteStore } from './noteStore';
+
+interface Message {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+}
 
 interface AIState {
     isInitializing: boolean;
@@ -8,11 +15,25 @@ interface AIState {
     isIndexing: boolean;
     statusMessage: string;
 
+    // Generative / Chat state
+    isAIFeaturesEnabled: boolean;
+    isGenerativeModelDownloaded: boolean;
+    isGenerativeModelLoading: boolean;
+    downloadProgress: number;
+    chatHistory: Message[];
+    isChatting: boolean;
+
     // Actions
     init: () => void;
     startIndexing: (localFiles?: any[]) => Promise<void>;
     search: (query: string) => Promise<any[]>;
     getRelatedNotes: (noteId: string) => Promise<any[]>;
+
+    // New Actions
+    toggleAIFeatures: (enabled: boolean) => void;
+    downloadGenerativeModel: () => Promise<void>;
+    sendMessage: (content: string) => Promise<void>;
+    clearChat: () => void;
 }
 
 let worker: Worker | null = null;
@@ -24,6 +45,12 @@ export const useAIStore = create<AIState>((set, get) => ({
     indexingProgress: 0,
     isIndexing: false,
     statusMessage: 'Ready',
+    isAIFeaturesEnabled: false,
+    isGenerativeModelDownloaded: false,
+    isGenerativeModelLoading: false,
+    downloadProgress: 0,
+    chatHistory: [],
+    isChatting: false,
 
     init: () => {
         if (worker || typeof window === 'undefined') return;
@@ -44,10 +71,35 @@ export const useAIStore = create<AIState>((set, get) => ({
                     if (message === 'Model loaded successfully') {
                         set({ isModelLoaded: true, isInitializing: false });
                     }
+                    if (message === 'Generative model loaded') {
+                        set({ isGenerativeModelDownloaded: true, isGenerativeModelLoading: false });
+                    }
+                    break;
+                case 'PROGRESS':
+                    set({ downloadProgress: event.data.progress });
+                    break;
+                case 'CHAT_CHUNK':
+                    set(state => {
+                        const history = [...state.chatHistory];
+                        const lastMsg = history[history.length - 1];
+                        if (lastMsg && lastMsg.role === 'assistant') {
+                            lastMsg.content += event.data.chunk;
+                            return { chatHistory: history };
+                        }
+                        return state;
+                    });
+                    break;
+                case 'CHAT_COMPLETE':
+                    set({ isChatting: false });
                     break;
                 case 'ERROR':
                     console.error('AI Worker Error:', message || error);
-                    set({ statusMessage: `Error: ${message || error}`, isInitializing: false });
+                    set({
+                        statusMessage: `Error: ${message || error}`,
+                        isInitializing: false,
+                        isGenerativeModelLoading: false,
+                        isChatting: false
+                    });
                     break;
                 case 'EMBEDDING_RESULT':
                     const resolver = pendingRequests.get(id);
@@ -207,5 +259,59 @@ export const useAIStore = create<AIState>((set, get) => ({
             .filter(r => r.score > 0.4)
             .sort((a, b) => b.score - a.score)
             .slice(0, 5);
+    },
+
+    toggleAIFeatures: (enabled: boolean) => {
+        set({ isAIFeaturesEnabled: enabled });
+    },
+
+    downloadGenerativeModel: async () => {
+        const { isGenerativeModelLoading, init } = get();
+        if (isGenerativeModelLoading) return;
+
+        if (!worker) init();
+
+        set({ isGenerativeModelLoading: true, downloadProgress: 0, statusMessage: 'Downloading AI model...' });
+        worker?.postMessage({ type: 'LOAD_GENERATIVE' });
+    },
+
+    sendMessage: async (content: string) => {
+        const { isChatting, chatHistory } = get();
+        const noteStore = useNoteStore.getState();
+        const currentNote = noteStore.currentNote;
+
+        if (isChatting || !content.trim()) return;
+
+        const newMsg: Message = { role: 'user', content, timestamp: Date.now() };
+        const assistantMsg: Message = { role: 'assistant', content: '', timestamp: Date.now() };
+
+        set({
+            chatHistory: [...chatHistory, newMsg, assistantMsg],
+            isChatting: true
+        });
+
+        // Fetch context for RAG
+        let context = "";
+        if (currentNote) {
+            const cleanContent = currentNote.content.replace(/<[^>]*>/g, '');
+            context = `CURRENT NOTE CONTEXT:\nTitle: ${currentNote.title}\nContent: ${cleanContent}\n\n`;
+        }
+
+        const systemPrompt = `You are a helpful theological research assistant. Use the provided context to answer questions. If the answer isn't in the context, use your general knowledge but prioritize the user's notes.\n\n${context}`;
+
+        worker?.postMessage({
+            type: 'GENERATE_TEXT',
+            data: {
+                prompt: content,
+                history: [
+                    { role: 'system', content: systemPrompt },
+                    ...chatHistory.map(m => ({ role: m.role, content: m.content }))
+                ]
+            }
+        });
+    },
+
+    clearChat: () => {
+        set({ chatHistory: [] });
     }
 }));

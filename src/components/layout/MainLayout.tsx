@@ -11,13 +11,11 @@ import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
-    GitBranch, BookOpen, Search, Pin, X, ChevronLeft,
-    ChevronRight
+    GitBranch, BookOpen, Search, Pin, X
 } from 'lucide-react';
 import { ActivityBar } from './ActivityBar';
 import { OutlineSidebar } from '@/components/bible/OutlineSidebar';
 import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
-import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';

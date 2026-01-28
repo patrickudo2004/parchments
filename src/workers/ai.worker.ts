@@ -89,12 +89,7 @@ self.onmessage = async (event) => {
             const output = await generator(formattedPrompt, {
                 max_new_tokens: 512,
                 temperature: 0.7,
-                do_sample: true,
-                callback_function: (beams: any) => {
-                    const text = beams[0].output_text;
-                    // Note: Transformers.js v2 callback might be different than v3 progress
-                    // We'll handle chunks if the pipeline supports it, otherwise send full result
-                }
+                do_sample: true
             });
 
             const response = output[0].generated_text.split('<|im_start|>assistant\n').pop();

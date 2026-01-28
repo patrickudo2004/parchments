@@ -104,12 +104,14 @@ interface NoteStore {
     // Actions
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
-    createNote: (folderId: string | null) => Promise<Note>;
+    createNote: (folderId: string | null, title?: string) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
     createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
+    renameNote: (id: string, newName: string) => Promise<void>;
+    renameFolder: (id: string, newName: string) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
     setNotes: (notes: Note[]) => void;
     // Local Actions
@@ -145,17 +147,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         set({ folders });
     },
 
-    createNote: async (folderId) => {
+    createNote: async (folderId, title) => {
         const { isLocalMode, createLocalNote } = get();
         if (isLocalMode) {
-            const name = prompt('Name your new note:', 'Untitled Note');
-            if (!name) return {} as Note;
+            const name = title || 'Untitled Note';
             await createLocalNote(name, folderId);
             return {} as Note;
         }
 
         const note = await dbHelpers.createNote({
-            title: 'Untitled Note',
+            title: title || 'Untitled Note',
             content: '',
             folderId,
             tags: [],
@@ -299,6 +300,83 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             await db.folders.delete(id);
             set({
                 folders: folders.filter((f) => f.id !== id),
+            });
+        }
+    },
+
+    renameNote: async (id, newName) => {
+        const { isLocalMode, localDirectoryHandle, localFiles, notes, currentNote } = get();
+
+        if (isLocalMode && localDirectoryHandle) {
+            const item = localFiles.find(f => f.id === id && f.kind === 'file');
+            if (item) {
+                try {
+                    // Local rename
+                    const ext = item.name.split('.').pop();
+                    const finalName = (newName.endsWith('.html') || newName.endsWith('.md') || newName.endsWith('.txt'))
+                        ? newName
+                        : `${newName}.${ext}`;
+
+                    await fileSystem.renameEntry(item.handle, finalName);
+
+                    // Refresh
+                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+                    const files: LocalItem[] = rawFiles.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    }));
+
+                    set({
+                        localFiles: files,
+                        currentNote: currentNote?.id === id
+                            ? { ...currentNote, title: newName.replace(/\.html$|\.md$|\.txt$/, '') }
+                            : currentNote
+                    });
+                } catch (error) {
+                    console.error('Failed to rename local file:', error);
+                    throw error;
+                }
+            }
+        } else {
+            await db.notes.update(id, { title: newName, updatedAt: Date.now() });
+            set({
+                notes: notes.map(n => n.id === id ? { ...n, title: newName, updatedAt: Date.now() } : n),
+                currentNote: currentNote?.id === id ? { ...currentNote, title: newName } : currentNote
+            });
+        }
+    },
+
+    renameFolder: async (id, newName) => {
+        const { isLocalMode, localDirectoryHandle, localFiles, folders } = get();
+
+        if (isLocalMode && localDirectoryHandle) {
+            const item = localFiles.find(f => f.id === id && f.kind === 'directory');
+            if (item) {
+                try {
+                    await fileSystem.renameEntry(item.handle, newName);
+
+                    // Refresh
+                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+                    const files: LocalItem[] = rawFiles.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    }));
+                    set({ localFiles: files });
+                } catch (error) {
+                    console.error('Failed to rename local folder:', error);
+                    throw error;
+                }
+            }
+        } else {
+            await db.folders.update(id, { name: newName, updatedAt: Date.now() });
+            set({
+                folders: folders.map(f => f.id === id ? { ...f, name: newName, updatedAt: Date.now() } : f)
             });
         }
     },

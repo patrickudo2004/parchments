@@ -67,6 +67,16 @@ export class FileSystemService {
         return await parent.removeEntry(name, { recursive: true });
     }
 
+    async renameEntry(handle: FileSystemHandle, newName: string): Promise<void> {
+        // @ts-ignore - .move() is supported in modern Chromium
+        if (typeof handle.move === 'function') {
+            // @ts-ignore
+            await handle.move(newName);
+        } else {
+            throw new Error('Rename not supported in this browser version');
+        }
+    }
+
     async readDirectoryRecursive(dirHandle: FileSystemDirectoryHandle, parentId: string | null = null): Promise<{ handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[]> {
         let entries: { handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[] = [];
 

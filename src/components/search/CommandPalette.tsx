@@ -4,12 +4,13 @@ import { Search, FileText, Folder, Sparkles, Zap } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { dbHelpers } from '@/lib/db';
+import { db, dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
+import { useAIStore } from '@/stores/aiStore';
 
 interface SearchResult {
     id: string;
-    type: 'note' | 'folder' | 'scripture' | 'action';
+    type: 'note' | 'folder' | 'scripture' | 'action' | 'semantic';
     title: string;
     subtitle?: string;
     icon: React.ReactNode;
@@ -23,9 +24,10 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const { setCurrentNote, isLocalMode, localFiles, openLocalFile } = useNoteStore();
+    const { setCurrentNote, localFiles, openLocalFile } = useNoteStore();
     const { toggleTheme, openRightSidebar } = useUIStore();
     const { setBibleFocus } = useBibleStore();
+    const { search: semanticSearch, isModelLoaded } = useAIStore();
 
     // Reset when opening
     useEffect(() => {
@@ -44,6 +46,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
 
         const newResults: SearchResult[] = [];
         const lowerQuery = searchQuery.toLowerCase();
+        const seenIds = new Set<string>();
 
         // 1. Check for Scripture Reference
         const scripture = parseScriptureReference(searchQuery);
@@ -62,54 +65,103 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
             });
         }
 
-        // 2. Search Database Notes (if not in local mode or searching both)
-        if (!isLocalMode) {
-            const matchedNotes = await dbHelpers.searchNotes(searchQuery);
-            matchedNotes.forEach(note => {
-                newResults.push({
-                    id: note.id,
-                    type: 'note',
-                    title: note.title,
-                    subtitle: `In ${note.type} notes`,
-                    icon: <FileText className="text-primary" size={16} />,
-                    handler: () => {
-                        setCurrentNote(note);
-                        onClose();
+        // 2. Semantic Search (Intelligence) - High Priority
+        if (isModelLoaded && searchQuery.length > 2) {
+            try {
+                const semanticHits = await semanticSearch(searchQuery);
+                for (const hit of semanticHits) {
+                    // Try DB first
+                    const dbNote = await db.notes.get(hit.noteId);
+                    if (dbNote) {
+                        seenIds.add(dbNote.id);
+                        newResults.push({
+                            id: `ai-${dbNote.id}`,
+                            type: 'semantic',
+                            title: dbNote.title,
+                            subtitle: `Semantic Match (${Math.round(hit.score * 100)}%)`,
+                            icon: <Zap className="text-amber-400" size={16} />,
+                            handler: () => {
+                                setCurrentNote(dbNote);
+                                onClose();
+                            }
+                        });
+                        continue;
                     }
-                });
-            });
-        } else {
-            // Search Local Files
-            localFiles.filter(f => f.name.toLowerCase().includes(lowerQuery)).forEach(file => {
-                newResults.push({
-                    id: file.id,
-                    type: file.kind === 'file' ? 'note' : 'folder',
-                    title: file.name,
-                    subtitle: file.kind === 'file' ? 'Local File' : 'Local Folder',
-                    icon: file.kind === 'file' ? <FileText className="text-primary" size={16} /> : <Folder className="text-amber-500" size={16} />,
-                    handler: () => {
-                        if (file.kind === 'file') {
-                            openLocalFile(file as any);
-                        }
-                        onClose();
+
+                    // Try Local Files
+                    const localItem = localFiles.find(f => f.id === hit.noteId);
+                    if (localItem && localItem.kind === 'file') {
+                        seenIds.add(localItem.id);
+                        newResults.push({
+                            id: `ai-${localItem.id}`,
+                            type: 'semantic',
+                            title: localItem.name,
+                            subtitle: `Semantic Match (${Math.round(hit.score * 100)}%)`,
+                            icon: <Zap className="text-amber-400" size={16} />,
+                            handler: () => {
+                                openLocalFile(localItem as any);
+                                onClose();
+                            }
+                        });
                     }
-                });
-            });
+                }
+            } catch (err) {
+                console.error('Semantic search failed:', err);
+            }
         }
 
-        // 3. Quick Actions
+        // 3. Keyword Search - Database
+        const dbHits = await dbHelpers.searchNotes(searchQuery);
+        dbHits.forEach(note => {
+            if (seenIds.has(note.id)) return;
+            seenIds.add(note.id);
+            newResults.push({
+                id: note.id,
+                type: 'note',
+                title: note.title,
+                subtitle: `In ${note.type} notes`,
+                icon: <FileText className="text-primary" size={16} />,
+                handler: () => {
+                    setCurrentNote(note);
+                    onClose();
+                }
+            });
+        });
+
+        // 4. Keyword Search - Local Files (Filenames)
+        localFiles.filter(f => f.name.toLowerCase().includes(lowerQuery)).forEach(file => {
+            if (seenIds.has(file.id)) return;
+            seenIds.add(file.id);
+            newResults.push({
+                id: file.id,
+                type: file.kind === 'file' ? 'note' : 'folder',
+                title: file.name,
+                subtitle: file.kind === 'file' ? 'Local File' : 'Local Folder',
+                icon: file.kind === 'file' ? <FileText className="text-primary" size={16} /> : <Folder className="text-amber-500" size={16} />,
+                handler: () => {
+                    if (file.kind === 'file') {
+                        openLocalFile(file as any);
+                    }
+                    onClose();
+                }
+            });
+        });
+
+        // 5. Quick Actions
         const actions: SearchResult[] = [
             { id: 'act-theme', type: 'action', title: 'Toggle Theme', subtitle: 'Switch between light/dark', icon: <Zap size={16} />, handler: toggleTheme },
             { id: 'act-bible', type: 'action', title: 'Open Bible', subtitle: 'Open Bible reader', icon: <Sparkles size={16} />, handler: () => openRightSidebar('bible') },
         ];
 
-        actions.filter(a => a.title.toLowerCase().includes(lowerQuery)).forEach(a => {
-            newResults.push({ ...a, type: 'action', icon: <Zap className="text-purple-500" size={16} />, handler: () => { a.handler(); onClose(); } });
+        actions.forEach(a => {
+            if (a.title.toLowerCase().includes(lowerQuery)) {
+                newResults.push({ ...a, type: 'action', icon: <Zap className="text-purple-500" size={16} />, handler: () => { a.handler(); onClose(); } });
+            }
         });
 
         setResults(newResults);
         setSelectedIndex(0);
-    }, [isLocalMode, localFiles, setCurrentNote, setBibleFocus, openRightSidebar, toggleTheme, onClose, openLocalFile]);
+    }, [isModelLoaded, semanticSearch, localFiles, setCurrentNote, setBibleFocus, openRightSidebar, toggleTheme, onClose, openLocalFile]);
 
     useEffect(() => {
         const timeout = setTimeout(() => performSearch(query), 150);

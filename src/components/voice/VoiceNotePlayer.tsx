@@ -1,13 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, Sparkles } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
+import { AlertModal } from '@/components/ui/AlertModal';
+import CircularProgress from '@mui/material/CircularProgress';
 
 interface VoiceNotePlayerProps {
     audioBlob?: Blob;
     audioUrl?: string;
 }
-
-import CircularProgress from '@mui/material/CircularProgress';
 
 export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, audioUrl }) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -15,6 +15,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [src, setSrc] = useState<string>('');
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
 
     // Transcription State
     const [transcriptionStatus, setTranscriptionStatus] = useState<'idle' | 'loading' | 'transcribing' | 'complete' | 'error'>('idle');
@@ -37,7 +38,6 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
         };
     }, [audioBlob, audioUrl]);
 
-    // ... Playback handlers ...
     const togglePlay = () => {
         if (!audioRef.current) return;
         if (isPlaying) {
@@ -79,14 +79,13 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
 
     const handleTranscribe = async () => {
         if (!audioBlob) {
-            alert("This note doesn't have local audio data securely stored for transcription.");
+            setIsAlertOpen(true);
             return;
         }
 
         setTranscriptionStatus('loading');
         setProgressMessage('Preparing audio...');
 
-        // Verify worker support
         if (!window.Worker) {
             setTranscriptionStatus('error');
             setTranscriptionText('Web Workers not supported in this browser.');
@@ -94,31 +93,16 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
         }
 
         try {
-            // 1. Pre-decode audio to 16kHz Float32Array (Transformers.js requirement)
-            console.info('[Transcription] Starting audio processing...');
-            setProgressMessage('Accessing audio data...');
             const arrayBuffer = await audioBlob.arrayBuffer();
-            console.info('[Transcription] ArrayBuffer loaded, size:', arrayBuffer.byteLength);
-
-            setProgressMessage('Decoding audio...');
-            console.info('[Transcription] Initializing AudioContext for decoding...');
-
             const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-            // Note: decodeAudioData can hang if the context is suspended in some edge cases.
-            // We'll use a promise with a timeout just in case.
             const decodePromise = audioCtx.decodeAudioData(arrayBuffer);
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Audio decoding timed out. The audio format might be unsupported.')), 30000)
+                setTimeout(() => reject(new Error('Audio decoding timed out.')), 30000)
             );
 
-            console.info('[Transcription] Decoding started...');
             const originalBuffer = await (Promise.race([decodePromise, timeoutPromise]) as Promise<AudioBuffer>);
-            console.info('[Transcription] Decoding complete. Duration:', originalBuffer.duration, 'SampleRate:', originalBuffer.sampleRate);
-
-            setProgressMessage('Resampling to 16kHz...');
             const offlineCtx = new OfflineAudioContext(
-                1, // Mono is enough for transcription
+                1,
                 Math.ceil(originalBuffer.duration * 16000),
                 16000
             );
@@ -128,20 +112,10 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
             source.connect(offlineCtx.destination);
             source.start();
 
-            console.info('[Transcription] Resampling started...');
             const renderedBuffer = await offlineCtx.startRendering();
-            console.info('[Transcription] Resampling complete.');
-            setProgressMessage('AI is starting up...');
-
             const audioData = renderedBuffer.getChannelData(0);
             audioCtx.close();
 
-            // Check if audio is empty
-            if (audioData.length === 0 || audioData.every(v => v === 0)) {
-                console.warn('[Transcription] Audio data seems silent or empty.');
-            }
-
-            console.info('[Transcription] Creating worker...');
             const worker = new Worker(
                 new URL('../../workers/transcribeWorker.ts', import.meta.url),
                 { type: 'module' }
@@ -149,50 +123,38 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
             workerRef.current = worker;
 
             worker.onerror = (err) => {
-                console.error('[Transcription] Worker error:', err);
                 setTranscriptionStatus('error');
-                setTranscriptionText(`Worker Error: ${err.message || 'Failed to load transcription engine'}`);
+                setTranscriptionText(`Worker Error: ${err.message || 'Failed to load engine'}`);
             };
 
             worker.onmessage = (event) => {
                 const { status, message, text, file, progress } = event.data;
-                console.info('[Transcription] Worker message:', status, message || '');
-
                 if (status === 'downloading') {
                     setTranscriptionStatus('loading');
-                    if (progress) {
-                        setProgressMessage(`Downloading AI Model (${file}): ${Math.round(progress)}%`);
-                    } else {
-                        setProgressMessage(`Downloading AI Model...`);
-                    }
+                    setProgressMessage(progress ? `Downloading AI Model (${file}): ${Math.round(progress)}%` : `Downloading AI Model...`);
                 } else if (status === 'loading') {
                     setProgressMessage(message);
                 } else if (status === 'transcribing') {
                     setTranscriptionStatus('transcribing');
                     setProgressMessage(message);
                 } else if (status === 'complete') {
-                    console.info('[Transcription] Complete!');
                     setTranscriptionStatus('complete');
                     setTranscriptionText(text);
                     worker.terminate();
                     workerRef.current = null;
                 } else if (status === 'error') {
-                    console.error('[Transcription] AI error:', event.data.error);
                     setTranscriptionStatus('error');
                     setTranscriptionText(`AI Error: ${event.data.error}`);
                     worker.terminate();
                 }
             };
 
-            console.info('[Transcription] Sending data to worker...');
-            // Pass the decoded Float32Array and accuracy setting
             worker.postMessage({
                 audioBlob: audioData,
                 highAccuracy: settings.highAccuracyTranscription
             });
 
         } catch (err: any) {
-            console.error(err);
             setTranscriptionStatus('error');
             setTranscriptionText(`Failed to process audio: ${err.message}`);
         }
@@ -201,7 +163,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
     if (!src) return <div className="p-4 text-sm text-gray-500 italic">No audio source available.</div>;
 
     return (
-        <div className="w-full flex flex-col bg-light-background/40 dark:bg-dark-background/20 backdrop-blur-sm border border-light-border dark:border-dark-border/20 rounded-2xl overflow-hidden transition-all duration-300">
+        <div className="w-full flex flex-col bg-light-background/40 dark:bg-dark-background/20 backdrop-blur-sm border border-light-border dark:border-dark-border/20 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-6 flex items-center gap-6 select-none">
                 <audio
                     ref={audioRef}
@@ -214,7 +176,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
 
                 <button
                     onClick={togglePlay}
-                    className="w-12 h-12 rounded-full bg-primary hover:scale-105 active:scale-95 text-white flex items-center justify-center transition-all shadow-lg shadow-primary/20 shrink-0"
+                    className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shrink-0"
                 >
                     {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
                 </button>
@@ -251,11 +213,10 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                 </div>
             </div>
 
-            {/* Transcription Status / Result */}
             {(transcriptionStatus !== 'idle') && (
                 <div className="px-6 pb-6 pt-2 border-t border-light-border/30 dark:border-dark-border/10 bg-white/50 dark:bg-black/10">
                     {transcriptionStatus === 'loading' || transcriptionStatus === 'transcribing' ? (
-                        <div className="flex items-center gap-3 text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-3 text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary">
                             <div className="p-1.5 bg-primary/10 rounded-lg">
                                 <CircularProgress size={12} thickness={6} className="text-primary" />
                             </div>
@@ -266,7 +227,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                             {transcriptionText}
                         </div>
                     ) : (
-                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary opacity-50">Transcript</h4>
                                 <button
@@ -283,6 +244,14 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioBlob, aud
                     )}
                 </div>
             )}
+
+            <AlertModal
+                isOpen={isAlertOpen}
+                title="Transcription Error"
+                message="This note doesn't have local audio data securely stored for transcription."
+                type="error"
+                onClose={() => setIsAlertOpen(false)}
+            />
         </div>
     );
 };

@@ -6,7 +6,9 @@ import {
     Mic,
     Settings,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Link as LinkIcon,
+    Brain
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,6 +17,9 @@ export const ActivityBar: React.FC = () => {
         leftSidebarContent,
         toggleLeftSidebar,
         isLeftSidebarOpen,
+        toggleRightSidebar,
+        rightSidebarContent,
+        rightSidebarOpen,
         toggleSettingsModal
     } = useUIStore();
 
@@ -22,6 +27,8 @@ export const ActivityBar: React.FC = () => {
         { id: 'files', icon: Files, label: 'Explorer' },
         { id: 'outline', icon: LayoutList, label: 'Outline' },
         { id: 'voice', icon: Mic, label: 'Voice' },
+        { id: 'connections', icon: LinkIcon, label: 'Connections', target: 'right' },
+        { id: 'assistant', icon: Brain, label: 'Assistant', target: 'right' },
     ];
 
     return (
@@ -29,11 +36,20 @@ export const ActivityBar: React.FC = () => {
             {/* Top Navigation */}
             <div className="flex-1 flex flex-col gap-4 w-full px-2">
                 {items.map((item) => {
-                    const isActive = isLeftSidebarOpen && leftSidebarContent === item.id;
+                    const isActive = ('target' in item && item.target === 'right')
+                        ? (rightSidebarOpen && rightSidebarContent === item.id)
+                        : (isLeftSidebarOpen && leftSidebarContent === item.id);
+
                     return (
                         <button
                             key={item.id}
-                            onClick={() => toggleLeftSidebar(item.id as any)}
+                            onClick={() => {
+                                if ('target' in item && item.target === 'right') {
+                                    toggleRightSidebar(item.id as any);
+                                } else {
+                                    toggleLeftSidebar(item.id as any);
+                                }
+                            }}
                             className={`group relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isActive
                                 ? 'bg-primary/10 text-primary'
                                 : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'

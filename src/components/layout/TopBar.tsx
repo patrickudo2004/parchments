@@ -5,6 +5,7 @@ import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
 import { PenTool, Search, Moon, Sun, Settings, Download } from 'lucide-react';
+import { AlertModal } from '@/components/ui/AlertModal';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
@@ -14,6 +15,8 @@ export const TopBar: React.FC = () => {
         toggleTemplateModal
     } = useUIStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
 
     const handleFormatSelect = (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => {
         openExportModal(format);
@@ -50,7 +53,8 @@ export const TopBar: React.FC = () => {
             }
         } catch (error) {
             console.error('Export failed', error);
-            alert('Export failed due to an error. Check console.');
+            setAlertMessage('Export failed due to an error. Check console.');
+            setIsAlertOpen(true);
         }
     };
 
@@ -159,6 +163,13 @@ export const TopBar: React.FC = () => {
                     <Settings size={18} />
                 </button>
             </div>
+            <AlertModal
+                isOpen={isAlertOpen}
+                title="Export Error"
+                message={alertMessage}
+                type="error"
+                onClose={() => setIsAlertOpen(false)}
+            />
         </header>
     );
 };

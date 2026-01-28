@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Editor } from '@tiptap/react';
 import {
     Bold,
@@ -20,6 +20,7 @@ import {
     Heading1,
     Heading2
 } from 'lucide-react';
+import { PromptModal } from '@/components/ui/PromptModal';
 import { useUIStore } from '@/stores/uiStore';
 
 interface EditorToolbarProps {
@@ -28,6 +29,8 @@ interface EditorToolbarProps {
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const { showToast } = useUIStore();
+    const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
+    const [previousUrl, setPreviousUrl] = useState('');
 
     if (!editor) return null;
 
@@ -44,15 +47,26 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     );
 
     const setLink = () => {
-        const previousUrl = editor.getAttributes('link').href;
-        const url = window.prompt('URL', previousUrl);
+        const url = editor?.getAttributes('link').href;
+        setPreviousUrl(url || '');
+        setIsLinkPromptOpen(true);
+    };
 
-        if (url === null) return;
-        if (url === '') {
-            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    const handleLinkConfirm = (url: string) => {
+        setIsLinkPromptOpen(false);
+        // cancelled
+        if (url === null) {
             return;
         }
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+
+        // empty
+        if (url === '') {
+            editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+            return;
+        }
+
+        // update link
+        editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     };
 
     const handleScan = () => {
@@ -194,6 +208,16 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                     title="Insert/Edit Link"
                 />
             </div>
+
+            <PromptModal
+                isOpen={isLinkPromptOpen}
+                title="Insert Link"
+                label="URL"
+                defaultValue={previousUrl}
+                placeholder="https://example.com"
+                onConfirm={handleLinkConfirm}
+                onCancel={() => setIsLinkPromptOpen(false)}
+            />
         </div>
     );
 };

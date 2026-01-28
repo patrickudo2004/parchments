@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Mic, StopCircle, Pause, Play, Trash2, CheckCircle2 } from 'lucide-react';
+import { Mic, Square, Trash2, Pause, Play, CheckCircle } from 'lucide-react';
+import { AlertModal } from '@/components/ui/AlertModal';
 
 interface VoiceRecorderProps {
     onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
@@ -14,6 +15,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const [interimTranscript, setInterimTranscript] = useState('');
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [volumeScale, setVolumeScale] = useState(1.0);
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<any>(null);
     const transcriptRef = useRef<string>('');
@@ -158,7 +161,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
 
         } catch (err) {
             console.error("Error accessing microphone:", err);
-            alert("Could not access microphone. Please allow permissions.");
+            setAlertMessage("Could not access microphone. Please allow permissions.");
+            setIsAlertOpen(true);
             onCancel();
         }
     };
@@ -280,7 +284,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 {status === 'idle' ? <Mic size={48} /> :
                     status === 'recording' ? <Mic size={48} /> :
                         status === 'paused' ? <Pause size={48} /> :
-                            <CheckCircle2 size={48} />
+                            <CheckCircle size={48} />
                 }
             </div>
 
@@ -327,7 +331,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                             onClick={stopRecording}
                             variant="primary"
                             className="flex-1 justify-center !bg-red-500 hover:!bg-red-600 border-none"
-                            icon={<StopCircle size={16} className="mr-2" />}
+                            icon={<Square size={16} className="mr-2" />}
                         >
                             Stop
                         </Button>
@@ -346,7 +350,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                             onClick={stopRecording}
                             variant="secondary"
                             className="flex-1 justify-center"
-                            icon={<StopCircle size={16} className="mr-2" />}
+                            icon={<Square size={16} className="mr-2" />}
                         >
                             Finish
                         </Button>
@@ -357,7 +361,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                             onClick={handleSave}
                             variant="primary"
                             className="w-full justify-center !py-3"
-                            icon={<CheckCircle2 size={16} className="mr-2" />}
+                            icon={<CheckCircle size={16} className="mr-2" />}
                         >
                             Save Note
                         </Button>
@@ -372,6 +376,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                     </div>
                 )}
             </div>
+
+            <AlertModal
+                isOpen={isAlertOpen}
+                title="Microphone Error"
+                message={alertMessage}
+                type="error"
+                onClose={() => setIsAlertOpen(false)}
+            />
         </div>
     );
 };

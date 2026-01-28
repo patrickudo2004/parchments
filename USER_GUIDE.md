@@ -83,6 +83,35 @@ Press `Ctrl + K` to open the Command Palette. From here, you can search for note
 
 ---
 
+## Parchments Intelligence (AI)
+
+Parchments includes a built-in, offline-first AI engine that helps you connect your thoughts and structure your sermons without your data ever leaving your device.
+
+### Semantic Search (Ctrl + K)
+Traditional search looks for exact words. Semantic search looks for **meaning**. 
+*   **How to use**: Open the Command Palette and type naturally (e.g., "finding rest in trial").
+*   **Result**: AI-powered results are marked with a **Zap (⚡)** icon. It will find notes about "Peace" or "Affliction" even if they don't contain your search words.
+
+### Personal Knowledge Graph
+The **Connections** sidebar (Link icon 🔗) helps you see the "unseen" links in your Studyspace.
+*   **Semantic Connections**: Automatically shows notes that are contextually related to the one you are currently writing.
+*   **Local Cross-Theology**: Connects your personal notes with your local Studyspace folder files based on theological proximity.
+
+### Exegesis Assistant
+The **Assistant** sidebar (Brain icon 🧠) provides structural help for your writing.
+*   **Generate Outline**: Click "Generate Outline" while viewing a research note. The AI analyzes your text and suggests a homiletical structure or sermon outline.
+*   **Local Privacy**: All processing is done via a local Web Worker. Your sermons stay private.
+
+---
+
+## Local Folders (Studyspace)
+Parchments can turn any folder on your computer into a searchable library.
+*   Click the **Folder (📁)** icon in the sidebar to select a local directory.
+*   Once loaded, your local files are automatically indexed for both keyword and semantic search.
+*   Parchments supports `.html`, `.txt`, and `.md` files in your Studyspace.
+
+---
+
 ## 📤 Exporting Your Work
 When your research is ready to be shared or archived:
 1.  Click the **Export** icon in the Top Bar.

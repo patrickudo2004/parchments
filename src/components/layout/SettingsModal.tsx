@@ -19,6 +19,8 @@ import {
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
 import { saveAs } from 'file-saver';
+import { AlertModal } from '@/components/ui/AlertModal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { BibleVersion } from '@/types/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
@@ -50,6 +52,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
     const [bibleSearchQuery, setBibleSearchQuery] = useState('');
 
+    // Modal State
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, type: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
+    const [confirmConfig, setConfirmConfig] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDanger: boolean }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
     // Fetch catalog logic
     useEffect(() => {
         if (activeTab === 'bible' && catalog.length === 0) {
@@ -75,7 +92,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             });
             setImportingState(null);
         } catch (err: any) {
-            alert(`Download failed: ${err.message}`);
+            setAlertConfig({
+                isOpen: true,
+                title: 'Download Failed',
+                message: `Download failed: ${err.message}`,
+                type: 'error'
+            });
             setImportingState(null);
         }
     };
@@ -85,7 +107,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         const isUSFM = file.name.endsWith('.usfm') || file.name.endsWith('.sfm');
 
         if (!isJSON && !isUSFM) {
-            alert('Unsupported file format. Please use .json or .usfm');
+            setAlertConfig({
+                isOpen: true,
+                title: 'Format Error',
+                message: 'Unsupported file format. Please use .json or .usfm',
+                type: 'error'
+            });
             return;
         }
 
@@ -124,7 +151,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         setImportingState(null);
                         worker.terminate();
                     } else if (status === 'error') {
-                        alert(`Import failed: ${error}`);
+                        setAlertConfig({
+                            isOpen: true,
+                            title: 'Import Failed',
+                            message: `Import failed: ${error}`,
+                            type: 'error'
+                        });
                         setImportingState(null);
                         worker.terminate();
                     } else {
@@ -140,7 +172,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
             } catch (err) {
                 console.error('Import failed:', err);
-                alert('Import failed. Please check the file format.');
+                setAlertConfig({
+                    isOpen: true,
+                    title: 'Import Failed',
+                    message: 'Import failed. Please check the file format.',
+                    type: 'error'
+                });
             }
         };
 
@@ -149,36 +186,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     };
 
     const handleDeleteVersion = async (id: string) => {
-        if (!confirm(`Are you sure you want to delete this Bible version? This will remove all verses from your offline storage.`)) return;
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Delete Bible Version',
+            message: 'Are you sure you want to delete this Bible version? This will remove all verses from your offline storage.',
+            isDanger: true,
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                try {
+                    setImportingState({ status: 'Deleting...', progress: 0 });
+                    await db.bibleVerses.where('versionId').equals(id).delete();
+                    await db.bibleVersions.delete(id);
 
-        try {
-            setImportingState({ status: 'Deleting...', progress: 0 });
-            await db.bibleVerses.where('versionId').equals(id).delete();
-            await db.bibleVersions.delete(id);
+                    if (mainVersion === id) {
+                        const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
+                        setMainVersion(remaining?.id || 'kjv');
+                    }
 
-            if (mainVersion === id) {
-                const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
-                setMainVersion(remaining?.id || 'kjv');
+                    setImportingState(null);
+                } catch (err) {
+                    console.error('Delete failed:', err);
+                    setImportingState(null);
+                }
             }
-
-            setImportingState(null);
-        } catch (err) {
-            console.error('Delete failed:', err);
-            setImportingState(null);
-        }
+        });
     };
 
     const handleFactoryReset = async () => {
-        if (!confirm('CRITICAL: This will PERMANENTLY delete all your notes, folders, and downloaded Bible versions. This action cannot be undone. Are you absolutely sure?')) return;
-
-        try {
-            await db.delete();
-            localStorage.clear();
-            window.location.reload();
-        } catch (err) {
-            console.error('Factory reset failed:', err);
-            alert('Failed to reset application data.');
-        }
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Factory Reset',
+            message: 'CRITICAL: This will PERMANENTLY delete all your notes, folders, and downloaded Bible versions. This action cannot be undone. Are you absolutely sure?',
+            isDanger: true,
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await db.delete();
+                    localStorage.clear();
+                    window.location.reload();
+                } catch (err) {
+                    console.error('Factory reset failed:', err);
+                    setAlertConfig({
+                        isOpen: true,
+                        title: 'Reset Failed',
+                        message: 'Failed to reset application data.',
+                        type: 'error'
+                    });
+                }
+            }
+        });
     };
 
     const handleBackup = async () => {
@@ -188,25 +244,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             saveAs(blob, `parchments-backup-${new Date().toISOString().split('T')[0]}.json`);
         } catch (err) {
             console.error('Backup failed:', err);
-            alert('Backup failed.');
+            setAlertConfig({
+                isOpen: true,
+                title: 'Backup Failed',
+                message: 'Backup failed.',
+                type: 'error'
+            });
         }
     };
 
     const handleRestore = async (file: File) => {
-        if (!confirm('Are you sure you want to restore this backup? This will overwrite your current settings and data.')) return;
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const json = JSON.parse(e.target?.result as string);
-                await dbHelpers.importDatabase(json);
-                window.location.reload();
-            } catch (err) {
-                console.error('Restore failed:', err);
-                alert('Restore failed. Invalid file format.');
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Restore Backup',
+            message: 'Are you sure you want to restore this backup? This will overwrite your current settings and data.',
+            isDanger: false,
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const json = JSON.parse(e.target?.result as string);
+                        await dbHelpers.importDatabase(json);
+                        window.location.reload();
+                    } catch (err) {
+                        console.error('Restore failed:', err);
+                        setAlertConfig({
+                            isOpen: true,
+                            title: 'Restore Failed',
+                            message: 'Restore failed. Invalid file format.',
+                            type: 'error'
+                        });
+                    }
+                };
+                reader.readAsText(file);
             }
-        };
-        reader.readAsText(file);
+        });
     };
 
     if (!isOpen) return null;
@@ -708,6 +781,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     </div>
                 </motion.div>
             </div>
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                onConfirm={confirmConfig.onConfirm}
+                onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                isDanger={confirmConfig.isDanger}
+            />
         </AnimatePresence>
     );
 };

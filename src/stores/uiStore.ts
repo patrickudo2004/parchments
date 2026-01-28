@@ -20,7 +20,7 @@ interface UIStore {
     leftSidebarContent: 'files' | 'outline' | 'voice' | null;
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
-    rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | null;
+    rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | null;
     isBibleModalOpen: boolean;
     isStrongsModalOpen: boolean;
     selectedStrongsId: string | null;
@@ -58,10 +58,10 @@ interface UIStore {
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
-    toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins') => void;
+    toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
-    openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins') => void;
+    openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
     closeRightSidebar: () => void;
     openLexicon: (id?: string) => void;
     openCrossRefs: (verseId?: string) => void;

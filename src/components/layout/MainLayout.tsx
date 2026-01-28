@@ -10,7 +10,10 @@ import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { GitBranch, BookOpen, Search, Pin, X } from 'lucide-react';
+import {
+    GitBranch, BookOpen, Search, Pin, X, ChevronLeft,
+    ChevronRight
+} from 'lucide-react';
 import { ActivityBar } from './ActivityBar';
 import { OutlineSidebar } from '@/components/bible/OutlineSidebar';
 import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
@@ -19,6 +22,10 @@ import { StrongsModal } from '@/components/bible/StrongsModal';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
+import { ConnectionsSidebar } from '@/components/bible/ConnectionsSidebar';
+import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
+import { useAIStore } from '@/stores/aiStore';
+import { useNoteStore } from '@/stores/noteStore';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -99,6 +106,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             window.removeEventListener('mouseup', stopResizing);
         };
     }, [isResizingLeft, isResizingRight, resize, stopResizing]);
+
+    // Initialize local AI intelligence layer
+    const { init: initAI, isModelLoaded, startIndexing } = useAIStore();
+    React.useEffect(() => {
+        initAI();
+    }, [initAI]);
+
+    // Trigger indexing when AI model is loaded or local files change
+    const { localFiles } = useNoteStore();
+    React.useEffect(() => {
+        if (isModelLoaded) {
+            startIndexing(localFiles);
+        }
+    }, [isModelLoaded, startIndexing, localFiles]);
 
     // Ensure theme is applied to body on mount
     React.useEffect(() => {
@@ -210,7 +231,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 {rightSidebarContent === 'bible' && <BibleReader />}
                                 {rightSidebarContent === 'lexicon' && <LexiconSidebar />}
                                 {rightSidebarContent === 'crossrefs' && <CrossRefSidebar />}
-                                {rightSidebarContent === 'pins' && <ResearchSidebar />}
+                                {rightSidebarContent === 'pins' && <div className="h-full bg-light-surface dark:bg-dark-surface p-4">Pins (TBD)</div>}
+                                {rightSidebarContent === 'connections' && <ConnectionsSidebar />}
+                                {rightSidebarContent === 'assistant' && <AssistantSidebar />}
 
                                 {!rightSidebarContent && (
                                     <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">

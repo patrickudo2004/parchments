@@ -5,11 +5,16 @@ import type { BibleCrossRef, Note } from '@/types/database';
 import { Link2, BookOpen, FileText, ExternalLink, Plus, Search, Trash2, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
+import { AlertModal } from '@/components/ui/AlertModal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 export const CrossRefSidebar: React.FC = () => {
     const { selectedVerseId } = useUIStore();
     const [isPickingNote, setIsPickingNote] = useState(false);
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     // Fetch cross references for the selected verse
     const crossRefs = useLiveQuery(
@@ -39,7 +44,7 @@ export const CrossRefSidebar: React.FC = () => {
         // Check if already linked
         const existing = noteRefs.find(r => r.targetId === note.id);
         if (existing) {
-            alert('This note is already linked to this verse.');
+            setIsAlertOpen(true);
             return;
         }
 
@@ -56,9 +61,16 @@ export const CrossRefSidebar: React.FC = () => {
     };
 
     const handleDeleteRef = async (id: string) => {
-        if (confirm('Remove this cross-reference?')) {
-            await db.crossReferences.delete(id);
+        setPendingDeleteId(id);
+        setIsConfirmOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (pendingDeleteId) {
+            await db.crossReferences.delete(pendingDeleteId);
+            setPendingDeleteId(null);
         }
+        setIsConfirmOpen(false);
     };
 
     return (
@@ -182,6 +194,23 @@ export const CrossRefSidebar: React.FC = () => {
                     </>
                 )}
             </div>
+
+            <AlertModal
+                isOpen={isAlertOpen}
+                title="Already Linked"
+                message="This note is already linked to this verse."
+                type="info"
+                onClose={() => setIsAlertOpen(false)}
+            />
+
+            <ConfirmModal
+                isOpen={isConfirmOpen}
+                title="Remove Reference"
+                message="Are you sure you want to remove this cross-reference?"
+                onConfirm={confirmDelete}
+                onCancel={() => setIsConfirmOpen(false)}
+                isDanger={true}
+            />
         </div>
     );
 };

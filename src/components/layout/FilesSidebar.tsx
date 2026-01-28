@@ -10,10 +10,12 @@ import {
     Upload,
     ChevronRight,
     ChevronDown,
-    AlertTriangle
+    AlertTriangle,
+    Edit2
 } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { PromptModal } from '@/components/ui/PromptModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
 import { PenTool, Pin } from 'lucide-react';
@@ -26,6 +28,7 @@ export const FilesSidebar: React.FC = () => {
         notes, folders, deleteNote, deleteFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
         createLocalFolder,
+        renameNote, renameFolder,
         hasStudyspace
     } = useNoteStore();
     const { toggleTemplateModal } = useUIStore();
@@ -44,6 +47,19 @@ export const FilesSidebar: React.FC = () => {
         targetId: '',
         targetType: 'file',
         targetName: '',
+    });
+    const [promptConfig, setPromptConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        label: string;
+        defaultValue: string;
+        onConfirm: (val: string) => void;
+    }>({
+        isOpen: false,
+        title: '',
+        label: '',
+        defaultValue: '',
+        onConfirm: () => { },
     });
 
     const toggleFolder = (e: React.MouseEvent, folderId: string) => {
@@ -74,15 +90,34 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleCreateNote = async () => {
-        await createNote(selectedFolderId);
+        if (isLocalMode) {
+            setPromptConfig({
+                isOpen: true,
+                title: 'New Note',
+                label: 'Note Name',
+                defaultValue: 'Untitled Note',
+                onConfirm: async (name) => {
+                    await createNote(selectedFolderId, name);
+                    setPromptConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            });
+        } else {
+            await createNote(selectedFolderId);
+        }
     };
 
     const handleCreateFolder = async () => {
         if (isLocalMode) {
-            const name = prompt('Enter folder name:');
-            if (name) {
-                await createLocalFolder(name, selectedFolderId);
-            }
+            setPromptConfig({
+                isOpen: true,
+                title: 'New Folder',
+                label: 'Folder Name',
+                defaultValue: 'New Folder',
+                onConfirm: async (name) => {
+                    await createLocalFolder(name, selectedFolderId);
+                    setPromptConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            });
         } else {
             await createFolder('New Folder', selectedFolderId);
         }
@@ -96,6 +131,29 @@ export const FilesSidebar: React.FC = () => {
             targetId: item.id,
             targetType: type,
             targetName: item.name || item.title,
+        });
+    };
+
+    const handleRenameClick = async (e: React.MouseEvent, item: any) => {
+        e.stopPropagation();
+        const isFolder = item.kind === 'directory' || item.type === 'folder';
+        const currentName = item.name || item.title;
+
+        setPromptConfig({
+            isOpen: true,
+            title: `Rename ${isFolder ? 'Folder' : 'File'}`,
+            label: 'New Name',
+            defaultValue: currentName,
+            onConfirm: async (newName) => {
+                if (newName && newName !== currentName) {
+                    if (isFolder) {
+                        await renameFolder(item.id, newName);
+                    } else {
+                        await renameNote(item.id, newName);
+                    }
+                }
+                setPromptConfig(prev => ({ ...prev, isOpen: false }));
+            }
         });
     };
 
@@ -188,6 +246,13 @@ export const FilesSidebar: React.FC = () => {
                                 <Pin size={12} />
                             </button>
                         )}
+                        <button
+                            onClick={(e) => handleRenameClick(e, item)}
+                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
+                            title="Rename"
+                        >
+                            <Edit2 size={14} />
+                        </button>
                         <button
                             onClick={(e) => handleDeleteClick(e, item)}
                             className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
@@ -328,6 +393,15 @@ export const FilesSidebar: React.FC = () => {
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeleteConfig(prev => ({ ...prev, isOpen: false }))}
                 isDanger={true}
+            />
+
+            <PromptModal
+                isOpen={promptConfig.isOpen}
+                title={promptConfig.title}
+                label={promptConfig.label}
+                defaultValue={promptConfig.defaultValue}
+                onConfirm={promptConfig.onConfirm}
+                onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
             />
         </div>
     );

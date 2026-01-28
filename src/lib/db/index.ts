@@ -12,36 +12,15 @@ export class ParchmentsDatabase extends Dexie {
     strongsEntries!: Table<StrongsEntry>;
     strongsConcordance!: Table<{ verseId: string; strongsNumbers: string[] }>;
     crossReferences!: Table<BibleCrossRef>;
+    vectors!: Table<{ id: string; noteId: string; vector: Float32Array; lastIndexed: number }>;
 
     constructor() {
         super('ParchmentsDB');
 
-        // Version 1: Original schema
-        this.version(1).stores({
-            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
-            folders: 'id, name, parentId, order, [parentId+order]',
-            users: 'id, email, fullName'
-        });
+        // ... previous versions 1-7 ...
 
-        // Version 3: Fix missing isDownloaded index for BibleReader
-        this.version(3).stores({
-            bibleVersions: 'id, abbreviation, isDownloaded',
-            bibleVerses: 'id, versionId, [versionId+book+chapter], [versionId+book+chapter+verse], [versionId+book+chapter+verse+verseEnd]',
-            chapterSummaries: 'id, [book+chapter]'
-        });
-
-        // Version 4: Restore ALL tables (Fixing accidental drop in v3)
-        this.version(4).stores({
-            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
-            folders: 'id, name, parentId, order, [parentId+order]',
-            users: 'id, email, fullName',
-            bibleVersions: 'id, abbreviation, isDownloaded',
-            bibleVerses: 'id, versionId, book, [book+chapter]',
-            chapterSummaries: 'id, book, [book+chapter]'
-        });
-
-        // Version 7: Add Cross-References table
-        this.version(7).stores({
+        // Version 8: Add Vectors table for Semantic Search
+        this.version(8).stores({
             notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
             folders: 'id, name, parentId, order, [parentId+order]',
             users: 'id, email, fullName',
@@ -50,7 +29,8 @@ export class ParchmentsDatabase extends Dexie {
             chapterSummaries: 'id, book, [book+chapter]',
             strongsEntries: 'id',
             strongsConcordance: 'verseId',
-            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]'
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
+            vectors: 'id, noteId, lastIndexed'
         });
     }
 }

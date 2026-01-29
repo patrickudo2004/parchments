@@ -10,47 +10,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Light mode colors
+        // Light mode colors (Branded Linen & Charcoal)
         light: {
-          background: '#F5F5F7',
+          background: '#FBFBF4',
           surface: '#FFFFFF',
-          sidebar: '#F0F2F5',
-          border: '#D6D9E0',
-          'text-primary': '#1F2430',
-          'text-secondary': '#5C6578',
-          'text-disabled': '#A4A9B6',
+          sidebar: '#F5F5ED',
+          border: '#E8E8D9',
+          'text-primary': '#121212',
+          'text-secondary': '#4A4A4A',
+          'text-disabled': '#A8A89E',
         },
-        // Dark mode colors
+        // Dark mode colors (Branded Midnight Charcoal)
         dark: {
-          background: '#111218',
-          surface: '#181A22',
-          sidebar: '#151720',
-          elevated: '#1F2230',
-          border: '#2C3040',
-          'text-primary': '#F4F5F8',
-          'text-secondary': '#B3B8C7',
-          'text-disabled': '#707585',
+          background: '#121212',
+          surface: '#1A1A1A',
+          sidebar: '#161616',
+          elevated: '#242424',
+          border: '#2C2C2C',
+          'text-primary': '#F4F4F0',
+          'text-secondary': '#A8A8A8',
+          'text-disabled': '#666666',
         },
-        // Brand colors
+        // Brand colors (Antique Gold)
         primary: {
-          DEFAULT: '#2F5D9C',
-          hover: '#264A7A',
-          'hover-dark': '#3668AD',
+          DEFAULT: '#C5A059',
+          hover: '#AB8B4D',
+          'hover-dark': '#D4B26C',
         },
         secondary: {
-          DEFAULT: '#2E8B57',
+          DEFAULT: '#A88A4D',
         },
         warning: {
           DEFAULT: '#E39A35',
         },
-        // Scripture reference colors
+        // Scripture reference colors (Branded Gold/Tan)
         scripture: {
-          link: '#2F5D9C',
-          'link-dark': '#6FA8FF',
-          'hover-bg': '#E3ECF8',
-          'hover-bg-dark': '#273552',
-          'selection': '#C9DBFF',
-          'selection-dark': '#3257A8',
+          link: '#AB8B4D',
+          'link-dark': '#C5A059',
+          'hover-bg': '#F5F5ED',
+          'hover-bg-dark': '#242424',
+          'selection': '#E8E8D9',
+          'selection-dark': '#3D3D3D',
         },
       },
       fontFamily: {

@@ -5,39 +5,42 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    /* Light mode colors */
-    --color-light-background: #F5F5F7;
+    /* Light mode colors (Branded Linen & Charcoal) */
+    --color-light-background: #FBFBF4;
+    /* Linen parchment */
     --color-light-surface: #FFFFFF;
-    --color-light-sidebar: #F0F2F5;
-    --color-light-border: #D6D9E0;
-    --color-light-text-primary: #1F2430;
-    --color-light-text-secondary: #5C6578;
-    --color-light-text-disabled: #A4A9B6;
+    --color-light-sidebar: #F5F5ED;
+    --color-light-border: #E8E8D9;
+    --color-light-text-primary: #121212;
+    /* Deep Charcoal */
+    --color-light-text-secondary: #4A4A4A;
+    --color-light-text-disabled: #A8A89E;
 
-    /* Dark mode colors */
-    --color-dark-background: #111218;
-    --color-dark-surface: #181A22;
-    --color-dark-sidebar: #151720;
-    --color-dark-elevated: #1F2230;
-    --color-dark-border: #2C3040;
-    --color-dark-text-primary: #F4F5F8;
-    --color-dark-text-secondary: #B3B8C7;
-    --color-dark-text-disabled: #707585;
+    /* Dark mode colors (Branded Midnight Charcoal) */
+    --color-dark-background: #121212;
+    --color-dark-surface: #1A1A1A;
+    --color-dark-sidebar: #161616;
+    --color-dark-elevated: #242424;
+    --color-dark-border: #2C2C2C;
+    --color-dark-text-primary: #F4F4F0;
+    /* Off-white Linen */
+    --color-dark-text-secondary: #A8A8A8;
+    --color-dark-text-disabled: #666666;
 
-    /* Brand colors */
-    --color-primary: #2F5D9C;
-    --color-primary-hover: #264A7A;
-    --color-primary-hover-dark: #3668AD;
-    --color-secondary: #2E8B57;
+    /* Brand colors (Antique Gold) */
+    --color-primary: #C5A059;
+    --color-primary-hover: #AB8B4D;
+    --color-primary-hover-dark: #D4B26C;
+    --color-secondary: #A88A4D;
     --color-warning: #E39A35;
 
-    /* Scripture reference colors */
-    --color-scripture-link: #2F5D9C;
-    --color-scripture-link-dark: #6FA8FF;
-    --color-scripture-hover-bg: #E3ECF8;
-    --color-scripture-hover-bg-dark: #273552;
-    --color-scripture-selection: #C9DBFF;
-    --color-scripture-selection-dark: #3257A8;
+    /* Scripture reference colors (Branded Gold/Tan) */
+    --color-scripture-link: #AB8B4D;
+    --color-scripture-link-dark: #C5A059;
+    --color-scripture-hover-bg: #F5F5ED;
+    --color-scripture-hover-bg-dark: #242424;
+    --color-scripture-selection: #E8E8D9;
+    --color-scripture-selection-dark: #3D3D3D;
 
     /* Font families */
     --font-family-sans: 'Inter', system-ui, sans-serif;

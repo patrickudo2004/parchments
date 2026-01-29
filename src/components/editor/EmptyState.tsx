@@ -43,8 +43,8 @@ export const EmptyState: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-700">
-            <div className="mb-8 p-6 bg-light-sidebar dark:bg-dark-sidebar rounded-full shadow-inner border border-light-border dark:border-dark-border">
-                <BookOpen size={64} className="text-primary/20" />
+            <div className="mb-8 p-0 bg-transparent rounded-full overflow-hidden shadow-2xl ring-4 ring-primary/20">
+                <img src="/logo.png" alt="Parchments" className="w-24 h-24 object-contain" />
             </div>
 
             <h2 className="text-2xl font-bold mb-2">Studyspace Ready</h2>

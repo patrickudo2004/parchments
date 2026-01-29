@@ -62,9 +62,9 @@ export const TopBar: React.FC = () => {
         <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
             {/* ... branding and note title ... */}
             <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary rounded flex items-center justify-center shadow-md">
-                        <span className="text-white font-bold text-lg">P</span>
+                <div className="flex items-center gap-4 group cursor-pointer" onClick={() => window.location.href = '/'}>
+                    <div className="w-10 h-10 flex items-center justify-center">
+                        <img src="/logo.png" alt="Parchments" className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform" />
                     </div>
                     <span className="font-extrabold text-xl text-primary tracking-tight hidden sm:block">Parchments</span>
                 </div>

@@ -34,7 +34,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
     const { pinItem } = useResearchStore();
 
-    const { showToast } = useUIStore();
+    const { showToast, isMobile } = useUIStore();
     const contentRef = useRef<HTMLDivElement>(null);
 
     // Current Navigation State
@@ -277,8 +277,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Reading Content */}
             <div ref={contentRef} className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="max-w-[1400px] mx-auto p-4 sm:p-12">
-                    <h1 className="text-5xl font-black mb-12 text-light-text-primary dark:text-dark-text-primary tracking-tight">
+                <div className={`max-w-[1400px] mx-auto ${isMobile ? 'p-6 pt-10' : 'p-4 sm:p-12'}`}>
+                    <h1 className={`${isMobile ? 'text-3xl' : 'text-5xl'} font-black mb-8 text-light-text-primary dark:text-dark-text-primary tracking-tight`}>
                         {book} <span className="text-primary">{chapter}</span>
                     </h1>
 

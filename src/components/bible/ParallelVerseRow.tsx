@@ -35,20 +35,20 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
 
     const isSelected = selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end);
 
+    const { isMobile } = useUIStore();
+
     return (
         <div
             id={`verse-${verseNum}`}
             onClick={(e) => {
-                // If it's a verse number button click, it's handled there. 
-                // But we want clicking the row to also select.
                 if (e.shiftKey && selectionRange) {
                     setSelectionRange({ ...selectionRange, end: verseNum });
                 } else if (!e.shiftKey) {
                     setSelectionRange({ start: verseNum, end: verseNum });
                 }
             }}
-            className={`grid gap-8 py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/40 dark:hover:bg-dark-background/20 transition-all cursor-pointer select-none group/row ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}
-            style={{ gridTemplateColumns: `repeat(${versions.length}, minmax(0, 1fr))` }}
+            className={`${isMobile ? 'flex flex-col gap-6' : 'grid gap-8'} py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/40 dark:hover:bg-dark-background/20 transition-all cursor-pointer select-none group/row ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}
+            style={{ gridTemplateColumns: !isMobile ? `repeat(${versions.length}, minmax(0, 1fr))` : undefined }}
         >
             {versions.map((vid) => {
                 const v = versesByVersion[vid];

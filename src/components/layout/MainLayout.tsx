@@ -5,6 +5,8 @@ import { MenuBar } from './MenuBar';
 import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
+import { MobileNav } from './MobileNav';
+
 import { BibleModal } from '@/components/bible/BibleModal';
 import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
@@ -40,14 +42,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isShortcutModalOpen,
         toggleShortcutModal,
         setLeftSidebarWidth,
-        leftSidebarWidth, // Added
-        leftSidebarContent, // Added
+        leftSidebarWidth,
+        leftSidebarContent,
         rightSidebarWidth,
         setRightSidebarWidth,
         rightSidebarOpen,
         rightSidebarContent,
         toggleRightSidebar,
         isLeftSidebarOpen,
+        toggleLeftSidebar,
         isSearchModalOpen,
         searchQuery,
         toggleSearchModal,
@@ -55,11 +58,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         selectedStrongsId,
         toggleStrongsModal,
         isFocusMode,
-        toast
+        toast,
+        isMobile,
+        setIsMobile
     } = useUIStore();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
+
+    // Mobile detection
+    React.useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, [setIsMobile]);
 
     const startResizingLeft = React.useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -142,20 +157,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }, [toggleSearchModal]);
 
     return (
-        <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''}`}>
-            <TopBar />
-            {!isFocusMode && <MenuBar />}
+        <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''} ${isMobile ? 'pb-16' : ''}`}>
+            {!isMobile && <TopBar />}
+            {!isFocusMode && !isMobile && <MenuBar />}
 
             <div className="flex-1 flex overflow-hidden relative">
-                {/* Activity Bar - Always visible unless focus mode */}
-                {!isFocusMode && <ActivityBar />}
+                {/* Mobile Backdrop */}
+                <AnimatePresence>
+                    {isMobile && (isLeftSidebarOpen || rightSidebarOpen) && !isFocusMode && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => {
+                                if (isLeftSidebarOpen) toggleLeftSidebar();
+                                if (rightSidebarOpen) toggleRightSidebar();
+                            }}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55]"
+                        />
+                    )}
+                </AnimatePresence>
+
+                {/* Activity Bar - Always visible unless focus mode or mobile */}
+                {!isFocusMode && !isMobile && <ActivityBar />}
 
                 {/* Left Sidebar - Tabbed Content */}
                 {!isFocusMode && isLeftSidebarOpen && (
                     <>
                         <aside
-                            className="bg-light-sidebar dark:bg-dark-sidebar flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out"
-                            style={{ width: `${leftSidebarWidth}px` }}
+                            className={`bg-light-sidebar dark:bg-dark-sidebar flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : ''}`}
+                            style={{ width: isMobile ? '85vw' : `${leftSidebarWidth}px` }}
                         >
                             {leftSidebarContent === 'files' && <FilesSidebar />}
                             {leftSidebarContent === 'outline' && <OutlineSidebar />}
@@ -163,10 +194,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         </aside>
 
                         {/* Left Resize Handle */}
-                        <div
-                            onMouseDown={startResizingLeft}
-                            className="w-1 px-0.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
-                        />
+                        {!isMobile && (
+                            <div
+                                onMouseDown={startResizingLeft}
+                                className="w-1 px-0.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
+                            />
+                        )}
                     </>
                 )}
 
@@ -179,14 +212,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {!isFocusMode && rightSidebarOpen && (
                     <>
                         {/* Right Resize Handle */}
-                        <div
-                            onMouseDown={startResizingRight}
-                            className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
-                        />
+                        {!isMobile && (
+                            <div
+                                onMouseDown={startResizingRight}
+                                className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
+                            />
+                        )}
 
                         <aside
-                            className="bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out"
-                            style={{ width: `${rightSidebarWidth}px` }}
+                            className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : ''}`}
+                            style={{ width: isMobile ? '85vw' : `${rightSidebarWidth}px` }}
                         >
                             {/* Sidebar Tabs */}
                             <div className="flex border-b border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10">
@@ -222,8 +257,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     <span className="text-[10px] font-black uppercase tracking-widest leading-none">Pins</span>
                                     {rightSidebarContent === 'pins' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                                 </button>
+                                {isMobile && (
+                                    <button onClick={() => toggleRightSidebar()} className="p-3 text-light-text-secondary dark:text-dark-text-secondary border-l border-light-border dark:border-dark-border">
+                                        <X size={20} />
+                                    </button>
+                                )}
                             </div>
-                            <button onClick={() => toggleRightSidebar()} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled"><X size={18} /></button>
                             {/* Content */}
                             <div className="flex-1 overflow-hidden">
                                 {rightSidebarContent === 'bible' && <BibleReader />}
@@ -252,8 +291,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 )}
             </div>
 
+            {/* Mobile Navigation */}
+            {isMobile && !isFocusMode && <MobileNav />}
+
             {/* Status Bar */}
-            {!isFocusMode && <StatusBar />}
+            {!isFocusMode && !isMobile && <StatusBar />}
 
             {/* Floating Modals Container */}
             <div className="fixed inset-0 pointer-events-none z-[60]">

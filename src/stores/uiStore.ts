@@ -40,6 +40,7 @@ interface UIStore {
     // Editor stats
     wordCount: number;
     characterCount: number;
+    isMobile: boolean;
 
     // Actions
     toggleTheme: () => void;
@@ -66,6 +67,7 @@ interface UIStore {
     openLexicon: (id?: string) => void;
     openCrossRefs: (verseId?: string) => void;
     setEditorStats: (words: number, characters: number) => void;
+    setIsMobile: (isMobile: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -106,6 +108,7 @@ export const useUIStore = create<UIStore>()(
 
             wordCount: 0,
             characterCount: 0,
+            isMobile: false,
 
             toggleTheme: () =>
                 set((state) => {
@@ -121,9 +124,6 @@ export const useUIStore = create<UIStore>()(
 
             toggleBibleModal: () => set((state) => ({ isBibleModalOpen: !state.isBibleModalOpen })),
             toggleStrongsModal: (id) => set((state) => {
-                // If id is explicitly null, we close.
-                // If it's a string, we open with that ID.
-                // If it's undefined (no args), we toggle.
                 if (id === null) return { isStrongsModalOpen: false, selectedStrongsId: null };
                 if (typeof id === 'string') return { isStrongsModalOpen: true, selectedStrongsId: id };
 
@@ -150,7 +150,6 @@ export const useUIStore = create<UIStore>()(
             closeExportModal: () => set({ isExportModalOpen: false, exportFormat: null }),
 
             toggleLeftSidebar: (content) => set((state) => {
-                // If sidebar is closed, open it with provided content or default to 'files'
                 if (!state.isLeftSidebarOpen) {
                     return {
                         isLeftSidebarOpen: true,
@@ -158,7 +157,6 @@ export const useUIStore = create<UIStore>()(
                     };
                 }
 
-                // If sidebar is open and content matches or none provided, close it
                 if (!content || state.leftSidebarContent === content) {
                     return {
                         isLeftSidebarOpen: false,
@@ -166,14 +164,12 @@ export const useUIStore = create<UIStore>()(
                     };
                 }
 
-                // Switch content (keep open)
                 return {
                     leftSidebarContent: content
                 };
             }),
 
             toggleRightSidebar: (content) => set((state) => {
-                // If sidebar is closed, open it with the provided content
                 if (!state.rightSidebarOpen) {
                     return {
                         rightSidebarOpen: true,
@@ -181,7 +177,6 @@ export const useUIStore = create<UIStore>()(
                     };
                 }
 
-                // If sidebar is open and content is same OR no content provided, toggle close
                 if (!content || state.rightSidebarContent === content) {
                     return {
                         rightSidebarOpen: false,
@@ -189,7 +184,6 @@ export const useUIStore = create<UIStore>()(
                     };
                 }
 
-                // If sidebar is open and content is different, switch content (keep open)
                 return {
                     rightSidebarContent: content
                 };
@@ -208,7 +202,7 @@ export const useUIStore = create<UIStore>()(
             })),
 
             setTheme: (theme) =>
-                set(() => {
+                set((state) => {
                     let isDark = theme === 'dark';
                     if (theme === 'system') {
                         isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -222,19 +216,12 @@ export const useUIStore = create<UIStore>()(
                 }),
 
             updateSettings: (newSettings) => set((state) => ({ ...state, ...newSettings })),
-
             setLeftSidebarWidth: (width) => set({ leftSidebarWidth: width }),
-
             setRightSidebarWidth: (width) => set({ rightSidebarWidth: width }),
-
-            openRightSidebar: (content) =>
-                set({ rightSidebarOpen: true, rightSidebarContent: content }),
-
-            closeRightSidebar: () =>
-                set({ rightSidebarOpen: false, rightSidebarContent: null }),
-
-            setEditorStats: (words, characters) =>
-                set({ wordCount: words, characterCount: characters }),
+            openRightSidebar: (content) => set({ rightSidebarOpen: true, rightSidebarContent: content }),
+            closeRightSidebar: () => set({ rightSidebarOpen: false, rightSidebarContent: null }),
+            setEditorStats: (words, characters) => set({ wordCount: words, characterCount: characters }),
+            setIsMobile: (isMobile) => set({ isMobile }),
         }),
         {
             name: 'parchments-ui',

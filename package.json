@@ -6,6 +6,7 @@
   "scripts": {
     "catalog": "node scripts/generate-catalog.js",
     "dev": "vite",
+    "tauri": "tauri",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

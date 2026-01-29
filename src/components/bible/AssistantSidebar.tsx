@@ -6,6 +6,7 @@ import {
     Sparkles,
     Brain,
     Loader2,
+    ListChecks,
     Send,
     Trash2,
     Download,

@@ -202,7 +202,7 @@ export const useUIStore = create<UIStore>()(
             })),
 
             setTheme: (theme) =>
-                set((state) => {
+                set(() => {
                     let isDark = theme === 'dark';
                     if (theme === 'system') {
                         isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

@@ -151,7 +151,8 @@ export class FileSystemService {
     async renameEntry(handle: FileSystemHandle, newName: string): Promise<void> {
         if (isTauri && handle.path) {
             const { rename } = await import('@tauri-apps/plugin-fs');
-            const parentPath = handle.path.substring(0, handle.path.lastIndexOf(/[/\\]/));
+            const lastSlash = Math.max(handle.path.lastIndexOf('/'), handle.path.lastIndexOf('\\'));
+            const parentPath = handle.path.substring(0, lastSlash);
             await rename(handle.path, `${parentPath}/${newName}`);
             return;
         }

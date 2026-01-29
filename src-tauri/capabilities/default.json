@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "fs:default",
+    "fs:allow-app-cache-recursive",
+    "fs:allow-app-config-recursive",
+    "fs:allow-app-data-recursive",
+    "fs:allow-app-local-data-recursive",
+    "fs:allow-app-log-recursive",
+    "fs:allow-desktop-recursive",
+    "fs:allow-documents-recursive",
+    "fs:allow-downloads-recursive",
+    "fs:allow-home-recursive",
+    "fs:allow-picture-recursive",
+    "fs:allow-public-recursive",
+    "fs:allow-template-recursive",
+    "fs:allow-video-recursive",
+    "dialog:default"
+  ]
+}

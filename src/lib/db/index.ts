@@ -13,13 +13,14 @@ export class ParchmentsDatabase extends Dexie {
     strongsConcordance!: Table<{ verseId: string; strongsNumbers: string[] }>;
     crossReferences!: Table<BibleCrossRef>;
     vectors!: Table<{ id: string; noteId: string; vector: Float32Array; lastIndexed: number }>;
+    bibleVectors!: Table<{ id: string; versionId: string; book: string; chapter: number; verse: number; vector: Float32Array }>;
 
     constructor() {
         super('ParchmentsDB');
 
         // ... previous versions 1-7 ...
 
-        // Version 8: Add Vectors table for Semantic Search
+        // Version 8: Add Vectors table for Semantic Search & Bible Vectors
         this.version(8).stores({
             notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
             folders: 'id, name, parentId, order, [parentId+order]',
@@ -30,7 +31,8 @@ export class ParchmentsDatabase extends Dexie {
             strongsEntries: 'id',
             strongsConcordance: 'verseId',
             crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
-            vectors: 'id, noteId, lastIndexed'
+            vectors: 'id, noteId, lastIndexed',
+            bibleVectors: 'id, versionId, [versionId+book+chapter]'
         });
     }
 }

@@ -27,7 +27,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     const { setCurrentNote, localFiles, openLocalFile } = useNoteStore();
     const { toggleTheme, openRightSidebar } = useUIStore();
     const { setBibleFocus } = useBibleStore();
-    const { search: semanticSearch, isModelLoaded } = useAIStore();
+    const { search: semanticSearch, searchBible, isModelLoaded } = useAIStore();
 
     // Reset when opening
     useEffect(() => {
@@ -65,7 +65,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
             });
         }
 
-        // 2. Semantic Search (Intelligence) - High Priority
+        // 2. Semantic Search (Intelligence) - Notes
         if (isModelLoaded && searchQuery.length > 2) {
             try {
                 const semanticHits = await semanticSearch(searchQuery);
@@ -107,6 +107,29 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                 }
             } catch (err) {
                 console.error('Semantic search failed:', err);
+            }
+        }
+
+        // 3. Semantic Search - Bible (Daily Bread)
+        if (isModelLoaded && searchQuery.length > 3 && !scripture) {
+            try {
+                const bibleHits = await searchBible(searchQuery);
+                for (const hit of bibleHits) {
+                    newResults.push({
+                        id: `bible-sem-${hit.book}-${hit.chapter}`,
+                        type: 'scripture',
+                        title: `${hit.book} ${hit.chapter}`,
+                        subtitle: `Scripture Theme Match (${Math.round(hit.score * 100)}%)`,
+                        icon: <Sparkles className="text-primary" size={16} />,
+                        handler: () => {
+                            setBibleFocus({ book: hit.book, chapter: hit.chapter, verse: 1 });
+                            openRightSidebar('bible');
+                            onClose();
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Semantic bible search failed:', err);
             }
         }
 

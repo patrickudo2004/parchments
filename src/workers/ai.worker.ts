@@ -82,18 +82,33 @@ self.onmessage = async (event) => {
 
             // Format prompt for SmolLM2 Instruct
             const chat = [...history, { role: 'user', content: prompt }];
+            const assistantHeader = '\n<|im_start|>assistant\n';
             const formattedPrompt = chat.map((m: any) =>
                 `<|im_start|>${m.role}\n${m.content}<|im_end|>`
-            ).join('\n') + '\n<|im_start|>assistant\n';
+            ).join('\n') + assistantHeader;
 
+            let lastLength = 0;
             const output = await generator(formattedPrompt, {
                 max_new_tokens: 512,
                 temperature: 0.7,
-                do_sample: true
+                do_sample: true,
+                callback_function: (beams: any) => {
+                    const fullText = beams[0].output_text;
+                    const contentOnly = fullText.split(assistantHeader).pop() || '';
+                    if (contentOnly.length > lastLength) {
+                        const chunk = contentOnly.slice(lastLength);
+                        self.postMessage({ type: 'CHAT_CHUNK', chunk });
+                        lastLength = contentOnly.length;
+                    }
+                }
             });
 
-            const response = output[0].generated_text.split('<|im_start|>assistant\n').pop();
-            self.postMessage({ type: 'CHAT_CHUNK', chunk: response });
+            // Final safety check to ensure full content is sent (though callback should cover it)
+            const response = output[0].generated_text.split(assistantHeader).pop();
+            if (response.length > lastLength) {
+                const chunk = response.slice(lastLength);
+                self.postMessage({ type: 'CHAT_CHUNK', chunk });
+            }
             self.postMessage({ type: 'CHAT_COMPLETE' });
         } catch (error: any) {
             self.postMessage({ type: 'ERROR', id, message: `Generation failed: ${error.message}` });

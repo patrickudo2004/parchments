@@ -215,14 +215,14 @@ export const AssistantSidebar: React.FC = () => {
                                     ? 'bg-primary text-white border-primary shadow-primary/10'
                                     : 'bg-white dark:bg-black/20 text-light-text-primary dark:text-dark-text-primary border-light-border dark:border-dark-border'
                                     }`}>
-                                    {msg.content || (msg.role === 'assistant' && isChatting && (
+                                    {msg.content}
+                                    {!msg.content && msg.role === 'assistant' && isChatting && (
                                         <div className="flex gap-1 py-1">
                                             <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" />
                                             <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0.2s]" />
                                             <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0.4s]" />
                                         </div>
-                                    ))}
-                                    {msg.content}
+                                    )}
                                 </div>
                                 <span className="text-[9px] font-bold text-light-text-disabled uppercase tracking-widest mt-2 px-1 opacity-50">
                                     {msg.role === 'user' ? 'You' : 'Assistant'}

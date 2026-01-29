@@ -22,6 +22,8 @@ interface AIState {
     downloadProgress: number;
     chatHistory: Message[];
     isChatting: boolean;
+    isBibleIndexing: boolean;
+    bibleIndexingProgress: number;
 
     // Actions
     init: () => void;
@@ -34,6 +36,8 @@ interface AIState {
     downloadGenerativeModel: () => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
     clearChat: () => void;
+    indexBible: (versionId: string) => Promise<void>;
+    searchBible: (query: string, versionId?: string) => Promise<any[]>;
 }
 
 let worker: Worker | null = null;
@@ -51,6 +55,8 @@ export const useAIStore = create<AIState>((set, get) => ({
     downloadProgress: 0,
     chatHistory: [],
     isChatting: false,
+    isBibleIndexing: false,
+    bibleIndexingProgress: 0,
 
     init: () => {
         if (worker || typeof window === 'undefined') return;
@@ -259,6 +265,116 @@ export const useAIStore = create<AIState>((set, get) => ({
             .filter(r => r.score > 0.4)
             .sort((a, b) => b.score - a.score)
             .slice(0, 5);
+    },
+
+    indexBible: async (versionId: string) => {
+        const { isBibleIndexing, isModelLoaded, init } = get();
+        if (isBibleIndexing) return;
+        if (!isModelLoaded) {
+            init();
+            return;
+        }
+
+        set({ isBibleIndexing: true, bibleIndexingProgress: 0, statusMessage: 'Preparing Bible for semantic search...' });
+
+        try {
+            // Check if already indexed
+            const count = await db.bibleVectors.where('versionId').equals(versionId).count();
+            if (count > 0) {
+                set({ isBibleIndexing: false, statusMessage: 'Bible already indexed' });
+                return;
+            }
+
+            // We index CHAPTERS instead of Verses to maintain performance (31k verses is too slow for browser)
+            // A semantic search for "Comfort" will find the chapter, then we show the verses.
+            const verses = await db.bibleVerses.where('versionId').equals(versionId).toArray();
+
+            // Group by book and chapter
+            const chapters: Record<string, string[]> = {};
+            verses.forEach(v => {
+                const key = `${v.book}|${v.chapter}`;
+                if (!chapters[key]) chapters[key] = [];
+                chapters[key].push(v.text);
+            });
+
+            const chapterKeys = Object.keys(chapters);
+            for (let i = 0; i < chapterKeys.length; i++) {
+                const key = chapterKeys[i];
+                const [book, chapter] = key.split('|');
+                const content = chapters[key].join(' ');
+
+                set({
+                    bibleIndexingProgress: i / chapterKeys.length,
+                    statusMessage: `Indexing Bible: ${book} ${chapter}...`
+                });
+
+                const requestId = `bbl-${versionId}-${key}-${Date.now()}`;
+                const vector = await new Promise<number[]>((resolve) => {
+                    pendingRequests.set(requestId, resolve);
+                    worker?.postMessage({
+                        type: 'GENERATE_EMBEDDING',
+                        id: requestId,
+                        data: { text: content.slice(0, 1000) } // Truncate to avoid model context limits
+                    });
+                });
+
+                await db.bibleVectors.add({
+                    id: `${versionId}-${key}`,
+                    versionId,
+                    book,
+                    chapter: parseInt(chapter),
+                    verse: 1, // Store as first verse of chapter
+                    vector: new Float32Array(vector)
+                });
+            }
+
+            set({ isBibleIndexing: false, bibleIndexingProgress: 1, statusMessage: 'Bible indexing complete' });
+        } catch (error) {
+            console.error('Bible indexing failed:', error);
+            set({ isBibleIndexing: false, statusMessage: 'Bible indexing failed' });
+        }
+    },
+
+    searchBible: async (query: string, versionId?: string) => {
+        const { isModelLoaded, init } = get();
+        if (!isModelLoaded) {
+            init();
+            return [];
+        }
+
+        const requestId = `bblsearch-${Date.now()}`;
+        const queryVector = await new Promise<number[]>((resolve) => {
+            pendingRequests.set(requestId, resolve);
+            worker?.postMessage({
+                type: 'GENERATE_EMBEDDING',
+                id: requestId,
+                data: { text: query }
+            });
+        });
+
+        const qv = new Float32Array(queryVector);
+
+        // Fetch Bible vectors
+        let query_base = db.bibleVectors.toCollection();
+        if (versionId) {
+            query_base = db.bibleVectors.where('versionId').equals(versionId);
+        }
+
+        const allVectors = await query_base.toArray();
+        if (allVectors.length === 0) return [];
+
+        const results = allVectors.map(v => {
+            let score = 0;
+            for (let i = 0; i < qv.length; i++) {
+                score += qv[i] * v.vector[i];
+            }
+            return { book: v.book, chapter: v.chapter, score };
+        });
+
+        return results
+            .filter(r => r.score > 0.45)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 8);
     },
 
     toggleAIFeatures: (enabled: boolean) => {

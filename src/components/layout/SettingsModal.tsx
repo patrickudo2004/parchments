@@ -17,7 +17,8 @@ import {
     Info,
     Brain,
     Cpu,
-    Shield
+    Shield,
+    Zap
 } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
@@ -48,14 +49,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const {
         isAIFeaturesEnabled,
         toggleAIFeatures,
+        indexBible,
+        isBibleIndexing,
+        bibleIndexingProgress,
+        downloadGenerativeModel,
         isGenerativeModelDownloaded,
         isGenerativeModelLoading,
         downloadProgress,
-        downloadGenerativeModel,
         statusMessage
     } = useAIStore();
     const { updateSettings, setTheme } = settings;
     const [activeTab, setActiveTab] = useState('appearance');
+
+    const indexedVersions = useLiveQuery(() => db.bibleVectors.toArray()) || [];
+    const indexedSet = new Set(indexedVersions.map(v => v.versionId));
 
     // Bible State
     const [importingState, setImportingState] = useState<{ status: string, progress: number } | null>(null);
@@ -807,25 +814,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             return <p className="text-xs text-light-text-disabled italic p-3">No matching bibles.</p>;
                                                         }
 
-                                                        return filtered.map((v: BibleVersion) => (
-                                                            <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
-                                                                <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
-                                                                    <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                        <Database size={14} />
+                                                        return filtered.map((v: BibleVersion) => {
+                                                            const isIndexed = indexedSet.has(v.id);
+                                                            return (
+                                                                <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
+                                                                    <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
+                                                                        <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
+                                                                            <Database size={14} />
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="text-sm font-medium">{v.name}</p>
+                                                                            <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
+                                                                        </div>
                                                                     </div>
-                                                                    <div>
-                                                                        <p className="text-sm font-medium">{v.name}</p>
-                                                                        <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
+                                                                    <div className="flex items-center gap-3">
+                                                                        {isBibleIndexing && !isIndexed ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <CircularProgress size={12} variant="determinate" value={bibleIndexingProgress * 100} />
+                                                                                <span className="text-[10px] font-bold text-primary animate-pulse">Indexing...</span>
+                                                                            </div>
+                                                                        ) : isIndexed ? (
+                                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full">
+                                                                                <Zap size={10} />
+                                                                                <span className="text-[9px] font-bold uppercase">Semantic Ready</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => indexBible(v.id)}
+                                                                                className="px-3 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
+                                                                            >
+                                                                                Index for AI Search
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            onClick={() => handleDeleteVersion(v.id)}
+                                                                            className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                                                                        >
+                                                                            Delete
+                                                                        </button>
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    onClick={() => handleDeleteVersion(v.id)}
-                                                                    className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            </div>
-                                                        ));
+                                                            );
+                                                        });
                                                     })()}
 
                                                     <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">

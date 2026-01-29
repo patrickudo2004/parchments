@@ -144,6 +144,27 @@ export const AssistantSidebar: React.FC = () => {
                 )}
             </div>
 
+            {/* Quick Actions */}
+            <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-light-border dark:border-dark-border bg-light-surface/50 dark:bg-dark-surface/50 shrink-0">
+                {[
+                    { label: 'Outline Sermon', icon: ListChecks, prompt: 'Create a structured three-point sermon outline based on this content.' },
+                    { label: 'Summarize Note', icon: Sparkles, prompt: 'Provide a concise theological summary of this note.' },
+                    { label: 'Explain Terms', icon: Brain, prompt: 'Identify and explain any difficult theological terms or historical contexts in this text.' }
+                ].map((action, i) => (
+                    <button
+                        key={i}
+                        onClick={() => sendMessage(action.prompt)}
+                        disabled={isChatting}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-white/5 border border-light-border dark:border-dark-border hover:border-primary/50 transition-all whitespace-nowrap group disabled:opacity-50"
+                    >
+                        <action.icon size={12} className="text-primary group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold uppercase tracking-tight text-light-text-secondary group-hover:text-primary transition-colors">
+                            {action.label}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
             {/* Chat Area */}
             <div
                 ref={scrollRef}

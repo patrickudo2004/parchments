@@ -22,6 +22,8 @@ import { EditorToolbar } from './EditorToolbar';
 import { FocusExtension } from './extensions/FocusExtension';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useAIStore } from '@/stores/aiStore';
+import { AutoLinkSuggestion } from './AutoLinkSuggestion';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, saveCurrentNote } = useNoteStore();
@@ -37,6 +39,9 @@ export const RichTextEditor: React.FC = () => {
     } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
+    const [suggestedNoteId, setSuggestedNoteId] = useState<string | null>(null);
+
+    const { search } = useAIStore();
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -179,12 +184,32 @@ export const RichTextEditor: React.FC = () => {
     const debouncedSave = useCallback(
         (() => {
             let timeout: any;
+            let autoLinkTimeout: any;
+
             return (t: string, c: string) => {
                 clearTimeout(timeout);
+                clearTimeout(autoLinkTimeout);
+
                 timeout = setTimeout(() => saveToDB(t, c), 2000);
+
+                // Auto-Linking Logic: Search for related context
+                autoLinkTimeout = setTimeout(async () => {
+                    const cleanText = c.replace(/<[^>]*>/g, '').trim();
+                    if (cleanText.length < 50) return; // Only search if there's enough context
+
+                    // Last 200 chars for context-aware search
+                    const searchSnippet = cleanText.slice(-200);
+                    const results = await search(searchSnippet);
+
+                    // Find a highly relevant note that isn't the current one
+                    const topMatch = results.find(r => r.noteId !== currentNote?.id && r.score > 0.75);
+                    if (topMatch) {
+                        setSuggestedNoteId(topMatch.noteId);
+                    }
+                }, 3000);
             };
         })(),
-        [currentNote?.id]
+        [currentNote?.id, search]
     );
 
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,6 +294,25 @@ export const RichTextEditor: React.FC = () => {
                     </ScriptureTooltipProvider>
                 </div>
             </div>
+
+            {/* AI Suggestions Layer */}
+            {suggestedNoteId && (
+                <AutoLinkSuggestion
+                    noteId={suggestedNoteId}
+                    onDismiss={() => setSuggestedNoteId(null)}
+                    onLink={(id) => {
+                        // For now, we'll just open the note. 
+                        // In the future, we can insert an actual link into the editor.
+                        if (editor) {
+                            const note = useNoteStore.getState().notes.find(n => n.id === id);
+                            if (note) {
+                                editor.chain().focus().extendMarkRange('link').setLink({ href: `note://${id}` }).run();
+                            }
+                        }
+                        setSuggestedNoteId(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

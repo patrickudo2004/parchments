@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FilePlus, FolderPlus, Mic, BookOpen, FolderOpen, Upload } from 'lucide-react';
+import { FilePlus, FolderPlus, Mic, FolderOpen, Upload } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 

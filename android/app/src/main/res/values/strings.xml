@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Parchments</string>
+    <string name="title_activity_main">Parchments</string>
+    <string name="package_name">com.parchments.app</string>
+    <string name="custom_url_scheme">com.parchments.app</string>
+</resources>

@@ -1,10 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+    /* Safe Area Variables for Mobile */
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+
     /* Light mode colors (Branded Linen & Charcoal) */
     --color-light-background: #FBFBF4;
     /* Linen parchment */

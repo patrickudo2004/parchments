@@ -59,7 +59,7 @@ export const TopBar: React.FC = () => {
     };
 
     return (
-        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative">
+        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative pt-[var(--safe-area-top,0px)]">
             {/* ... branding and note title ... */}
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-4 group cursor-pointer" onClick={() => window.location.href = '/'}>

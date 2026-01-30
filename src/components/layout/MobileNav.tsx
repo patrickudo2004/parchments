@@ -20,7 +20,7 @@ export const MobileNav: React.FC = () => {
     } = useUIStore();
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] pb-safe">
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] pb-[var(--safe-area-bottom,0px)]">
             <button
                 onClick={() => toggleLeftSidebar('files')}
                 className={`flex flex-col items-center gap-1 p-2 transition-colors ${leftSidebarContent === 'files' ? 'text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary opacity-60'}`}

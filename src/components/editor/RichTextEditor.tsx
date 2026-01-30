@@ -24,6 +24,10 @@ import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useAIStore } from '@/stores/aiStore';
 import { AutoLinkSuggestion } from './AutoLinkSuggestion';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import { YjsService } from '@/lib/sync/YjsService';
+import { useSyncStore } from '@/stores/syncStore';
 
 export const RichTextEditor: React.FC = () => {
     const { currentNote, saveCurrentNote } = useNoteStore();
@@ -42,6 +46,10 @@ export const RichTextEditor: React.FC = () => {
     const [suggestedNoteId, setSuggestedNoteId] = useState<string | null>(null);
 
     const { search } = useAIStore();
+    const { identity } = useSyncStore();
+
+    // 1. Initialize Yjs Doc for this note
+    const ydoc = currentNote ? YjsService.getDoc(currentNote.id) : null;
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -100,6 +108,16 @@ export const RichTextEditor: React.FC = () => {
             CharacterCount,
             ScriptureExtension,
             FocusExtension,
+            Collaboration.configure({
+                document: ydoc,
+            }),
+            CollaborationCursor.configure({
+                provider: null, // We'll handle providers centrally in YjsService if needed
+                user: {
+                    name: identity?.publicKey.slice(0, 8) || 'Anonymous Scribe',
+                    color: '#1a73e8', // We can derive a color from the public key
+                },
+            }),
         ],
         content: currentNote?.content || '',
         onUpdate: ({ editor }) => {
@@ -107,12 +125,15 @@ export const RichTextEditor: React.FC = () => {
         },
     }, [currentNote?.id]);
 
-    // Handle initial content load
+    // Clear Yjs cleanup on unmount
     useEffect(() => {
-        if (editor && currentNote && editor.getHTML() !== currentNote.content) {
-            editor.commands.setContent(currentNote.content);
-        }
-    }, [currentNote?.id, editor]);
+        return () => {
+            if (currentNote?.id) {
+                // We keep the doc alive in memory while it's being used
+                // but we could destroy it if switching notes
+            }
+        };
+    }, [currentNote?.id]);
 
     const { setEditor } = useUIStore();
     useEffect(() => {

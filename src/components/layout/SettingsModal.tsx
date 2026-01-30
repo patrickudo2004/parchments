@@ -14,11 +14,14 @@ import {
     Trash2,
     AlertTriangle,
     Search,
-    Info,
-    Brain,
-    Cpu,
     Shield,
-    Zap
+    Zap,
+    Cloud,
+    RefreshCw,
+    Lock,
+    Share2,
+    Key,
+    Smartphone
 } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
@@ -29,6 +32,7 @@ import type { BibleVersion } from '@/types/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
 import { useAIStore } from '@/stores/aiStore';
+import { useSyncStore } from '@/stores/syncStore';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -40,6 +44,7 @@ const TABS = [
     { id: 'bible', label: 'Bible Versions', icon: BookOpen },
     { id: 'editor', label: 'Editor', icon: Edit3 },
     { id: 'intelligence', label: 'Intelligence', icon: Brain },
+    { id: 'sync', label: 'Sync & Collaboration', icon: Cloud },
     { id: 'storage', label: 'Data & Storage', icon: Database },
 ];
 
@@ -58,6 +63,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         downloadProgress,
         statusMessage
     } = useAIStore();
+    const {
+        identity,
+        isInitialized: isSyncInitialized,
+        syncStatus,
+        initializeIdentity,
+        clearIdentity
+    } = useSyncStore();
     const { updateSettings, setTheme } = settings;
     const [activeTab, setActiveTab] = useState('appearance');
 
@@ -748,176 +760,283 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </>
                                     )}
 
-                                    {activeTab === 'storage' && (
-                                        <>
-                                            <section className="grid grid-cols-2 gap-1.5 [&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
-                                                <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
-                                                    <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
-                                                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
-                                                            <Upload size={20} />
-                                                        </div>
-                                                        <h4 className="font-bold text-sm">Backup Library</h4>
-                                                    </div>
-                                                    <p className="text-xs text-light-text-secondary mb-4">Export all notes, folders, and settings into a single file.</p>
-                                                    <button
-                                                        onClick={handleBackup}
-                                                        className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 text-light-text-primary dark:text-dark-text-primary"
-                                                    >
-                                                        <Download size={16} /> Export Now
-                                                    </button>
+                                </section>
+                            </>
+                                    )}
+
+                            {activeTab === 'sync' && (
+                                <>
+                                    <section className="space-y-6">
+                                        {!isSyncInitialized ? (
+                                            <div className="p-8 border-2 border-dashed border-light-border dark:border-dark-border rounded-2xl flex flex-col items-center text-center gap-6 bg-primary/5">
+                                                <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-2xl flex items-center justify-center shadow-lg text-primary">
+                                                    <Cloud size={32} />
                                                 </div>
-                                                <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
-                                                    <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
-                                                        <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
-                                                            <Database size={20} />
-                                                        </div>
-                                                        <h4 className="font-bold text-sm">Restore Data</h4>
-                                                    </div>
-                                                    <p className="text-xs text-light-text-secondary mb-4">Upload a previously exported .json backup file.</p>
-                                                    <label className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 cursor-pointer text-light-text-primary dark:text-dark-text-primary">
-                                                        <Upload size={16} /> Upload Backup
-                                                        <input
-                                                            type="file"
-                                                            className="hidden"
-                                                            accept=".json"
-                                                            onChange={(e) => {
-                                                                const file = e.target.files?.[0];
-                                                                if (file) handleRestore(file);
-                                                            }}
-                                                        />
-                                                    </label>
+                                                <div className="max-w-md">
+                                                    <h4 className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">Enable Sync & Collaboration</h4>
+                                                    <p className="text-sm text-light-text-secondary mt-2">
+                                                        Access your Studyspace across devices and work with others in real-time. Parchments uses <b>End-to-End Encryption</b> to keep your data private.
+                                                    </p>
                                                 </div>
-                                            </section>
-
-                                            <section className="space-y-4 pt-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Offline Manager</h4>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="text"
-                                                            value={bibleSearchQuery}
-                                                            onChange={(e) => setBibleSearchQuery(e.target.value)}
-                                                            placeholder="Search..."
-                                                            className="pl-8 pr-2 py-1 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary"
-                                                        />
-                                                        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-light-text-disabled" />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                                                    {(() => {
-                                                        const filtered = installedVersions.filter(v =>
-                                                            v.name.toLowerCase().includes(bibleSearchQuery.toLowerCase()) ||
-                                                            v.abbreviation.toLowerCase().includes(bibleSearchQuery.toLowerCase())
-                                                        );
-
-                                                        if (filtered.length === 0) {
-                                                            return <p className="text-xs text-light-text-disabled italic p-3">No matching bibles.</p>;
-                                                        }
-
-                                                        return filtered.map((v: BibleVersion) => {
-                                                            const isIndexed = indexedSet.has(v.id);
-                                                            return (
-                                                                <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
-                                                                    <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
-                                                                        <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                            <Database size={14} />
-                                                                        </div>
-                                                                        <div>
-                                                                            <p className="text-sm font-medium">{v.name}</p>
-                                                                            <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3">
-                                                                        {isBibleIndexing && !isIndexed ? (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <CircularProgress size={12} variant="determinate" value={bibleIndexingProgress * 100} />
-                                                                                <span className="text-[10px] font-bold text-primary animate-pulse">Indexing...</span>
-                                                                            </div>
-                                                                        ) : isIndexed ? (
-                                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full">
-                                                                                <Zap size={10} />
-                                                                                <span className="text-[9px] font-bold uppercase">Semantic Ready</span>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => indexBible(v.id)}
-                                                                                className="px-3 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
-                                                                            >
-                                                                                Index for AI Search
-                                                                            </button>
-                                                                        )}
-                                                                        <button
-                                                                            onClick={() => handleDeleteVersion(v.id)}
-                                                                            className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
-                                                                        >
-                                                                            Delete
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-
-                                                    <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                <Database size={14} />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-medium">Whisper AI (Tiny)</p>
-                                                                <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">System • 39.2 MB</p>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-light-text-disabled uppercase tracking-widest">Required</span>
-                                                    </div>
-                                                </div>
-                                            </section>
-
-                                            <section className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
-                                                <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
-                                                    <div className="text-light-text-primary dark:text-dark-text-primary">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-bold">Higher Accuracy Transcription</p>
-                                                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Beta</span>
-                                                        </div>
-                                                        <p className="text-xs text-light-text-secondary mt-1">Uses Whisper Base (~75MB) instead of Tiny (~40MB). Recommended for devices with modern GPUs.</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => updateSettings({ highAccuracyTranscription: !settings.highAccuracyTranscription })}
-                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${settings.highAccuracyTranscription ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
-                                                    >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.highAccuracyTranscription ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            </section>
-
-                                            <section className="mt-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl">
-                                                <div className="flex items-start gap-4">
-                                                    <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg shrink-0">
-                                                        <AlertTriangle size={20} />
+                                                <button
+                                                    onClick={initializeIdentity}
+                                                    className="px-8 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                                >
+                                                    <Lock size={18} /> Generate Secure Vault
+                                                </button>
+                                                <p className="text-[10px] text-light-text-disabled uppercase font-black">
+                                                    No email required. Your identity is unique to you.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-8">
+                                                {/* Vault Header */}
+                                                <div className="flex items-center gap-4 p-4 bg-light-background dark:bg-dark-background/40 rounded-xl border border-light-border dark:border-dark-border">
+                                                    <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
+                                                        <Shield size={24} />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <h4 className="font-bold text-red-600">Danger Zone: Factory Reset</h4>
-                                                        <p className="text-xs text-red-500/80 mt-1 mb-4 leading-relaxed">
-                                                            Permanently delete all data stored in this browser. This includes all your notes, transcribed audio, and downloaded Bibles. This cannot be undone.
-                                                        </p>
+                                                        <h4 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Vault Active & Secure</h4>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus === 'offline' ? 'bg-gray-400' : 'bg-green-500'}`} />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary">
+                                                                {syncStatus.toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={clearIdentity}
+                                                        className="text-xs font-bold text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/5 transition-all"
+                                                    >
+                                                        Deactivate Vault
+                                                    </button>
+                                                </div>
+
+                                                {/* Public Identity */}
+                                                <section className="space-y-4">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Your Public Handle</h4>
+                                                    <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">
+                                                                {identity?.publicKey.slice(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <div className="max-w-[200px] sm:max-w-xs">
+                                                                <p className="text-xs font-bold truncate text-light-text-primary dark:text-dark-text-primary">{identity?.publicKey}</p>
+                                                                <p className="text-[10px] text-light-text-disabled uppercase font-black">Share this key to be invited to Study Rooms</p>
+                                                            </div>
+                                                        </div>
                                                         <button
-                                                            onClick={handleFactoryReset}
-                                                            className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 active:scale-95 transition-all flex items-center gap-2"
+                                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-primary"
+                                                            onClick={() => navigator.clipboard.writeText(identity?.publicKey || '')}
                                                         >
-                                                            <Trash2 size={16} /> Factory Reset Application
+                                                            <Share2 size={18} />
                                                         </button>
                                                     </div>
+                                                </section>
+
+                                                {/* Device Pairing */}
+                                                <section className="grid grid-cols-2 gap-4">
+                                                    <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">
+                                                        <Smartphone size={24} className="text-primary" />
+                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Add Device</h5>
+                                                        <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes.</p>
+                                                        <button className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all">
+                                                            Generate Pairing Code
+                                                        </button>
+                                                    </div>
+                                                    <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">
+                                                        <Key size={24} className="text-primary" />
+                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Recovery Phrase</h5>
+                                                        <p className="text-xs text-light-text-secondary leading-relaxed">Your "Master Key" to restore your vault on new devices.</p>
+                                                        <button className="w-full py-2 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-light-text-primary dark:text-dark-text-primary">
+                                                            View Safe Phrase
+                                                        </button>
+                                                    </div>
+                                                </section>
+
+                                                {/* Privacy Alert */}
+                                                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl flex gap-3">
+                                                    <Lock size={18} className="text-amber-600 shrink-0" />
+                                                    <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 leading-relaxed">
+                                                        <b>Warning:</b> Parchments cannot reset your Vault Key. If you lose your Recovery Phrase AND all paired devices, your synced data will be permanently inaccessible.
+                                                    </p>
                                                 </div>
-                                            </section>
-                                        </>
-                                    )}
-                                </motion.div>
-                            </AnimatePresence>
-                        </div>
-                    </div>
-                </motion.div>
+                                            </div>
+                                        )}
+                                    </section>
+                                </>
+                            )}
+
+                            {activeTab === 'storage' && (
+                                <>
+                                    <section className="grid grid-cols-2 gap-1.5 [&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
+                                        <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
+                                            <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
+                                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
+                                                    <Upload size={20} />
+                                                </div>
+                                                <h4 className="font-bold text-sm">Backup Library</h4>
+                                            </div>
+                                            <p className="text-xs text-light-text-secondary mb-4">Export all notes, folders, and settings into a single file.</p>
+                                            <button
+                                                onClick={handleBackup}
+                                                className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 text-light-text-primary dark:text-dark-text-primary"
+                                            >
+                                                <Download size={16} /> Export Now
+                                            </button>
+                                        </div>
+                                        <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
+                                            <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
+                                                <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
+                                                    <Database size={20} />
+                                                </div>
+                                                <h4 className="font-bold text-sm">Restore Data</h4>
+                                            </div>
+                                            <p className="text-xs text-light-text-secondary mb-4">Upload a previously exported .json backup file.</p>
+                                            <label className="w-full py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-background transition-colors flex items-center justify-center gap-2 cursor-pointer text-light-text-primary dark:text-dark-text-primary">
+                                                <Upload size={16} /> Upload Backup
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept=".json"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) handleRestore(file);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-4 pt-4">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Offline Manager</h4>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={bibleSearchQuery}
+                                                    onChange={(e) => setBibleSearchQuery(e.target.value)}
+                                                    placeholder="Search..."
+                                                    className="pl-8 pr-2 py-1 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary"
+                                                />
+                                                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-light-text-disabled" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                                            {(() => {
+                                                const filtered = installedVersions.filter(v =>
+                                                    v.name.toLowerCase().includes(bibleSearchQuery.toLowerCase()) ||
+                                                    v.abbreviation.toLowerCase().includes(bibleSearchQuery.toLowerCase())
+                                                );
+
+                                                if (filtered.length === 0) {
+                                                    return <p className="text-xs text-light-text-disabled italic p-3">No matching bibles.</p>;
+                                                }
+
+                                                return filtered.map((v: BibleVersion) => {
+                                                    const isIndexed = indexedSet.has(v.id);
+                                                    return (
+                                                        <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
+                                                            <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
+                                                                <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
+                                                                    <Database size={14} />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium">{v.name}</p>
+                                                                    <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">Bible • {v.abbreviation}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                {isBibleIndexing && !isIndexed ? (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <CircularProgress size={12} variant="determinate" value={bibleIndexingProgress * 100} />
+                                                                        <span className="text-[10px] font-bold text-primary animate-pulse">Indexing...</span>
+                                                                    </div>
+                                                                ) : isIndexed ? (
+                                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full">
+                                                                        <Zap size={10} />
+                                                                        <span className="text-[9px] font-bold uppercase">Semantic Ready</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => indexBible(v.id)}
+                                                                        className="px-3 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
+                                                                    >
+                                                                        Index for AI Search
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => handleDeleteVersion(v.id)}
+                                                                    className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+
+                                            <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
+                                                        <Database size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium">Whisper AI (Tiny)</p>
+                                                        <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">System • 39.2 MB</p>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-light-text-disabled uppercase tracking-widest">Required</span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
+                                        <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
+                                            <div className="text-light-text-primary dark:text-dark-text-primary">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-bold">Higher Accuracy Transcription</p>
+                                                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Beta</span>
+                                                </div>
+                                                <p className="text-xs text-light-text-secondary mt-1">Uses Whisper Base (~75MB) instead of Tiny (~40MB). Recommended for devices with modern GPUs.</p>
+                                            </div>
+                                            <button
+                                                onClick={() => updateSettings({ highAccuracyTranscription: !settings.highAccuracyTranscription })}
+                                                className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${settings.highAccuracyTranscription ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                            >
+                                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.highAccuracyTranscription ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            </button>
+                                        </div>
+                                    </section>
+
+                                    <section className="mt-8 p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl">
+                                        <div className="flex items-start gap-4">
+                                            <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg shrink-0">
+                                                <AlertTriangle size={20} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-red-600">Danger Zone: Factory Reset</h4>
+                                                <p className="text-xs text-red-500/80 mt-1 mb-4 leading-relaxed">
+                                                    Permanently delete all data stored in this browser. This includes all your notes, transcribed audio, and downloaded Bibles. This cannot be undone.
+                                                </p>
+                                                <button
+                                                    onClick={handleFactoryReset}
+                                                    className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 active:scale-95 transition-all flex items-center gap-2"
+                                                >
+                                                    <Trash2 size={16} /> Factory Reset Application
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
             </div>
+        </div>
+                </motion.div >
+            </div >
 
             <AlertModal
                 isOpen={alertConfig.isOpen}
@@ -935,6 +1054,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
                 isDanger={confirmConfig.isDanger}
             />
-        </AnimatePresence>
+        </AnimatePresence >
     );
 };

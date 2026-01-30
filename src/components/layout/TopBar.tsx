@@ -4,8 +4,9 @@ import { useUIStore } from '@/stores/uiStore';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool, Search, Moon, Sun, Settings, Download } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
+import { useSyncStore } from '@/stores/syncStore';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
@@ -14,6 +15,7 @@ export const TopBar: React.FC = () => {
         isExportModalOpen, exportFormat, closeExportModal, openExportModal,
         toggleTemplateModal
     } = useUIStore();
+    const { syncStatus, identity } = useSyncStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
@@ -155,6 +157,20 @@ export const TopBar: React.FC = () => {
                     {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
 
+                {/* Sync Indicator */}
+                <button
+                    onClick={toggleSettingsModal}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
+                    title={identity ? `Vault Active - ${syncStatus}` : 'Enable Sync'}
+                >
+                    <div className="relative">
+                        <Cloud size={18} className={identity ? 'text-primary' : 'text-light-text-disabled'} />
+                        {identity && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-dark-surface bg-green-500 animate-pulse" />
+                        )}
+                    </div>
+                </button>
+
                 <button
                     onClick={toggleSettingsModal}
                     className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
@@ -170,6 +186,6 @@ export const TopBar: React.FC = () => {
                 type="error"
                 onClose={() => setIsAlertOpen(false)}
             />
-        </header>
+        </header >
     );
 };

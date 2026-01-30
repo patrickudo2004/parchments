@@ -50,6 +50,7 @@ export const RichTextEditor: React.FC = () => {
 
     // 1. Initialize Yjs Doc for this note
     const ydoc = currentNote ? YjsService.getDoc(currentNote.id) : null;
+    const awareness = currentNote ? YjsService.getAwareness(currentNote.id) : null;
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -112,7 +113,7 @@ export const RichTextEditor: React.FC = () => {
                 document: ydoc,
             }),
             CollaborationCursor.configure({
-                provider: null, // We'll handle providers centrally in YjsService if needed
+                provider: { awareness }, // Link to the shared awareness state
                 user: {
                     name: identity?.publicKey.slice(0, 8) || 'Anonymous Scribe',
                     color: '#1a73e8', // We can derive a color from the public key

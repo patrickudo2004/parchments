@@ -4,9 +4,11 @@ import { useUIStore } from '@/stores/uiStore';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, Share2 } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { useSyncStore } from '@/stores/syncStore';
+import { CollaborationList } from '@/components/editor/CollaborationList';
+import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 
 export const TopBar: React.FC = () => {
     const { currentNote } = useNoteStore();
@@ -19,6 +21,7 @@ export const TopBar: React.FC = () => {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const handleFormatSelect = (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => {
         openExportModal(format);
@@ -80,10 +83,15 @@ export const TopBar: React.FC = () => {
                 </button>
             </div>
 
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[300px] block text-center">
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-4">
+                <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[200px] block text-center">
                     {currentNote?.title || 'Home'}
                 </span>
+                {currentNote && (
+                    <div className="hidden md:block">
+                        <CollaborationList noteId={currentNote.id} />
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-4">
@@ -140,6 +148,16 @@ export const TopBar: React.FC = () => {
                     </div>
                 )}
 
+                {currentNote && (
+                    <button
+                        onClick={() => setIsShareModalOpen(true)}
+                        className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-primary active:scale-95"
+                        title="Share Study Room"
+                    >
+                        <Share2 size={18} />
+                    </button>
+                )}
+
                 {/* Export Options Modal */}
                 <ExportOptionsModal
                     isOpen={isExportModalOpen}
@@ -186,6 +204,13 @@ export const TopBar: React.FC = () => {
                 type="error"
                 onClose={() => setIsAlertOpen(false)}
             />
+            {currentNote && (
+                <ShareNoteModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => setIsShareModalOpen(false)}
+                    noteId={currentNote.id}
+                />
+            )}
         </header >
     );
 };

@@ -12,7 +12,7 @@ import { useSyncStore } from '@/stores/syncStore';
  */
 export class YjsService {
     private static docs: Map<string, Y.Doc> = new Map();
-    private static providers: Map<string, any[]> = new Map();
+    public static providers: Map<string, any[]> = new Map();
 
     /**
      * Gets or creates a Y.Doc for a specific note.
@@ -49,6 +49,15 @@ export class YjsService {
         this.providers.set(noteId, [persistence, webrtcProvider]);
 
         return doc;
+    }
+
+    /**
+     * Returns the awareness instance for a specific note.
+     */
+    static getAwareness(noteId: string) {
+        const providers = this.providers.get(noteId);
+        const webrtc = providers?.find((p: any) => p.awareness);
+        return webrtc?.awareness;
     }
 
     /**

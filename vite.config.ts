@@ -40,4 +40,13 @@ export default defineConfig({
     // Universal global that works in both Main and Worker threads
     global: 'globalThis',
   },
+  optimizeDeps: {
+    exclude: ['html2pdf.js'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
 })

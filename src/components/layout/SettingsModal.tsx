@@ -758,6 +758,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             Generative AI requires a modern computer with enough RAM (8GB+ recommended). If your device feels sluggish, you can disable these features at any time.
                                                         </p>
                                                     </div>
+                                                </div>
                                             </section>
                                         </>
                                     )}

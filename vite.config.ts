@@ -41,7 +41,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    exclude: ['html2pdf.js'],
+    exclude: [],
   },
   build: {
     commonjsOptions: {

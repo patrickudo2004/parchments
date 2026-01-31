@@ -1,7 +1,7 @@
 import { saveAs } from 'file-saver';
 import TurndownService from 'turndown';
 // @ts-ignore
-import html2pdf from 'html2pdf.js';
+import html2pdf from 'html2pdf.js/src/index.js';
 // @ts-ignore
 import htmlToDocx from 'html-to-docx';
 import { parseScriptureReference } from '@/lib/scriptureParser';

@@ -17,7 +17,6 @@ import {
     Shield,
     Zap,
     Cloud,
-    RefreshCw,
     Lock,
     Share2,
     Key,

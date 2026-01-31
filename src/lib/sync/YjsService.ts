@@ -31,7 +31,7 @@ export class YjsService {
         const persistence = new IndexeddbPersistence(`note-${noteId}`, doc);
 
         persistence.on('synced', () => {
-            console.log(`[Yjs] Local state for ${noteId} loaded.`);
+            // Local state for note ID loaded
         });
 
         // 2. Enable P2P Connectivity (WebRTC) for privacy-preserving discovery

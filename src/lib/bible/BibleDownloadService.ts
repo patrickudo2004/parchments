@@ -24,7 +24,7 @@ class BibleDownloadService {
             const localResponse = await fetch('/data/bibles/catalog.json');
             if (localResponse.ok) {
                 const catalog: CatalogBibleVersion[] = await localResponse.json();
-                console.log('[BibleDownload] Using local catalog with', catalog.length, 'versions');
+                // Using local catalog
                 return catalog;
             }
 

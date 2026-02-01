@@ -36,6 +36,7 @@ interface UIStore {
     toast: { message: string, type: 'success' | 'error' | 'info' } | null;
     isExportModalOpen: boolean;
     exportFormat: 'pdf' | 'docx' | 'md' | 'html' | 'txt' | null;
+    isNoFolderModalOpen: boolean;
 
     // Editor stats
     wordCount: number;
@@ -58,6 +59,7 @@ interface UIStore {
     setEditor: (editor: Editor | null) => void;
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
+    toggleNoFolderModal: (isOpen?: boolean) => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
     toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
     setLeftSidebarWidth: (width: number) => void;
@@ -105,6 +107,7 @@ export const useUIStore = create<UIStore>()(
             toast: null,
             isExportModalOpen: false,
             exportFormat: null,
+            isNoFolderModalOpen: false,
 
             wordCount: 0,
             characterCount: 0,
@@ -148,6 +151,9 @@ export const useUIStore = create<UIStore>()(
             setEditor: (editor) => set({ activeEditor: editor }),
             openExportModal: (format) => set({ isExportModalOpen: true, exportFormat: format }),
             closeExportModal: () => set({ isExportModalOpen: false, exportFormat: null }),
+            toggleNoFolderModal: (isOpen) => set((state) => ({
+                isNoFolderModalOpen: isOpen !== undefined ? isOpen : !state.isNoFolderModalOpen
+            })),
 
             toggleLeftSidebar: (content) => set((state) => {
                 if (!state.isLeftSidebarOpen) {

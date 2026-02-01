@@ -144,6 +144,19 @@
     .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.2);
     }
+
+    /* Image Styles */
+    .tiptap .image-resizer-wrapper {
+        @apply flex justify-center w-full my-8;
+    }
+
+    .tiptap img {
+        @apply max-w-full h-auto rounded-lg shadow-lg transition-all duration-300;
+    }
+
+    .tiptap .ProseMirror-selectednode img {
+        @apply ring-4 ring-primary/30 outline-none scale-[1.01];
+    }
 }
 
 /* Base Styles */

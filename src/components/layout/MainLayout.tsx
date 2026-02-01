@@ -13,8 +13,9 @@ import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
-    GitBranch, BookOpen, Search, Pin, X
+    GitBranch, BookOpen, Search, Pin, X, FolderPlus
 } from 'lucide-react';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { ActivityBar } from './ActivityBar';
 import { OutlineSidebar } from '@/components/bible/OutlineSidebar';
 import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
@@ -60,8 +61,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isFocusMode,
         toast,
         isMobile,
-        setIsMobile
+        setIsMobile,
+        isNoFolderModalOpen,
+        toggleNoFolderModal
     } = useUIStore();
+    const { hasStudyspace, openLocalFolder, createNote } = useNoteStore();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
@@ -150,11 +154,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 e.preventDefault();
                 toggleSearchModal();
             }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                if (!hasStudyspace) {
+                    toggleNoFolderModal(true);
+                } else {
+                    createNote(null);
+                }
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toggleSearchModal]);
+    }, [toggleSearchModal, hasStudyspace, createNote]);
 
     return (
         <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''} ${isMobile ? 'pb-16' : ''}`}>
@@ -316,6 +329,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 <StrongsModal
                                     strongsId={selectedStrongsId}
                                     onClose={() => toggleStrongsModal(null)}
+                                />
+                            </div>
+                        )}
+
+                        {isNoFolderModalOpen && (
+                            <div key="no-folder-modal-wrapper" className="pointer-events-auto">
+                                <ConfirmModal
+                                    isOpen={isNoFolderModalOpen}
+                                    title="Open Studyspace"
+                                    message="You need to open a local folder to begin creating notes. Select a folder on your device where your study sessions will be saved."
+                                    confirmLabel="Open Folder"
+                                    onConfirm={() => {
+                                        toggleNoFolderModal(false);
+                                        openLocalFolder();
+                                    }}
+                                    onCancel={() => toggleNoFolderModal(false)}
                                 />
                             </div>
                         )}

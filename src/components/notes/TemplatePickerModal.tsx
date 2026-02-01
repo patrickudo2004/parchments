@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore, STUDY_TEMPLATES } from '@/stores/noteStore';
+import { useState } from 'react';
 import {
     X,
     BookOpen,
@@ -15,10 +16,14 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip';
 
 export const TemplatePickerModal: React.FC = () => {
-    const { toggleTemplateModal } = useUIStore();
-    const { createNoteFromTemplate, createNote } = useNoteStore();
+    const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
+    const { createNoteFromTemplate, createNote, hasStudyspace } = useNoteStore();
 
     const handleSelectTemplate = async (templateId: string) => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+            return;
+        }
         await createNoteFromTemplate(null, templateId);
         toggleTemplateModal();
     };
@@ -133,6 +138,10 @@ export const TemplatePickerModal: React.FC = () => {
                         {/* Blank Note Option */}
                         <button
                             onClick={() => {
+                                if (!hasStudyspace) {
+                                    toggleNoFolderModal(true);
+                                    return;
+                                }
                                 createNote(null);
                                 toggleTemplateModal();
                             }}
@@ -141,6 +150,10 @@ export const TemplatePickerModal: React.FC = () => {
                             <span className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Or start with a blank white page...</span>
                             <PlusIcon className="text-primary" size={18} />
                         </button>
+                    </div>
+
+                    <div className="mt-8 flex justify-end">
+                        <p className="text-[10px] text-light-text-disabled uppercase tracking-widest font-black">Centralized Local Storage enabled</p>
                     </div>
                 </div>
             </motion.div>

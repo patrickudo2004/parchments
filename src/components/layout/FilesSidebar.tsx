@@ -31,7 +31,7 @@ export const FilesSidebar: React.FC = () => {
         renameNote, renameFolder,
         hasStudyspace
     } = useNoteStore();
-    const { toggleTemplateModal } = useUIStore();
+    const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
@@ -90,6 +90,11 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleCreateNote = async () => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+            return;
+        }
+
         if (isLocalMode) {
             setPromptConfig({
                 isOpen: true,
@@ -107,6 +112,11 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleCreateFolder = async () => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+            return;
+        }
+
         if (isLocalMode) {
             setPromptConfig({
                 isOpen: true,
@@ -288,33 +298,41 @@ export const FilesSidebar: React.FC = () => {
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
                     <button
                         onClick={handleCreateNote}
-                        disabled={!hasStudyspace}
-                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
-                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Note" : "New Note")}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
+                        title={isLocalMode ? "New Local Note" : "New Note"}
                     >
                         <FilePlus size={16} />
                     </button>
                     <button
-                        onClick={toggleTemplateModal}
-                        disabled={!hasStudyspace}
-                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background text-primary'} `}
-                        title={!hasStudyspace ? "Open a Studyspace first" : "New Study Template"}
+                        onClick={() => {
+                            if (!hasStudyspace) {
+                                toggleNoFolderModal(true);
+                            } else {
+                                toggleTemplateModal();
+                            }
+                        }}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                        title="New Study Template"
                     >
                         <PenTool size={16} />
                     </button>
                     <button
-                        onClick={() => hasStudyspace && setShowRecorder(true)}
-                        disabled={!hasStudyspace}
-                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
-                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Voice Note" : "New Voice Note")}
+                        onClick={() => {
+                            if (!hasStudyspace) {
+                                toggleNoFolderModal(true);
+                            } else {
+                                setShowRecorder(true);
+                            }
+                        }}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
+                        title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}
                     >
                         <Mic size={16} />
                     </button>
                     <button
                         onClick={handleCreateFolder}
-                        disabled={!hasStudyspace}
-                        className={`p-1 rounded transition-colors ${!hasStudyspace ? 'opacity-30 cursor-not-allowed' : 'hover:bg-light-background dark:hover:bg-dark-background'} `}
-                        title={!hasStudyspace ? "Open a Studyspace first" : (isLocalMode ? "New Local Folder" : "New Folder")}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
+                        title={isLocalMode ? "New Local Folder" : "New Folder"}
                     >
                         <FolderPlus size={16} />
                     </button>

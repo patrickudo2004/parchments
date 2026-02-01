@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -26,11 +26,13 @@ import { useAIStore } from '@/stores/aiStore';
 import { AutoLinkSuggestion } from './AutoLinkSuggestion';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import Image from '@tiptap/extension-image';
 import { YjsService } from '@/lib/sync/YjsService';
 import { useSyncStore } from '@/stores/syncStore';
+import { ImageResizer } from './extensions/ImageResizer';
 
 export const RichTextEditor: React.FC = () => {
-    const { currentNote, saveCurrentNote } = useNoteStore();
+    const { currentNote, saveCurrentNote, isLocalMode, saveLocalAsset } = useNoteStore();
     const {
         writingLayout,
         editorFontFamily,
@@ -48,9 +50,9 @@ export const RichTextEditor: React.FC = () => {
     const { search } = useAIStore();
     const { identity } = useSyncStore();
 
-    // 1. Initialize Yjs Doc for this note
-    const ydoc = currentNote ? YjsService.getDoc(currentNote.id) : null;
-    const awareness = currentNote ? YjsService.getAwareness(currentNote.id) : null;
+    // 1. Initialize Yjs Doc for this note (Only if not in local mode)
+    const ydoc = (currentNote && !isLocalMode) ? YjsService.getDoc(currentNote.id) : null;
+    const provider = (currentNote && !isLocalMode) ? YjsService.getProvider(currentNote.id) : null;
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -62,46 +64,37 @@ export const RichTextEditor: React.FC = () => {
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
-                bulletList: false, // We'll add it explicitly
+                bulletList: false,
                 orderedList: false,
                 blockquote: false,
                 listItem: false,
-                // link and underline are NOT in StarterKit by default.
-                // If they are duplicated, they might be added by a sub-module of StarterKit 
-                // or the user has a different package version.
+                history: true,
+                // These are the ones often duplicated in some Tiptap versions
+                dropcursor: false,
+                gapcursor: false,
             }),
             Underline,
             TextStyle,
             Color,
             Highlight.configure({ multicolor: true }),
             BulletList.configure({
-                HTMLAttributes: {
-                    class: 'list-disc pl-4',
-                },
+                HTMLAttributes: { class: 'list-disc pl-4' },
             }),
             OrderedList.configure({
-                HTMLAttributes: {
-                    class: 'list-decimal pl-4',
-                },
+                HTMLAttributes: { class: 'list-decimal pl-4' },
             }),
             ListItem,
             Blockquote.configure({
-                HTMLAttributes: {
-                    class: 'border-l-4 border-light-border dark:border-dark-border pl-4 italic',
-                },
+                HTMLAttributes: { class: 'border-l-4 border-light-border dark:border-dark-border pl-4 italic' },
             }),
             TaskList,
-            TaskItem.configure({
-                nested: true,
-            }),
+            TaskItem.configure({ nested: true }),
             TextAlign.configure({
                 types: ['heading', 'paragraph', 'listItem', 'blockquote'],
             }),
             Link.configure({
                 openOnClick: false,
-                HTMLAttributes: {
-                    class: 'text-primary underline cursor-pointer',
-                },
+                HTMLAttributes: { class: 'text-primary underline cursor-pointer' },
             }),
             Placeholder.configure({
                 placeholder: 'Begin your study or sermon notes here...',
@@ -109,17 +102,96 @@ export const RichTextEditor: React.FC = () => {
             CharacterCount,
             ScriptureExtension,
             FocusExtension,
-            Collaboration.configure({
-                document: ydoc,
-            }),
-            CollaborationCursor.configure({
-                provider: { awareness }, // Link to the shared awareness state
-                user: {
-                    name: identity?.publicKey.slice(0, 8) || 'Anonymous Scribe',
-                    color: '#1a73e8', // We can derive a color from the public key
+            Image.extend({
+                addAttributes() {
+                    return {
+                        ...this.parent?.(),
+                        'data-asset-name': {
+                            default: null,
+                        },
+                        width: {
+                            default: '100%',
+                            renderHTML: attributes => ({
+                                width: attributes.width,
+                            }),
+                            parseHTML: element => element.getAttribute('width'),
+                        },
+                    };
+                },
+                addNodeView() {
+                    return ReactNodeViewRenderer(ImageResizer);
+                },
+            }).configure({
+                allowBase64: true,
+                HTMLAttributes: {
+                    class: 'rounded-lg shadow-md max-w-full h-auto my-8 mx-auto block cursor-pointer transition-transform hover:scale-[1.01]',
                 },
             }),
+            // Collaboration logic - only include if document/provider exists AND not in local mode
+            ...((ydoc && !isLocalMode) ? [Collaboration.configure({ document: ydoc })] : []),
+            ...((provider && !isLocalMode) ? [CollaborationCursor.configure({
+                provider: provider,
+                user: {
+                    name: identity?.publicKey.slice(0, 8) || 'Anonymous Scribe',
+                    color: '#1a73e8',
+                },
+            })] : []),
         ],
+        editorProps: {
+            handlePaste: (view, event) => {
+                const items = Array.from(event.clipboardData?.items || []);
+                const imageItems = items.filter(item => item.type.startsWith('image'));
+
+                if (imageItems.length > 0) {
+                    event.preventDefault();
+                    imageItems.forEach(async item => {
+                        const file = item.getAsFile();
+                        if (file) {
+                            const result = await saveLocalAsset(file);
+                            if (result) {
+                                const { url, fileName } = result;
+                                view.dispatch(view.state.tr.replaceSelectionWith(
+                                    view.state.schema.nodes.image.create({
+                                        src: url,
+                                        'data-asset-name': fileName
+                                    })
+                                ));
+                            }
+                        }
+                    });
+                    return true;
+                }
+                return false;
+            },
+            handleDrop: (view, event, slice, moved) => {
+                if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+                    const files = Array.from(event.dataTransfer.files);
+                    const images = files.filter(file => file.type.startsWith('image'));
+
+                    if (images.length > 0) {
+                        event.preventDefault();
+                        images.forEach(async file => {
+                            const result = await saveLocalAsset(file);
+                            if (result) {
+                                const { url, fileName } = result;
+                                const { schema } = view.state;
+                                const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                                if (coordinates) {
+                                    const node = schema.nodes.image.create({
+                                        src: url,
+                                        'data-asset-name': fileName
+                                    });
+                                    const transaction = view.state.tr.insert(coordinates.pos, node);
+                                    view.dispatch(transaction);
+                                }
+                            }
+                        });
+                        return true;
+                    }
+                }
+                return false;
+            },
+        },
         content: currentNote?.content || '',
         onUpdate: ({ editor }) => {
             debouncedSave(title, editor.getHTML());

@@ -12,6 +12,7 @@ import {
     AlignRight,
     Quote,
     Link as LinkIcon,
+    Image as ImageIcon,
     Highlighter,
     Sparkles,
     Undo,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { useUIStore } from '@/stores/uiStore';
+import { useNoteStore } from '@/stores/noteStore';
 
 interface EditorToolbarProps {
     editor: Editor | null;
@@ -29,6 +31,7 @@ interface EditorToolbarProps {
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const { showToast } = useUIStore();
+    const { saveLocalAsset } = useNoteStore();
     const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
     const [previousUrl, setPreviousUrl] = useState('');
 
@@ -72,6 +75,74 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const handleScan = () => {
         editor.chain().focus().scanScriptures().run();
         showToast('Scripture scan complete', 'success');
+    };
+
+    const handleImageClick = async () => {
+        const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+        console.log('[EditorToolbar] handleImageClick, isTauri:', _isTauri);
+
+        if (_isTauri) {
+            try {
+                // Use Tauri's open dialog for a native feel
+                const { open } = await import('@tauri-apps/plugin-dialog');
+                const selected = await open({
+                    multiple: false,
+                    filters: [{
+                        name: 'Images',
+                        extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp']
+                    }]
+                });
+
+                if (selected && !Array.isArray(selected)) {
+                    const { readFile } = await import('@tauri-apps/plugin-fs');
+                    const data = await readFile(selected);
+                    const fileName = selected.split(/[/\\]/).pop() || 'image.png';
+                    const file = new File([data], fileName, { type: `image/${fileName.split('.').pop()}` });
+
+                    const result = await saveLocalAsset(file);
+                    if (result) {
+                        const { url, fileName } = result;
+                        editor.chain().focus().setImage({
+                            src: url,
+                            // @ts-ignore - for custom attribute support in Tiptap chain
+                            'data-asset-name': fileName
+                        }).run();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to insert image:', error);
+                showToast('Failed to insert image', 'error');
+            }
+        } else {
+            // Browser Fallback: Use standard hidden input
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e: any) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const result = await saveLocalAsset(file);
+                    if (result) {
+                        const { url, fileName } = result;
+                        editor.chain().focus().setImage({
+                            src: url,
+                            // @ts-ignore
+                            'data-asset-name': fileName
+                        }).run();
+                    } else {
+                        // If no Studyspace is open, fallback to Base64 (Optional)
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                                editor.chain().focus().setImage({ src: reader.result }).run();
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            };
+            input.click();
+        }
     };
 
     return (
@@ -206,6 +277,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                     isActive={editor.isActive('link')}
                     icon={LinkIcon}
                     title="Insert/Edit Link"
+                />
+                <Button
+                    onClick={handleImageClick}
+                    icon={ImageIcon}
+                    title="Insert Image"
                 />
             </div>
 

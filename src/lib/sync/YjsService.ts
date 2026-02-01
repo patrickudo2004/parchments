@@ -52,12 +52,19 @@ export class YjsService {
     }
 
     /**
+     * Returns the webrtc provider for a specific note.
+     * This is needed for CollaborationCursor.
+     */
+    static getProvider(noteId: string) {
+        const providers = this.providers.get(noteId);
+        return providers?.find((p: any) => p.awareness);
+    }
+
+    /**
      * Returns the awareness instance for a specific note.
      */
     static getAwareness(noteId: string) {
-        const providers = this.providers.get(noteId);
-        const webrtc = providers?.find((p: any) => p.awareness);
-        return webrtc?.awareness;
+        return this.getProvider(noteId)?.awareness;
     }
 
     /**

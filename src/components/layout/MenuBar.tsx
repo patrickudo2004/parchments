@@ -3,6 +3,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
 import { Plus, Mic, BookOpen, Languages } from 'lucide-react';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 export const MenuBar: React.FC = () => {
     const {
@@ -13,14 +14,11 @@ export const MenuBar: React.FC = () => {
         toggleLeftSidebar,
         toggleSearchModal,
         toggleShortcutModal,
-        activeEditor,
-        toggleFocusMode,
-        updateSettings,
-        editorFontSize,
         openExportModal,
-        showToast
+        showToast,
+        toggleNoFolderModal
     } = useUIStore();
-    const { currentNote, saveCurrentNote, createNote, createFolder } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +30,11 @@ export const MenuBar: React.FC = () => {
 
         switch (label) {
             case 'New Note':
-                createNote(null);
+                if (!hasStudyspace) {
+                    toggleNoFolderModal(true);
+                } else {
+                    createNote(null);
+                }
                 break;
             case 'New Folder':
                 createFolder('New Folder', null);
@@ -259,8 +261,32 @@ export const MenuBar: React.FC = () => {
 
             {/* Right: Big Actions (Filled, Spacious) */}
             <div className="flex items-center gap-3">
-                <Button onClick={() => createNote(null)} variant="primary" icon={<Plus size={18} />}>Note</Button>
-                <Button onClick={() => toggleLeftSidebar('voice')} variant="primary" icon={<Mic size={18} />}>Voice</Button>
+                <Button
+                    onClick={() => {
+                        if (!hasStudyspace) {
+                            toggleNoFolderModal(true);
+                        } else {
+                            createNote(null);
+                        }
+                    }}
+                    variant="primary"
+                    icon={<Plus size={18} />}
+                >
+                    Note
+                </Button>
+                <Button
+                    onClick={() => {
+                        if (!hasStudyspace) {
+                            toggleNoFolderModal(true);
+                        } else {
+                            toggleLeftSidebar('voice');
+                        }
+                    }}
+                    variant="primary"
+                    icon={<Mic size={18} />}
+                >
+                    Voice
+                </Button>
                 <Button onClick={toggleBibleModal} variant="primary" icon={<BookOpen size={18} />}>Bible</Button>
                 <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<Languages size={18} />}>Strong's</Button>
             </div>

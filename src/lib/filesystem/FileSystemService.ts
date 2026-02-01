@@ -1,5 +1,5 @@
 // Check if we are running in Tauri
-const isTauri = !!(window as any).__TAURI_INTERNALS__;
+export const isTauri = !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__;
 
 export interface FileSystemHandle {
     kind: 'file' | 'directory';
@@ -89,21 +89,31 @@ export class FileSystemService {
         return entries;
     }
 
-    async readFile(handle: FileSystemFileHandle): Promise<string> {
+    async readFile(handle: FileSystemFileHandle, binary: boolean = false): Promise<string | Blob> {
         if (isTauri && (handle as any).path) {
-            const { readTextFile } = await import('@tauri-apps/plugin-fs');
-            return await readTextFile((handle as any).path);
+            const { readFile } = await import('@tauri-apps/plugin-fs');
+            const data = await readFile((handle as any).path);
+            if (binary) {
+                return new Blob([data]);
+            }
+            return new TextDecoder().decode(data);
         }
 
         const file = await handle.getFile();
+        if (binary) return file;
         return await file.text();
     }
 
     async writeFile(handle: FileSystemFileHandle, content: string | Blob): Promise<void> {
         if (isTauri && (handle as any).path) {
-            const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-            const textContent = typeof content === 'string' ? content : await (content as Blob).text();
-            await writeTextFile((handle as any).path, textContent);
+            if (typeof content === 'string') {
+                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+                await writeTextFile((handle as any).path, content);
+            } else {
+                const { writeFile } = await import('@tauri-apps/plugin-fs');
+                const arrayBuffer = await content.arrayBuffer();
+                await writeFile((handle as any).path, new Uint8Array(arrayBuffer));
+            }
             return;
         }
 
@@ -115,9 +125,14 @@ export class FileSystemService {
     async createFile(parent: FileSystemDirectoryHandle, name: string, content: string | Blob): Promise<FileSystemFileHandle> {
         if (isTauri && parent.path) {
             const path = `${parent.path}/${name}`;
-            const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-            const textContent = typeof content === 'string' ? content : await (content as Blob).text();
-            await writeTextFile(path, textContent);
+            if (typeof content === 'string') {
+                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+                await writeTextFile(path, content);
+            } else {
+                const { writeFile } = await import('@tauri-apps/plugin-fs');
+                const arrayBuffer = await content.arrayBuffer();
+                await writeFile(path, new Uint8Array(arrayBuffer));
+            }
             return { kind: 'file', name, path } as any;
         }
 
@@ -130,7 +145,11 @@ export class FileSystemService {
         if (isTauri && parent.path) {
             const path = `${parent.path}/${name}`;
             const { mkdir } = await import('@tauri-apps/plugin-fs');
-            await mkdir(path);
+            try {
+                await mkdir(path);
+            } catch (e) {
+                // Ignore if it already exists
+            }
             return { kind: 'directory', name, path } as any;
         }
 

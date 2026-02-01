@@ -123,6 +123,7 @@ interface NoteStore {
     createLocalNote: (fileName: string, targetFolderId: string | null, content?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
     createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, transcript: string) => Promise<void>;
+    saveLocalAsset: (file: File) => Promise<string | null>;
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
@@ -415,19 +416,79 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         try {
             const fileHandle = item.handle as FileSystemFileHandle;
-            const content = await fileSystem.readFile(fileHandle);
+            const isAudio = item.name.toLowerCase().endsWith('.webm');
+
+            let content = '';
+            let audioBlob: Blob | undefined;
+            let noteType: 'text' | 'voice' = 'text';
+            let targetHandle = fileHandle;
+
+            if (isAudio) {
+                // Read as Blob directly
+                audioBlob = await fileSystem.readFile(fileHandle, true) as Blob;
+                noteType = 'voice';
+
+                // Try to find matching transcript (Recording X.webm -> Transcript X.html)
+                const timestampMatch = item.name.match(/Recording (.*?)\.webm/);
+                if (timestampMatch) {
+                    const timestamp = timestampMatch[1];
+                    const transcriptName = `Transcript ${timestamp}.html`;
+                    const { localFiles } = get();
+                    const transcriptFile = localFiles.find(f =>
+                        f.parentId === item.parentId &&
+                        f.name === transcriptName &&
+                        f.kind === 'file'
+                    );
+                    if (transcriptFile) {
+                        const rawContent = await fileSystem.readFile(transcriptFile.handle as FileSystemFileHandle) as string;
+                        content = await get().hydrateAssets(rawContent);
+                        // For recordings, if we find a transcript, we treat the transcript as the primary handle for saves
+                        targetHandle = transcriptFile.handle as FileSystemFileHandle;
+                    } else {
+                        // Prevent saving to the audio file handle
+                        targetHandle = null as any;
+                    }
+                }
+            } else {
+                const rawContent = await fileSystem.readFile(fileHandle) as string;
+                content = await get().hydrateAssets(rawContent);
+
+                // Check for linked audio metadata: <!-- audio-link: filename.webm -->
+                const audioLinkMatch = content.match(/<!--\s*audio-link:\s*(.*?)\s*-->/);
+                if (audioLinkMatch && audioLinkMatch[1]) {
+                    const audioFileName = audioLinkMatch[1];
+                    // Look for this file in the same directory (siblings)
+                    const { localFiles } = get();
+                    const siblingAudio = localFiles.find(f =>
+                        f.parentId === item.parentId &&
+                        f.name === audioFileName &&
+                        f.kind === 'file'
+                    );
+
+                    if (siblingAudio) {
+                        try {
+                            audioBlob = await fileSystem.readFile(siblingAudio.handle as FileSystemFileHandle, true) as Blob;
+                            noteType = 'voice';
+                        } catch (e) {
+                            console.error('Failed to read linked audio file:', e);
+                        }
+                    }
+                }
+            }
+
             // Construct a temporary Note object for the editor
             const tempNote: Note = {
                 id: item.id,
-                title: item.name.replace(/\.html$|\.txt$|\.md$/, ''), // Remove extension for display
+                title: item.name.replace(/\.html$|\.txt$|\.md$|\.webm$/, ''), // Remove extension for display
                 content: content,
                 folderId: null,
                 tags: [],
-                type: 'text',
+                type: noteType,
+                audioBlob: audioBlob,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             };
-            set({ currentNote: tempNote, currentFileHandle: fileHandle });
+            set({ currentNote: tempNote, currentFileHandle: targetHandle });
         } catch (error) {
             console.error('Failed to read file:', error);
         }
@@ -534,8 +595,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Save the audio file
             await fileSystem.createFile(parentHandle, audioName, audioBlob);
 
-            // Save the transcript as an HTML note
-            const content = `<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            // Save the transcript as an HTML note with hidden audio link metadata
+            const content = `<!-- audio-link: ${audioName} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh file list
@@ -573,8 +634,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         if (isLocalMode && currentFileHandle) {
             // File System Mode
             try {
-                await fileSystem.writeFile(currentFileHandle, content);
-                // Update store state to reflect changes (though title change for files involves renaming which is harder)
+                const portableContent = get().dehydrateAssets(content);
+                await fileSystem.writeFile(currentFileHandle, portableContent);
+                // Update store state to reflect changes
                 set({
                     currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
                 });
@@ -600,6 +662,81 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 console.error('Failed to save to DB:', error);
             }
         }
+    },
+    saveLocalAsset: async (file: File) => {
+        const { localDirectoryHandle, isLocalMode } = get();
+        if (!isLocalMode || !localDirectoryHandle) return null;
+
+        const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+        console.log('[NoteStore] saveLocalAsset, isTauri:', _isTauri);
+
+        try {
+            // Ensure .assets/images directory exists
+            const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
+            const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
+
+            // Generate unique filename
+            const extension = file.name.split('.').pop() || 'png';
+            const fileName = `${crypto.randomUUID()}.${extension}`;
+
+            // Create the file
+            const fileHandle = await fileSystem.createFile(imagesHandle, fileName, file);
+
+            // Return both the URL for the editor and the filename for persistent reference
+            const url = _isTauri && (fileHandle as any).path
+                ? convertFileSrc((fileHandle as any).path)
+                : URL.createObjectURL(file);
+
+            return { url, fileName };
+        } catch (error) {
+            console.error('Failed to save asset:', error);
+            return null;
+        }
+    },
+
+    hydrateAssets: async (content: string) => {
+        const { localDirectoryHandle, isLocalMode } = get();
+        if (!isLocalMode || !localDirectoryHandle) return content;
+
+        const doc = new DOMParser().parseFromString(content, 'text/html');
+        const images = Array.from(doc.querySelectorAll('img'));
+
+        for (const img of images) {
+            const src = img.getAttribute('src');
+            if (src && !src.startsWith('http') && !src.startsWith('blob:') && !src.startsWith('asset:')) {
+                try {
+                    // Try to find the file in .assets/images/
+                    const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
+                    const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
+
+                    // The src might be "filename.png" or ".assets/images/filename.png"
+                    const fileName = src.split('/').pop()!;
+                    const fileHandle = await imagesHandle.getFileHandle(fileName);
+                    const file = await (fileHandle as any).getFile();
+                    const blobUrl = URL.createObjectURL(file);
+                    img.setAttribute('src', blobUrl);
+                    // Store the mapping so we can dehydrate later if needed, 
+                    // or just rely on the fact that blobs are recognizable.
+                } catch (e) {
+                    console.warn('[NoteStore] Failed to hydrate image:', src, e);
+                }
+            }
+        }
+        return doc.body.innerHTML;
+    },
+
+    dehydrateAssets: (content: string) => {
+        const doc = new DOMParser().parseFromString(content, 'text/html');
+        const images = Array.from(doc.querySelectorAll('img'));
+
+        for (const img of images) {
+            const assetName = img.getAttribute('data-asset-name');
+            if (assetName) {
+                // Replace the blob URL with the relative path for portability
+                img.setAttribute('src', `.assets/images/${assetName}`);
+            }
+        }
+        return doc.body.innerHTML;
     },
 
     setLocalMode: (enabled) => set({ isLocalMode: enabled }),

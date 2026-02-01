@@ -151,7 +151,7 @@ export const useAIStore = create<AIState>((set, get) => ({
                         itemsToIndex.push({
                             id: file.id,
                             title: file.name,
-                            getContent: async () => await fileSystem.readFile(file.handle)
+                            getContent: async () => await fileSystem.readFile(file.handle) as string
                         });
                     }
                 }

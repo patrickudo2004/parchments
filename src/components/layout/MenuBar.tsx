@@ -16,7 +16,11 @@ export const MenuBar: React.FC = () => {
         toggleShortcutModal,
         openExportModal,
         showToast,
-        toggleNoFolderModal
+        toggleNoFolderModal,
+        activeEditor,
+        updateSettings,
+        editorFontSize,
+        toggleFocusMode
     } = useUIStore();
     const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);

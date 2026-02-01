@@ -6,7 +6,7 @@ import { Mic, History, Info } from 'lucide-react';
 
 export const VoiceSidebar: React.FC = () => {
     const { createVoiceNote, hasStudyspace, openLocalFolder } = useNoteStore();
-    const { showToast, toggleNoFolderModal } = useUIStore();
+    const { showToast } = useUIStore();
 
     return (
         <div className="flex flex-col h-full bg-light-background dark:bg-dark-background overflow-hidden">

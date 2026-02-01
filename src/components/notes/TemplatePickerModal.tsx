@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore, STUDY_TEMPLATES } from '@/stores/noteStore';
-import { useState } from 'react';
 import {
     X,
     BookOpen,

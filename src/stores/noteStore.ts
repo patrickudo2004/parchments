@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
@@ -123,7 +124,9 @@ interface NoteStore {
     createLocalNote: (fileName: string, targetFolderId: string | null, content?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
     createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, transcript: string) => Promise<void>;
-    saveLocalAsset: (file: File) => Promise<string | null>;
+    saveLocalAsset: (file: File) => Promise<{ url: any; fileName: string; } | null>;
+    hydrateAssets: (content: string) => Promise<string>;
+    dehydrateAssets: (content: string) => string;
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({

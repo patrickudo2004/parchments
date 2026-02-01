@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 
@@ -6,7 +6,7 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
     const { node, updateAttributes, selected } = props;
     const { src, alt, title, width: initialWidth, 'data-asset-name': assetName } = node.attrs;
 
-    const [aspectRatio, setAspectRatio] = useState<number>(1);
+
     const [isResizing, setIsResizing] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -15,7 +15,7 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
     const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
         const { naturalWidth, naturalHeight } = e.currentTarget;
         if (naturalWidth && naturalHeight) {
-            setAspectRatio(naturalWidth / naturalHeight);
+            // aspectRatio is not used currently, but we keep the load handler for other potential uses
         }
     }, []);
 

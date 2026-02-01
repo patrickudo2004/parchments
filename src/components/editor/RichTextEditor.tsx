@@ -68,7 +68,7 @@ export const RichTextEditor: React.FC = () => {
                 orderedList: false,
                 blockquote: false,
                 listItem: false,
-                history: true,
+                // history is included by default, no need to configure it here if it's causing issues
                 // These are the ones often duplicated in some Tiptap versions
                 dropcursor: false,
                 gapcursor: false,
@@ -163,7 +163,7 @@ export const RichTextEditor: React.FC = () => {
                 }
                 return false;
             },
-            handleDrop: (view, event, slice, moved) => {
+            handleDrop: (view, event, _slice, moved) => {
                 if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
                     const files = Array.from(event.dataTransfer.files);
                     const images = files.filter(file => file.type.startsWith('image'));

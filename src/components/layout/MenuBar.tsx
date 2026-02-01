@@ -3,7 +3,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
 import { Plus, Mic, BookOpen, Languages } from 'lucide-react';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
+
 
 export const MenuBar: React.FC = () => {
     const {
@@ -22,7 +22,7 @@ export const MenuBar: React.FC = () => {
         editorFontSize,
         toggleFocusMode
     } = useUIStore();
-    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 

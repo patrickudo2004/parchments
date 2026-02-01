@@ -13,7 +13,7 @@ import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
-    GitBranch, BookOpen, Search, Pin, X, FolderPlus
+    GitBranch, BookOpen, Search, Pin, X
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { ActivityBar } from './ActivityBar';

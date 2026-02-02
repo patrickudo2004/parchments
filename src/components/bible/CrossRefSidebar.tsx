@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { db } from '@/lib/db';
 import type { BibleCrossRef, Note } from '@/types/database';
-import { Link2, BookOpen, FileText, ExternalLink, Plus, Search, Trash2, X } from 'lucide-react';
+import { Link2, BookOpen, FileText, ExternalLink, Plus, Search, Trash2, X, Maximize2, Minimize2 } from 'lucide-react';
+import { popoutService } from '@/lib/utils/popoutService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
-export const CrossRefSidebar: React.FC = () => {
-    const { selectedVerseId } = useUIStore();
+export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
+    const { selectedVerseId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
     const [isPickingNote, setIsPickingNote] = useState(false);
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
     const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -88,6 +89,29 @@ export const CrossRefSidebar: React.FC = () => {
                                 {selectedVerseId || 'Select a Verse'}
                             </p>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {!isIndependent && (
+                            <button
+                                onClick={toggleRightSidebarFloating}
+                                className={`p-1 rounded-md transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                                title={isRightSidebarFloating ? "Dock" : "Undock"}
+                            >
+                                {isRightSidebarFloating ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => {
+                                popoutService.open('bible'); // For now, cross-refs pop out with bible context or similar
+                                // Actually, should we have a special 'references' popout? 
+                                // Let's just have it pop out 'bible' which is the primary context.
+                                if (!isIndependent) closeRightSidebar();
+                            }}
+                            className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-light-text-disabled hover:text-primary"
+                            title="Pop out Bible"
+                        >
+                            <ExternalLink size={14} />
+                        </button>
                     </div>
                 </div>
             </div>

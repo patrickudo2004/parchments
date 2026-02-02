@@ -7,8 +7,8 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
-    Link as LinkIcon,
-    Brain
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -20,23 +20,23 @@ export const ActivityBar: React.FC = () => {
         toggleRightSidebar,
         rightSidebarContent,
         rightSidebarOpen,
-        toggleSettingsModal
+        toggleSettingsModal,
+        isLeftSidebarFloating,
+        toggleLeftSidebarFloating
     } = useUIStore();
 
     const items = [
         { id: 'files', icon: Files, label: 'Explorer' },
         { id: 'outline', icon: LayoutList, label: 'Outline' },
         { id: 'voice', icon: Mic, label: 'Voice' },
-        { id: 'connections', icon: LinkIcon, label: 'Connections', target: 'right' },
-        { id: 'assistant', icon: Brain, label: 'Assistant', target: 'right' },
     ];
 
     return (
         <aside className="w-12 bg-light-background dark:bg-dark-background border-r border-light-border dark:border-dark-border flex flex-col items-center py-4 z-20 shrink-0">
             {/* Top Navigation */}
             <div className="flex-1 flex flex-col gap-4 w-full px-2">
-                {items.map((item) => {
-                    const isActive = ('target' in item && item.target === 'right')
+                {items.map((item: any) => {
+                    const isActive = (item.target === 'right')
                         ? (rightSidebarOpen && rightSidebarContent === item.id)
                         : (isLeftSidebarOpen && leftSidebarContent === item.id);
 
@@ -44,7 +44,7 @@ export const ActivityBar: React.FC = () => {
                         <button
                             key={item.id}
                             onClick={() => {
-                                if ('target' in item && item.target === 'right') {
+                                if (item.target === 'right') {
                                     toggleRightSidebar(item.id as any);
                                 } else {
                                     toggleLeftSidebar(item.id as any);
@@ -77,6 +77,14 @@ export const ActivityBar: React.FC = () => {
 
             {/* Bottom Global Actions */}
             <div className="flex flex-col gap-4 w-full px-2">
+                <button
+                    onClick={toggleLeftSidebarFloating}
+                    className={`group relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isLeftSidebarFloating ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
+                    title={isLeftSidebarFloating ? 'Dock Sidebar' : 'Undock Sidebar'}
+                >
+                    {isLeftSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
+
                 <button
                     onClick={toggleSettingsModal}
                     className="group relative flex items-center justify-center w-8 h-8 rounded-lg text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-all"

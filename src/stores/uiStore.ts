@@ -17,10 +17,15 @@ interface UIStore {
 
     leftSidebarWidth: number;
     isLeftSidebarOpen: boolean;
+    isLeftSidebarFloating: boolean;
+    isRightSidebarFloating: boolean;
     leftSidebarContent: 'files' | 'outline' | 'voice' | null;
+    leftSidebarPosition: { x: number, y: number };
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
+    isRightSidebarDetached: boolean; // For window pop-out status
     rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | null;
+    rightSidebarPosition: { x: number, y: number };
     isBibleModalOpen: boolean;
     isStrongsModalOpen: boolean;
     selectedStrongsId: string | null;
@@ -62,8 +67,13 @@ interface UIStore {
     toggleNoFolderModal: (isOpen?: boolean) => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
     toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
+    toggleLeftSidebarFloating: () => void;
+    toggleRightSidebarFloating: () => void;
+    setRightSidebarDetached: (isDetached: boolean) => void;
     setLeftSidebarWidth: (width: number) => void;
     setRightSidebarWidth: (width: number) => void;
+    setLeftSidebarPosition: (pos: { x: number, y: number }) => void;
+    setRightSidebarPosition: (pos: { x: number, y: number }) => void;
     openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
     closeRightSidebar: () => void;
     openLexicon: (id?: string) => void;
@@ -88,10 +98,15 @@ export const useUIStore = create<UIStore>()(
 
             leftSidebarWidth: 280,
             isLeftSidebarOpen: true,
+            isLeftSidebarFloating: false,
+            isRightSidebarFloating: false,
             leftSidebarContent: 'files',
+            leftSidebarPosition: { x: 0, y: 0 },
             rightSidebarWidth: 350,
             rightSidebarOpen: false,
+            isRightSidebarDetached: false,
             rightSidebarContent: null,
+            rightSidebarPosition: { x: 0, y: 0 },
             isBibleModalOpen: false,
             isStrongsModalOpen: false,
             selectedStrongsId: null,
@@ -194,6 +209,9 @@ export const useUIStore = create<UIStore>()(
                     rightSidebarContent: content
                 };
             }),
+            toggleLeftSidebarFloating: () => set((state) => ({ isLeftSidebarFloating: !state.isLeftSidebarFloating })),
+            toggleRightSidebarFloating: () => set((state) => ({ isRightSidebarFloating: !state.isRightSidebarFloating })),
+            setRightSidebarDetached: (isDetached) => set({ isRightSidebarDetached: isDetached }),
 
             openLexicon: (id) => set((state) => ({
                 rightSidebarOpen: true,
@@ -227,6 +245,8 @@ export const useUIStore = create<UIStore>()(
             openRightSidebar: (content) => set({ rightSidebarOpen: true, rightSidebarContent: content }),
             closeRightSidebar: () => set({ rightSidebarOpen: false, rightSidebarContent: null }),
             setEditorStats: (words, characters) => set({ wordCount: words, characterCount: characters }),
+            setLeftSidebarPosition: (pos) => set({ leftSidebarPosition: pos }),
+            setRightSidebarPosition: (pos) => set({ rightSidebarPosition: pos }),
             setIsMobile: (isMobile) => set({ isMobile }),
         }),
         {
@@ -244,9 +264,14 @@ export const useUIStore = create<UIStore>()(
                 leftSidebarWidth: state.leftSidebarWidth,
                 isLeftSidebarOpen: state.isLeftSidebarOpen,
                 leftSidebarContent: state.leftSidebarContent,
+                isLeftSidebarFloating: state.isLeftSidebarFloating,
                 rightSidebarWidth: state.rightSidebarWidth,
                 rightSidebarOpen: state.rightSidebarOpen,
+                isRightSidebarFloating: state.isRightSidebarFloating,
                 rightSidebarContent: state.rightSidebarContent,
+                isRightSidebarDetached: state.isRightSidebarDetached,
+                leftSidebarPosition: state.leftSidebarPosition,
+                rightSidebarPosition: state.rightSidebarPosition,
                 focusedHeadingPos: null,
             }),
             onRehydrateStorage: () => (state) => {

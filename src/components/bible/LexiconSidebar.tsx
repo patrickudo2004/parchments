@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
-import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin } from 'lucide-react';
+import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
+import { popoutService } from '@/lib/utils/popoutService';
 import { useResearchStore } from '@/stores/researchStore';
 
-export const LexiconSidebar: React.FC = () => {
-    const { selectedStrongsId } = useUIStore();
+export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
+    const { selectedStrongsId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
     const [entry, setEntry] = useState<StrongsEntry | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +66,34 @@ export const LexiconSidebar: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface overflow-hidden">
             {/* Search Header */}
-            <div className="p-4 border-b border-light-border dark:border-dark-border bg-light-background/30 dark:bg-dark-background/20">
+            <div className="p-4 border-b border-light-border dark:border-dark-border bg-light-background/30 dark:bg-dark-background/20 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-primary">
+                        <Hash size={16} />
+                        <h2 className="text-[10px] font-black uppercase tracking-widest leading-none">Lexicon</h2>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {!isIndependent && (
+                            <button
+                                onClick={toggleRightSidebarFloating}
+                                className={`p-1 rounded-md transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                                title={isRightSidebarFloating ? "Dock" : "Undock"}
+                            >
+                                {isRightSidebarFloating ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => {
+                                popoutService.open('lexicon');
+                                if (!isIndependent) closeRightSidebar();
+                            }}
+                            className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-light-text-disabled hover:text-primary"
+                            title="Pop out"
+                        >
+                            <ExternalLink size={14} />
+                        </button>
+                    </div>
+                </div>
                 <form onSubmit={handleSearch} className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-disabled group-focus-within:text-primary transition-colors" size={14} />
                     <input

@@ -15,8 +15,12 @@ import {
     Link as LinkIcon,
     Layers,
     PlusSquare,
-    X
+    X,
+    ExternalLink,
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
+import { popoutService } from '@/lib/utils/popoutService';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const formatTimeAgo = (timestamp: number) => {
@@ -29,9 +33,9 @@ const formatTimeAgo = (timestamp: number) => {
     return `${Math.floor(hours / 24)}d ago`;
 };
 
-export const ResearchSidebar: React.FC = () => {
+export const ResearchSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
     const { pins, unpinItem, clearPins, pinItem } = useResearchStore();
-    const { activeEditor, showToast } = useUIStore();
+    const { activeEditor, showToast, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
     const [copiedId, setCopiedId] = React.useState<string | null>(null);
     const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
@@ -144,15 +148,36 @@ export const ResearchSidebar: React.FC = () => {
                         <p className="text-[10px] text-light-text-disabled">{pins.length} items collected</p>
                     </div>
                 </div>
-                {pins.length > 0 && (
+                <div className="flex items-center gap-1">
+                    {pins.length > 0 && (
+                        <button
+                            onClick={clearPins}
+                            className="p-1.5 text-light-text-disabled hover:text-red-500 transition-colors"
+                            title="Clear all pins"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                    {!isIndependent && (
+                        <button
+                            onClick={toggleRightSidebarFloating}
+                            className={`p-1 rounded-md transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                            title={isRightSidebarFloating ? "Dock" : "Undock"}
+                        >
+                            {isRightSidebarFloating ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                        </button>
+                    )}
                     <button
-                        onClick={clearPins}
-                        className="p-2 text-light-text-disabled hover:text-red-500 transition-colors"
-                        title="Clear all pins"
+                        onClick={() => {
+                            popoutService.open('pins');
+                            if (!isIndependent) closeRightSidebar();
+                        }}
+                        className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-light-text-disabled hover:text-primary"
+                        title="Pop out"
                     >
-                        <Trash2 size={16} />
+                        <ExternalLink size={14} />
                     </button>
-                )}
+                </div>
             </div>
 
             {/* List */}

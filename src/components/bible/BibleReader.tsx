@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { ChevronRight, ChevronLeft, Plus, X as CloseIcon } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
@@ -12,6 +12,7 @@ import { ParallelVerseRow } from './ParallelVerseRow';
 import { Pin, X } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { popoutService } from '@/lib/utils/popoutService';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
@@ -34,7 +35,14 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
     const { pinItem } = useResearchStore();
 
-    const { showToast, isMobile } = useUIStore();
+    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
+
+    // Auto-expand/dock logic based on mode
+    useEffect(() => {
+        if (isIndependent) {
+            // In pop-out mode, we might want different defaults
+        }
+    }, [isIndependent]);
     const contentRef = useRef<HTMLDivElement>(null);
 
     // Current Navigation State
@@ -227,6 +235,25 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         title="Toggle Interlinear"
                     >
                         <Languages size={18} />
+                    </button>
+                    {!isIndependent && (
+                        <button
+                            onClick={toggleRightSidebarFloating}
+                            className={`p-1.5 rounded-full transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                            title={isRightSidebarFloating ? "Dock Sidebar" : "Undock Sidebar"}
+                        >
+                            {isRightSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        </button>
+                    )}
+                    <button
+                        onClick={() => {
+                            popoutService.open('bible');
+                            if (!isIndependent) closeRightSidebar();
+                        }}
+                        className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled hover:text-primary"
+                        title="Open in New Window"
+                    >
+                        <ExternalLink size={18} />
                     </button>
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
                     <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={18} /></button>

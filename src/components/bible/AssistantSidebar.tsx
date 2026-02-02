@@ -11,13 +11,17 @@ import {
     Trash2,
     Download,
     ShieldCheck,
-    ArrowRight
+    ArrowRight,
+    ExternalLink,
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
+import { popoutService } from '@/lib/utils/popoutService';
 import { motion } from 'framer-motion';
 
-export const AssistantSidebar: React.FC = () => {
+export const AssistantSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
     const { currentNote } = useNoteStore();
-    const { toggleSettingsModal } = useUIStore();
+    const { toggleSettingsModal, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
     const {
         isAIFeaturesEnabled,
         isGenerativeModelDownloaded,
@@ -132,17 +136,38 @@ export const AssistantSidebar: React.FC = () => {
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between bg-light-background/40 dark:bg-dark-background/20 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-2 text-primary">
                     <Sparkles size={16} className="animate-pulse" />
-                    <h2 className="text-[10px] font-black uppercase tracking-widest">Exegesis Assistant</h2>
+                    <h2 className="text-[10px] font-black uppercase tracking-widest leading-none">Exegesis Assistant</h2>
                 </div>
-                {chatHistory.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                    {chatHistory.length > 0 && (
+                        <button
+                            onClick={clearChat}
+                            className="p-1 px-1.5 hover:bg-red-500/10 text-red-500 rounded-md transition-all flex items-center gap-1.5 mr-1"
+                        >
+                            <Trash2 size={12} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Clear</span>
+                        </button>
+                    )}
+                    {!isIndependent && (
+                        <button
+                            onClick={toggleRightSidebarFloating}
+                            className={`p-1 rounded-md transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                            title={isRightSidebarFloating ? "Dock" : "Undock"}
+                        >
+                            {isRightSidebarFloating ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                        </button>
+                    )}
                     <button
-                        onClick={clearChat}
-                        className="p-1 px-2 hover:bg-red-500/10 text-red-500 rounded-md transition-all flex items-center gap-1.5"
+                        onClick={() => {
+                            popoutService.open('assistant');
+                            if (!isIndependent) closeRightSidebar();
+                        }}
+                        className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-light-text-disabled hover:text-primary"
+                        title="Pop out"
                     >
-                        <Trash2 size={12} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Clear</span>
+                        <ExternalLink size={14} />
                     </button>
-                )}
+                </div>
             </div>
 
             {/* Quick Actions */}

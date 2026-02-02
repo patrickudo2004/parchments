@@ -13,7 +13,7 @@ import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
-    GitBranch, BookOpen, Search, Pin, X
+    Search as SearchIcon
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { ActivityBar } from './ActivityBar';
@@ -25,6 +25,8 @@ import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
 import { ConnectionsSidebar } from '@/components/bible/ConnectionsSidebar';
 import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
+import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
+import { RightActivityBar } from './RightActivityBar';
 import { useAIStore } from '@/stores/aiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
@@ -64,7 +66,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isMobile,
         setIsMobile,
         isNoFolderModalOpen,
-        toggleNoFolderModal
+        toggleNoFolderModal,
+        isRightSidebarFloating,
+        isLeftSidebarFloating,
+        leftSidebarPosition,
+        setLeftSidebarPosition,
+        rightSidebarPosition,
+        setRightSidebarPosition
     } = useUIStore();
     const { hasStudyspace, openLocalFolder, createNote } = useNoteStore();
 
@@ -196,20 +204,47 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {/* Activity Bar - Always visible unless focus mode or mobile */}
                 {!isFocusMode && !isMobile && <ActivityBar />}
 
-                {/* Left Sidebar - Tabbed Content */}
+                {/* Left Sidebar - Explorer */}
                 {!isFocusMode && isLeftSidebarOpen && (
                     <>
-                        <aside
-                            className={`bg-light-sidebar dark:bg-dark-sidebar flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : ''}`}
-                            style={{ width: isMobile ? '85vw' : `${leftSidebarWidth}px` }}
+                        <motion.aside
+                            drag={isLeftSidebarFloating}
+                            dragMomentum={false}
+                            dragElastic={0}
+                            dragConstraints={{ left: 0, top: 0, right: window.innerWidth - leftSidebarWidth, bottom: window.innerHeight - 100 }}
+                            onDragEnd={(_, info) => {
+                                setLeftSidebarPosition({
+                                    x: leftSidebarPosition.x + info.offset.x,
+                                    y: leftSidebarPosition.y + info.offset.y
+                                });
+                            }}
+                            initial={false}
+                            animate={{
+                                x: isLeftSidebarFloating ? leftSidebarPosition.x : 0,
+                                y: isLeftSidebarFloating ? leftSidebarPosition.y : 0
+                            }}
+                            className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
+                            style={{
+                                width: isMobile ? '85vw' : `${leftSidebarWidth}px`,
+                                height: isLeftSidebarFloating ? '80vh' : '100%',
+                                marginTop: isLeftSidebarFloating ? '64px' : '0'
+                            }}
                         >
-                            {leftSidebarContent === 'files' && <FilesSidebar />}
-                            {leftSidebarContent === 'outline' && <OutlineSidebar />}
-                            {leftSidebarContent === 'voice' && <VoiceSidebar />}
-                        </aside>
+                            {/* Drag Handle */}
+                            {isLeftSidebarFloating && (
+                                <div className="h-6 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group">
+                                    <div className="w-12 h-1 rounded-full bg-light-border dark:bg-dark-border group-hover:bg-primary/50 transition-colors" />
+                                </div>
+                            )}
+                            <div className="flex-1 overflow-hidden">
+                                {leftSidebarContent === 'files' && <FilesSidebar />}
+                                {leftSidebarContent === 'outline' && <OutlineSidebar />}
+                                {leftSidebarContent === 'voice' && <VoiceSidebar />}
+                            </div>
+                        </motion.aside>
 
                         {/* Left Resize Handle */}
-                        {!isMobile && (
+                        {!isMobile && !isLeftSidebarFloating && (
                             <div
                                 onMouseDown={startResizingLeft}
                                 className="w-1 px-0.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
@@ -219,7 +254,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 )}
 
                 {/* Main Content Area - Editor */}
-                <main className="flex-1 overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative">
+                <main className="flex-1 overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0">
                     {children}
                 </main>
 
@@ -227,70 +262,55 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {!isFocusMode && rightSidebarOpen && (
                     <>
                         {/* Right Resize Handle */}
-                        {!isMobile && (
+                        {!isMobile && !isRightSidebarFloating && (
                             <div
                                 onMouseDown={startResizingRight}
                                 className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
                             />
                         )}
 
-                        <aside
-                            className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : ''}`}
-                            style={{ width: isMobile ? '85vw' : `${rightSidebarWidth}px` }}
+                        <motion.aside
+                            drag={isRightSidebarFloating}
+                            dragMomentum={false}
+                            dragElastic={0}
+                            dragConstraints={{ left: -(window.innerWidth - rightSidebarWidth), top: 0, right: 0, bottom: window.innerHeight - 100 }}
+                            onDragEnd={(_, info) => {
+                                setRightSidebarPosition({
+                                    x: rightSidebarPosition.x + info.offset.x,
+                                    y: rightSidebarPosition.y + info.offset.y
+                                });
+                            }}
+                            initial={false}
+                            animate={{
+                                x: isRightSidebarFloating ? rightSidebarPosition.x : 0,
+                                y: isRightSidebarFloating ? rightSidebarPosition.y : 0
+                            }}
+                            className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : isRightSidebarFloating ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden' : ''}`}
+                            style={{
+                                width: isMobile ? '85vw' : `${rightSidebarWidth}px`,
+                                height: isRightSidebarFloating ? '80vh' : '100%',
+                                marginTop: isRightSidebarFloating ? '64px' : '0'
+                            }}
                         >
-                            {/* Sidebar Tabs */}
-                            <div className="flex border-b border-light-border dark:border-dark-border bg-light-background/20 dark:bg-dark-background/10">
-                                <button
-                                    onClick={() => toggleRightSidebar('bible')}
-                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'bible' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
-                                >
-                                    <BookOpen size={16} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Bible</span>
-                                    {rightSidebarContent === 'bible' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-                                </button>
-                                <button
-                                    onClick={() => toggleRightSidebar('lexicon')}
-                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'lexicon' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
-                                >
-                                    <Search size={16} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Lexicon</span>
-                                    {rightSidebarContent === 'lexicon' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-                                </button>
-                                <button
-                                    onClick={() => toggleRightSidebar('crossrefs')}
-                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'crossrefs' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
-                                >
-                                    <GitBranch size={16} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Refs</span>
-                                    {rightSidebarContent === 'crossrefs' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-                                </button>
-                                <button
-                                    onClick={() => toggleRightSidebar('pins')}
-                                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 transition-all relative ${rightSidebarContent === 'pins' ? 'text-primary' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary'}`}
-                                >
-                                    <Pin size={14} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Pins</span>
-                                    {rightSidebarContent === 'pins' && <motion.div layoutId="activeTabBadge" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-                                </button>
-                                {isMobile && (
-                                    <button onClick={() => toggleRightSidebar()} className="p-3 text-light-text-secondary dark:text-dark-text-secondary border-l border-light-border dark:border-dark-border">
-                                        <X size={20} />
-                                    </button>
-                                )}
-                            </div>
+                            {/* Drag Handle */}
+                            {isRightSidebarFloating && (
+                                <div className="h-6 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group">
+                                    <div className="w-12 h-1 rounded-full bg-light-border dark:border-dark-border group-hover:bg-primary/50 transition-colors" />
+                                </div>
+                            )}
                             {/* Content */}
                             <div className="flex-1 overflow-hidden">
                                 {rightSidebarContent === 'bible' && <BibleReader />}
                                 {rightSidebarContent === 'lexicon' && <LexiconSidebar />}
                                 {rightSidebarContent === 'crossrefs' && <CrossRefSidebar />}
-                                {rightSidebarContent === 'pins' && <div className="h-full bg-light-surface dark:bg-dark-surface p-4">Pins (TBD)</div>}
+                                {rightSidebarContent === 'pins' && <ResearchSidebar />}
                                 {rightSidebarContent === 'connections' && <ConnectionsSidebar />}
                                 {rightSidebarContent === 'assistant' && <AssistantSidebar />}
 
                                 {!rightSidebarContent && (
                                     <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
                                         <div className="w-16 h-16 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm opacity-50">
-                                            <Search size={32} className="text-light-text-disabled" />
+                                            <SearchIcon size={32} className="text-light-text-disabled" />
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-widest mb-1">Reference Tool</p>
@@ -301,9 +321,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     </div>
                                 )}
                             </div>
-                        </aside>
+                        </motion.aside>
                     </>
                 )}
+
+                {/* Right Activity Bar - Always visible unless focus mode or mobile */}
+                {!isFocusMode && !isMobile && <RightActivityBar />}
             </div>
 
             {/* Mobile Navigation */}

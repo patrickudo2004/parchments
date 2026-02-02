@@ -27,6 +27,7 @@ import { ConnectionsSidebar } from '@/components/bible/ConnectionsSidebar';
 import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
 import { useAIStore } from '@/stores/aiStore';
 import { useNoteStore } from '@/stores/noteStore';
+import { storagePersistence } from '@/lib/utils/storagePersistence';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -128,6 +129,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { init: initAI, isModelLoaded, startIndexing } = useAIStore();
     React.useEffect(() => {
         initAI();
+        storagePersistence.requestPersistence();
     }, [initAI]);
 
     // Trigger indexing when AI model is loaded or local files change

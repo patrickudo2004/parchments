@@ -201,33 +201,38 @@ export const FilesSidebar: React.FC = () => {
             <React.Fragment key={item.id}>
                 <div
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items-center justify-between p-1.5 rounded cursor-pointer text-sm transition-colors ${selectedFolderId === item.id
+                    className={`group flex items-center justify-between p-1 rounded cursor-pointer text-sm transition-colors ${selectedFolderId === item.id
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'hover:bg-light-background dark:hover:bg-dark-background'
                         }`}
-                    style={{ paddingLeft: `${level * 12 + 8}px` }}
+                    style={{ paddingLeft: `${level * 16 + 4}px` }}
                 >
-                    <div className="flex items-center gap-1.5 overflow-hidden flex-1">
-                        {hasChildren ? (
-                            <div
-                                onClick={(e) => toggleFolder(e, item.id)}
-                                className="flex items-center justify-center w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded"
-                            >
-                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </div>
-                        ) : (
-                            <div className="w-4" /> // Spacing for items without chevrons
-                        )}
+                    <div className="flex items-center overflow-hidden flex-1">
+                        {/* Chevron Column */}
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                            {hasChildren && (
+                                <div
+                                    onClick={(e) => toggleFolder(e, item.id)}
+                                    className="flex items-center justify-center w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
+                                >
+                                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                </div>
+                            )}
+                        </div>
 
-                        {isFolder ? (
-                            isExpanded ? (
-                                <FolderOpen className="text-primary shrink-0" size={16} />
+                        {/* Icon Column */}
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0 mr-1.5">
+                            {isFolder ? (
+                                isExpanded ? (
+                                    <FolderOpen className="text-primary" size={16} />
+                                ) : (
+                                    <Folder className="text-primary" size={16} />
+                                )
                             ) : (
-                                <Folder className="text-primary shrink-0" size={16} />
-                            )
-                        ) : (
-                            <FileText className="text-light-text-secondary dark:text-dark-text-secondary shrink-0" size={16} />
-                        )}
+                                <FileText className="text-light-text-secondary dark:text-dark-text-secondary" size={16} />
+                            )}
+                        </div>
+
                         <span className="truncate">{item.name}</span>
                     </div>
 

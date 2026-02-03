@@ -223,7 +223,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 x: isLeftSidebarFloating ? leftSidebarPosition.x : 0,
                                 y: isLeftSidebarFloating ? leftSidebarPosition.y : 0
                             }}
-                            className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
+                            className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || !isLeftSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
                             style={{
                                 width: isMobile ? '85vw' : `${leftSidebarWidth}px`,
                                 height: isLeftSidebarFloating ? '80vh' : '100%',
@@ -285,7 +285,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 x: isRightSidebarFloating ? rightSidebarPosition.x : 0,
                                 y: isRightSidebarFloating ? rightSidebarPosition.y : 0
                             }}
-                            className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative transition-all duration-300 ease-in-out ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : isRightSidebarFloating ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden' : ''}`}
+                            className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || !isRightSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : isRightSidebarFloating ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden' : ''}`}
                             style={{
                                 width: isMobile ? '85vw' : `${rightSidebarWidth}px`,
                                 height: isRightSidebarFloating ? '80vh' : '100%',

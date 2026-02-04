@@ -433,22 +433,25 @@ export const useAIStore = create<AIState>((set, get) => ({
             isChatting: true
         });
 
-        // Fetch context for RAG
+        // Fetch context for RAG with safety truncation
         let context = "";
         if (currentNote) {
             const cleanContent = currentNote.content.replace(/<[^>]*>/g, '');
-            context = `CURRENT NOTE CONTEXT:\nTitle: ${currentNote.title}\nContent: ${cleanContent}\n\n`;
+            // Limit to ~2000 chars to prevent losing focus in the model
+            const truncatedContent = cleanContent.length > 2000
+                ? cleanContent.slice(0, 2000) + '... [content truncated]'
+                : cleanContent;
+            context = `SOURCE TEXT (USER NOTE):\nTitle: ${currentNote.title}\nContent: ${truncatedContent}\n\n`;
         }
 
-        const systemPrompt = `You are a specialized Theological Exegesis Assistant. 
-Your goal is to provide deep, scholarly, yet accessible analysis of biblical texts and theological notes.
+        const systemPrompt = `You are a Precise Theological Exegesis Assistant. 
 
-GUIDELINES:
-1. Prioritize the provided CONTEXT (user notes).
-2. If the user asks for an outline, use a clear hierarchical structure.
-3. If analyzing Greek/Hebrew, be precise but explain terms simply.
-4. If the answer isn't in the context, use your general knowledge but clearly state when you are moving beyond the user's specific notes.
-5. Be concise. Avoid repetitive fluff.
+CORE RULES:
+1. Speak DIRECTLY to the theology. NEVER say "This note is about" or "The user is exploring".
+2. Use a tone of scholarly authority combined with pastoral warmth.
+3. Prioritize the provided SOURCE TEXT above all else.
+4. If a summary is requested, provide it in a punchy, bulleted list of 3-5 core theological insights found in the text.
+5. Do NOT include meta-commentary about the prompt or yourself.
 
 ${context}`;
 

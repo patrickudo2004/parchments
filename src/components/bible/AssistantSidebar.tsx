@@ -98,7 +98,7 @@ export const AssistantSidebar: React.FC<{ isIndependent?: boolean }> = ({ isInde
                     <div className="space-y-2">
                         <h2 className="text-base font-black uppercase tracking-tight text-light-text-primary dark:text-dark-text-primary">Download Required</h2>
                         <p className="text-xs text-light-text-secondary leading-relaxed">
-                            To use the assistant, you need to download the local engine (~700MB).
+                            To use the assistant, you need to download the local engine (~500MB).
                             This is a one-time setup.
                         </p>
                     </div>

@@ -700,8 +700,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         </div>
                                                         <div className="flex-1">
                                                             <div className="flex items-center justify-between mb-1">
-                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Study Assistant Engine (SmolLM2-360M)</h5>
-                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~700 MB</span>
+                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Advanced Logic Engine (Qwen 2.5)</h5>
+                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~500 MB</span>
                                                             </div>
                                                             <p className="text-xs text-light-text-secondary leading-relaxed">
                                                                 Downloading this engine enables offline chat, sermon outlining, and topic summarization. It runs entirely on your hardware.

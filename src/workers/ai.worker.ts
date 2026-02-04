@@ -8,7 +8,7 @@ let embedder: any = null;
 let generator: any = null;
 
 const EMBED_MODEL = 'onnx-community/all-MiniLM-L6-v2-ONNX';
-const GEN_MODEL = 'onnx-community/SmolLM2-360M-Instruct-ONNX';
+const GEN_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct-ONNX';
 
 // Initialize the embedding model
 async function initEmbedder() {
@@ -32,9 +32,10 @@ async function initEmbedder() {
 async function initGenerator() {
     if (generator) return;
     try {
-        self.postMessage({ type: 'STATUS', message: 'Loading assistant engine...' });
+        self.postMessage({ type: 'STATUS', message: 'Loading assistant engine (WebGPU)...' });
         generator = await pipeline('text-generation', GEN_MODEL, {
-            dtype: 'q8',
+            device: 'webgpu', // Use Graphics Card for speed
+            dtype: 'q8',      // Quantized for efficiency
             progress_callback: (p: any) => {
                 if (p.status === 'progress') {
                     self.postMessage({ type: 'PROGRESS', progress: p.progress / 100 });
@@ -43,7 +44,22 @@ async function initGenerator() {
         });
         self.postMessage({ type: 'STATUS', message: 'Generative model loaded' });
     } catch (error: any) {
-        self.postMessage({ type: 'ERROR', message: `Failed to load assistant engine: ${error.message}` });
+        console.warn('WebGPU failed, falling back to CPU:', error.message);
+        self.postMessage({ type: 'STATUS', message: 'WebGPU unavailable, using CPU...' });
+        try {
+            generator = await pipeline('text-generation', GEN_MODEL, {
+                device: 'wasm',
+                dtype: 'q8',
+                progress_callback: (p: any) => {
+                    if (p.status === 'progress') {
+                        self.postMessage({ type: 'PROGRESS', progress: p.progress / 100 });
+                    }
+                }
+            });
+            self.postMessage({ type: 'STATUS', message: 'Generative model loaded (CPU)' });
+        } catch (cpuError: any) {
+            self.postMessage({ type: 'ERROR', message: `Failed to load assistant engine: ${cpuError.message}` });
+        }
     }
 }
 

@@ -321,8 +321,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+            <div key="settings-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
                 <motion.div
+                    key="settings-content"
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -424,8 +425,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                     >
                                                         {installedVersions.length > 0 ? (
-                                                            installedVersions.map(v => (
-                                                                <option key={v.id} value={v.id.toUpperCase()}>{v.name} ({v.abbreviation})</option>
+                                                            installedVersions.map((v, idx) => (
+                                                                <option key={v.id || `inst-${idx}`} value={v.id.toUpperCase()}>{v.name} ({v.abbreviation})</option>
                                                             ))
                                                         ) : (
                                                             <option disabled>No versions installed yet</option>
@@ -453,10 +454,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                     className="w-full p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                                 >
                                                                     <option value="">Select a version to download...</option>
-                                                                    {catalog.map((v: CatalogBibleVersion) => {
+                                                                    {catalog.map((v: CatalogBibleVersion, idx) => {
                                                                         const isInstalled = bibleVersions.some(lv => lv.id === v.id && lv.isDownloaded);
                                                                         return (
-                                                                            <option key={v.id} value={v.id}>
+                                                                            <option key={v.id || `cat-${idx}`} value={v.id}>
                                                                                 {v.name} ({v.abbreviation}) {isInstalled ? '✓ Installed' : ''}
                                                                             </option>
                                                                         );
@@ -931,10 +932,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             return <p className="text-xs text-light-text-disabled italic p-3">No matching bibles.</p>;
                                                         }
 
-                                                        return filtered.map((v: BibleVersion) => {
+                                                        return filtered.map((v: BibleVersion, idx) => {
                                                             const isIndexed = indexedSet.has(v.id);
                                                             return (
-                                                                <div key={v.id} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
+                                                                <div key={v.id || `off-${idx}`} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
                                                                     <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
                                                                         <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
                                                                             <Database size={14} />
@@ -975,7 +976,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         });
                                                     })()}
 
-                                                    <div className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
+                                                    <div key="off-whisper-tiny" className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
                                                                 <Database size={14} />
@@ -1037,6 +1038,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </div>
 
             <AlertModal
+                key="settings-alert-modal"
                 isOpen={alertConfig.isOpen}
                 title={alertConfig.title}
                 message={alertConfig.message}
@@ -1045,6 +1047,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             />
 
             <ConfirmModal
+                key="settings-confirm-modal"
                 isOpen={confirmConfig.isOpen}
                 title={confirmConfig.title}
                 message={confirmConfig.message}

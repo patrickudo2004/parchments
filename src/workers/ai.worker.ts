@@ -1,4 +1,4 @@
-import { pipeline, env } from '@xenova/transformers';
+import { pipeline, env } from '@huggingface/transformers';
 
 // Configuration for local-first use
 env.allowLocalModels = false;
@@ -7,8 +7,8 @@ env.useBrowserCache = true;
 let embedder: any = null;
 let generator: any = null;
 
-const EMBED_MODEL = 'Xenova/all-MiniLM-L6-v2';
-const GEN_MODEL = 'Xenova/SmolLM2-135M-Instruct';
+const EMBED_MODEL = 'onnx-community/all-MiniLM-L6-v2-ONNX';
+const GEN_MODEL = 'onnx-community/SmolLM2-135M-Instruct-ONNX';
 
 // Initialize the embedding model
 async function initEmbedder() {
@@ -34,6 +34,7 @@ async function initGenerator() {
     try {
         self.postMessage({ type: 'STATUS', message: 'Loading assistant engine...' });
         generator = await pipeline('text-generation', GEN_MODEL, {
+            dtype: 'q8',
             progress_callback: (p: any) => {
                 if (p.status === 'progress') {
                     self.postMessage({ type: 'PROGRESS', progress: p.progress / 100 });

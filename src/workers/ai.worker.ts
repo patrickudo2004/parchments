@@ -92,11 +92,15 @@ self.onmessage = async (event) => {
             const output = await generator(formattedPrompt, {
                 max_new_tokens: 1024,
                 temperature: 0.3,
+                repetition_penalty: 1.1,
                 do_sample: true,
                 callback_function: (beams: any) => {
                     const fullText = beams[0].output_text;
-                    const contentOnly = fullText.split(assistantHeader).pop() || '';
-                    if (contentOnly.length > lastLength) {
+                    const contentOnly = fullText.includes(assistantHeader)
+                        ? fullText.split(assistantHeader).pop()
+                        : fullText.replace(formattedPrompt, '');
+
+                    if (contentOnly && contentOnly.length > lastLength) {
                         const chunk = contentOnly.slice(lastLength);
                         self.postMessage({ type: 'CHAT_CHUNK', chunk });
                         lastLength = contentOnly.length;

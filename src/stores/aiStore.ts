@@ -402,9 +402,14 @@ export const useAIStore = create<AIState>((set, get) => ({
                 await caches.delete(name);
             }
 
+            // Forcefully reset the worker and related states
+            worker?.terminate();
+            worker = null;
+
             set({
                 isGenerativeModelDownloaded: false,
                 isModelLoaded: false,
+                isInitializing: false,
                 statusMessage: 'AI assets purged'
             });
         } catch (error) {

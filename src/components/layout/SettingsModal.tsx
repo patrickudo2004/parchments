@@ -700,8 +700,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         </div>
                                                         <div className="flex-1">
                                                             <div className="flex items-center justify-between mb-1">
-                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Study Assistant Engine (SmolLM2)</h5>
-                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~270 MB</span>
+                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Study Assistant Engine (SmolLM2-360M)</h5>
+                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~700 MB</span>
                                                             </div>
                                                             <p className="text-xs text-light-text-secondary leading-relaxed">
                                                                 Downloading this engine enables offline chat, sermon outlining, and topic summarization. It runs entirely on your hardware.
@@ -736,6 +736,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             <Download size={16} /> Download Engine
                                                         </button>
                                                     )}
+
+                                                    <div className="pt-2 border-t border-light-border dark:border-dark-border mt-4">
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('Are you sure you want to delete all local AI models? This will free up space but require a re-download if you want to use AI again.')) {
+                                                                    const { clearModelCache } = useAIStore.getState();
+                                                                    await clearModelCache();
+                                                                }
+                                                            }}
+                                                            className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-600 transition-colors flex items-center gap-2"
+                                                        >
+                                                            <Trash2 size={12} /> Purge Local AI Cache
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </section>
 

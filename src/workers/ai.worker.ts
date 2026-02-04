@@ -8,7 +8,7 @@ let embedder: any = null;
 let generator: any = null;
 
 const EMBED_MODEL = 'onnx-community/all-MiniLM-L6-v2-ONNX';
-const GEN_MODEL = 'onnx-community/SmolLM2-135M-Instruct-ONNX';
+const GEN_MODEL = 'onnx-community/SmolLM2-360M-Instruct-ONNX';
 
 // Initialize the embedding model
 async function initEmbedder() {
@@ -90,8 +90,8 @@ self.onmessage = async (event) => {
 
             let lastLength = 0;
             const output = await generator(formattedPrompt, {
-                max_new_tokens: 512,
-                temperature: 0.7,
+                max_new_tokens: 1024,
+                temperature: 0.3,
                 do_sample: true,
                 callback_function: (beams: any) => {
                     const fullText = beams[0].output_text;

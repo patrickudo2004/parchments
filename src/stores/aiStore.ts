@@ -34,6 +34,7 @@ interface AIState {
     // New Actions
     toggleAIFeatures: (enabled: boolean) => void;
     downloadGenerativeModel: () => Promise<void>;
+    clearModelCache: () => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
     clearChat: () => void;
     indexBible: (versionId: string) => Promise<void>;
@@ -391,6 +392,27 @@ export const useAIStore = create<AIState>((set, get) => ({
         worker?.postMessage({ type: 'LOAD_GENERATIVE' });
     },
 
+    clearModelCache: async () => {
+        try {
+            set({ statusMessage: 'Purging local AI assets...' });
+
+            // Clear multiple possible cache names used by transformers.js and ONNX
+            const cacheNames = ['transformers-cache', 'onnx-runtime-web-cache', 'hf-transformers-cache'];
+            for (const name of cacheNames) {
+                await caches.delete(name);
+            }
+
+            set({
+                isGenerativeModelDownloaded: false,
+                isModelLoaded: false,
+                statusMessage: 'AI assets purged'
+            });
+        } catch (error) {
+            console.error('Failed to purge AI cache:', error);
+            set({ statusMessage: 'Purge failed' });
+        }
+    },
+
     sendMessage: async (content: string) => {
         const { isChatting, chatHistory } = get();
         const noteStore = useNoteStore.getState();
@@ -413,7 +435,17 @@ export const useAIStore = create<AIState>((set, get) => ({
             context = `CURRENT NOTE CONTEXT:\nTitle: ${currentNote.title}\nContent: ${cleanContent}\n\n`;
         }
 
-        const systemPrompt = `You are a helpful theological research assistant. Use the provided context to answer questions. If the answer isn't in the context, use your general knowledge but prioritize the user's notes.\n\n${context}`;
+        const systemPrompt = `You are a specialized Theological Exegesis Assistant. 
+Your goal is to provide deep, scholarly, yet accessible analysis of biblical texts and theological notes.
+
+GUIDELINES:
+1. Prioritize the provided CONTEXT (user notes).
+2. If the user asks for an outline, use a clear hierarchical structure.
+3. If analyzing Greek/Hebrew, be precise but explain terms simply.
+4. If the answer isn't in the context, use your general knowledge but clearly state when you are moving beyond the user's specific notes.
+5. Be concise. Avoid repetitive fluff.
+
+${context}`;
 
         worker?.postMessage({
             type: 'GENERATE_TEXT',

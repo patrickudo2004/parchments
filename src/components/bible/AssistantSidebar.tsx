@@ -5,7 +5,6 @@ import { useUIStore } from '@/stores/uiStore';
 import {
     Sparkles,
     Brain,
-    Loader2,
     ListChecks,
     Send,
     Trash2,
@@ -269,16 +268,27 @@ export const AssistantSidebar: React.FC<{ isIndependent?: boolean }> = ({ isInde
                         rows={1}
                         className="w-full p-3.5 pr-14 bg-white dark:bg-black/30 border border-light-border dark:border-dark-border rounded-2xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none max-h-32 transition-all placeholder:text-light-text-disabled"
                     />
-                    <button
-                        onClick={handleSend}
-                        disabled={!inputValue.trim() || isChatting}
-                        className={`absolute right-2.5 bottom-2.5 p-2 rounded-xl transition-all ${inputValue.trim() && !isChatting
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105'
-                            : 'text-light-text-disabled bg-transparent'
-                            }`}
-                    >
-                        {isChatting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    </button>
+                    {isChatting ? (
+                        <button
+                            onClick={() => useAIStore.getState().stopGeneration()}
+                            className="absolute right-2.5 bottom-2.5 p-2 rounded-xl bg-red-500 text-white shadow-lg shadow-red-500/20 hover:scale-105 transition-all flex items-center gap-1.5"
+                            title="Stop generation"
+                        >
+                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-widest pr-1">Stop</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleSend}
+                            disabled={!inputValue.trim()}
+                            className={`absolute right-2.5 bottom-2.5 p-2 rounded-xl transition-all ${inputValue.trim()
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105'
+                                : 'text-light-text-disabled bg-transparent'
+                                }`}
+                        >
+                            <Send size={16} />
+                        </button>
+                    )}
                 </div>
                 <div className="mt-2.5 flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5 text-[9px] font-bold text-light-text-disabled uppercase tracking-widest">

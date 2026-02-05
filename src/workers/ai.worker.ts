@@ -6,6 +6,7 @@ env.useBrowserCache = true;
 
 let embedder: any = null;
 let generator: any = null;
+let stopRequested = false;
 
 const EMBED_MODEL = 'onnx-community/all-MiniLM-L6-v2-ONNX';
 const GEN_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct-ONNX';
@@ -33,7 +34,9 @@ async function initGenerator() {
     if (generator) return;
     try {
         self.postMessage({ type: 'STATUS', message: 'Loading assistant engine (WebGPU)...' });
-        generator = await pipeline('text-generation', GEN_MODEL, {
+
+        // Add a 5-second timeout for WebGPU initialization
+        const gpuPromise = pipeline('text-generation', GEN_MODEL, {
             device: 'webgpu', // Use Graphics Card for speed
             dtype: 'q8',      // Quantized for efficiency
             progress_callback: (p: any) => {
@@ -42,9 +45,15 @@ async function initGenerator() {
                 }
             }
         });
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('WebGPU initialization timed out')), 5000)
+        );
+
+        generator = await Promise.race([gpuPromise, timeoutPromise]);
         self.postMessage({ type: 'STATUS', message: 'Generative model loaded' });
     } catch (error: any) {
-        console.warn('WebGPU failed, falling back to CPU:', error.message);
+        console.warn('WebGPU failed or timed out, falling back to CPU:', error.message);
         self.postMessage({ type: 'STATUS', message: 'WebGPU unavailable, using CPU...' });
         try {
             generator = await pipeline('text-generation', GEN_MODEL, {
@@ -92,8 +101,14 @@ self.onmessage = async (event) => {
         }
     }
 
+    if (type === 'STOP_GENERATION') {
+        stopRequested = true;
+        return;
+    }
+
     if (type === 'GENERATE_TEXT') {
         if (!generator) await initGenerator();
+        stopRequested = false; // Reset for new request
         try {
             const { prompt, history } = data;
 
@@ -111,6 +126,8 @@ self.onmessage = async (event) => {
                 repetition_penalty: 1.1,
                 do_sample: true,
                 callback_function: (beams: any) => {
+                    if (stopRequested) return true; // Return true to stop generation in transformers.js
+
                     const fullText = beams[0].output_text;
                     const contentOnly = fullText.includes(assistantHeader)
                         ? fullText.split(assistantHeader).pop()
@@ -123,6 +140,12 @@ self.onmessage = async (event) => {
                     }
                 }
             });
+
+            // If stopped, we still need to signal complete
+            if (stopRequested) {
+                self.postMessage({ type: 'CHAT_COMPLETE', stopped: true });
+                return;
+            }
 
             // Final safety check to ensure full content is sent (though callback should cover it)
             const response = output[0].generated_text.split(assistantHeader).pop();

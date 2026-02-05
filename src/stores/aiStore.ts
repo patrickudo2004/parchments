@@ -36,6 +36,7 @@ interface AIState {
     downloadGenerativeModel: () => Promise<void>;
     clearModelCache: () => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
+    stopGeneration: () => void;
     clearChat: () => void;
     indexBible: (versionId: string) => Promise<void>;
     searchBible: (query: string, versionId?: string) => Promise<any[]>;
@@ -465,6 +466,11 @@ ${context}`;
                 ]
             }
         });
+    },
+
+    stopGeneration: () => {
+        worker?.postMessage({ type: 'STOP_GENERATION' });
+        set({ isChatting: false });
     },
 
     clearChat: () => {

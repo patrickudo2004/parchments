@@ -479,6 +479,26 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
 
+            // Look for metadata in content: <!-- parchments-meta: json -->
+            const metaMatch = content.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
+            let createdAt = Date.now();
+            if (metaMatch && metaMatch[1]) {
+                try {
+                    const meta = JSON.parse(metaMatch[1]);
+                    if (meta.createdAt) createdAt = meta.createdAt;
+                } catch (e) {
+                    console.warn('[NoteStore] Failed to parse metadata:', e);
+                }
+            } else {
+                // Fallback to file system lastModified
+                try {
+                    const file = await (fileHandle as any).getFile();
+                    createdAt = file.lastModified;
+                } catch (e) {
+                    console.warn('[NoteStore] Failed to get file lastModified:', e);
+                }
+            }
+
             // Construct a temporary Note object for the editor
             const tempNote: Note = {
                 id: item.id,
@@ -488,7 +508,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 tags: [],
                 type: noteType,
                 audioBlob: audioBlob,
-                createdAt: Date.now(),
+                createdAt: createdAt,
                 updatedAt: Date.now(),
             };
             set({ currentNote: tempNote, currentFileHandle: targetHandle });
@@ -598,8 +618,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Save the audio file
             await fileSystem.createFile(parentHandle, audioName, audioBlob);
 
-            // Save the transcript as an HTML note with hidden audio link metadata
-            const content = `<!-- audio-link: ${audioName} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            // Save the transcript as an HTML note with hidden audio link metadata and creation date
+            const createdAt = Date.now();
+            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"createdAt": ${createdAt}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh file list
@@ -634,68 +655,79 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const { currentNote, isLocalMode, currentFileHandle, notes } = get();
         if (!currentNote) return;
 
-        if (isLocalMode && currentFileHandle) {
-            // File System Mode
-            try {
-                const portableContent = get().dehydrateAssets(content);
-                await fileSystem.writeFile(currentFileHandle, portableContent);
-                // Update store state to reflect changes
-                set({
-                    currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
-                });
-            } catch (error) {
-                console.error('Failed to save to file:', error);
-            }
-        } else if (!isLocalMode && currentNote.id) {
-            // DB Mode
-            try {
-                await db.notes.update(currentNote.id, {
-                    title,
-                    content,
-                    updatedAt: Date.now(),
-                });
-
-                const updatedNotes = notes.map(n =>
-                    n.id === currentNote.id
-                        ? { ...n, title, content, updatedAt: Date.now() }
-                        : n
-                );
-                set({ notes: updatedNotes, currentNote: { ...currentNote, title, content, updatedAt: Date.now() } });
-            } catch (error) {
-                console.error('Failed to save to DB:', error);
-            }
-        }
-    },
-    saveLocalAsset: async (file: File) => {
-        const { localDirectoryHandle, isLocalMode } = get();
-        if (!isLocalMode || !localDirectoryHandle) return null;
-
-        const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
-        console.log('[NoteStore] saveLocalAsset, isTauri:', _isTauri);
-
+        // File System Mode
         try {
-            // Ensure .assets/images directory exists
-            const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
-            const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
+            let portableContent = get().dehydrateAssets(content);
 
-            // Generate unique filename
-            const extension = file.name.split('.').pop() || 'png';
-            const fileName = `${crypto.randomUUID()}.${extension}`;
+            // Ensure metadata is preserved or injected
+            const metaTag = `<!-- parchments-meta: {"createdAt": ${currentNote.createdAt}} -->`;
+            if (!portableContent.includes('parchments-meta:')) {
+                portableContent += `\n${metaTag}`;
+            } else {
+                // Update existing
+                portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, metaTag);
+            }
 
-            // Create the file
-            const fileHandle = await fileSystem.createFile(imagesHandle, fileName, file);
-
-            // Return both the URL for the editor and the filename for persistent reference
-            const url = _isTauri && (fileHandle as any).path
-                ? convertFileSrc((fileHandle as any).path)
-                : URL.createObjectURL(file);
-
-            return { url, fileName };
+            await fileSystem.writeFile(currentFileHandle, portableContent);
+            // Update store state to reflect changes
+            set({
+                currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
+            });
         } catch (error) {
-            console.error('Failed to save asset:', error);
-            return null;
+            console.error('Failed to save to file:', error);
+        }
+    } else if(!isLocalMode && currentNote.id) {
+    // DB Mode
+    try {
+        await db.notes.update(currentNote.id, {
+            title,
+            content,
+            updatedAt: Date.now(),
+        });
+
+        const updatedNotes = notes.map(n =>
+            n.id === currentNote.id
+                ? { ...n, title, content, updatedAt: Date.now() }
+                : n
+        );
+        set({ notes: updatedNotes, currentNote: { ...currentNote, title, content, updatedAt: Date.now()
+    }
+});
+            } catch (error) {
+    console.error('Failed to save to DB:', error);
+}
         }
     },
+saveLocalAsset: async (file: File) => {
+    const { localDirectoryHandle, isLocalMode } = get();
+    if (!isLocalMode || !localDirectoryHandle) return null;
+
+    const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+    console.log('[NoteStore] saveLocalAsset, isTauri:', _isTauri);
+
+    try {
+        // Ensure .assets/images directory exists
+        const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
+        const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
+
+        // Generate unique filename
+        const extension = file.name.split('.').pop() || 'png';
+        const fileName = `${crypto.randomUUID()}.${extension}`;
+
+        // Create the file
+        const fileHandle = await fileSystem.createFile(imagesHandle, fileName, file);
+
+        // Return both the URL for the editor and the filename for persistent reference
+        const url = _isTauri && (fileHandle as any).path
+            ? convertFileSrc((fileHandle as any).path)
+            : URL.createObjectURL(file);
+
+        return { url, fileName };
+    } catch (error) {
+        console.error('Failed to save asset:', error);
+        return null;
+    }
+},
 
     hydrateAssets: async (content: string) => {
         const { localDirectoryHandle, isLocalMode } = get();
@@ -728,19 +760,19 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         return doc.body.innerHTML;
     },
 
-    dehydrateAssets: (content: string) => {
-        const doc = new DOMParser().parseFromString(content, 'text/html');
-        const images = Array.from(doc.querySelectorAll('img'));
+        dehydrateAssets: (content: string) => {
+            const doc = new DOMParser().parseFromString(content, 'text/html');
+            const images = Array.from(doc.querySelectorAll('img'));
 
-        for (const img of images) {
-            const assetName = img.getAttribute('data-asset-name');
-            if (assetName) {
-                // Replace the blob URL with the relative path for portability
-                img.setAttribute('src', `.assets/images/${assetName}`);
+            for (const img of images) {
+                const assetName = img.getAttribute('data-asset-name');
+                if (assetName) {
+                    // Replace the blob URL with the relative path for portability
+                    img.setAttribute('src', `.assets/images/${assetName}`);
+                }
             }
-        }
-        return doc.body.innerHTML;
-    },
+            return doc.body.innerHTML;
+        },
 
-    setLocalMode: (enabled) => set({ isLocalMode: enabled }),
+            setLocalMode: (enabled) => set({ isLocalMode: enabled }),
 }));

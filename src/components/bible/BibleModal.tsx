@@ -3,9 +3,13 @@ import { motion, useDragControls } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { X, Search, Settings, BookOpen } from 'lucide-react';
 import { BibleReader } from './BibleReader';
+import { BibleSearchOverlay } from './BibleSearchOverlay';
+import { useBibleStore } from '@/stores/bibleStore';
+import { AnimatePresence } from 'framer-motion';
 
 export const BibleModal: React.FC = () => {
     const { isBibleModalOpen, toggleBibleModal } = useUIStore();
+    const { setSearchOpen } = useBibleStore();
     const constraintsRef = useRef(null);
     const dragControls = useDragControls();
 
@@ -39,7 +43,13 @@ export const BibleModal: React.FC = () => {
 
                     {/* Right: Actions */}
                     <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
-                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors" title="Search"><Search size={16} /></button>
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors"
+                            title="Search (Keywords, References, Strong's)"
+                        >
+                            <Search size={16} />
+                        </button>
                         <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors" title="Settings"><Settings size={16} /></button>
                         <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-1" />
                         <button
@@ -56,8 +66,11 @@ export const BibleModal: React.FC = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden relative">
                     <BibleReader isIndependent={true} />
+                    <AnimatePresence>
+                        <BibleSearchOverlay />
+                    </AnimatePresence>
                 </div>
 
                 {/* Resize Handle (Custom) */}

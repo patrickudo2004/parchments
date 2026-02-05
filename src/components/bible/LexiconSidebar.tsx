@@ -122,6 +122,21 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                                 </span>
                                 <button
                                     onClick={() => {
+                                        const { setSearchOpen, setSearchQuery, executeSearch } = useBibleStore.getState();
+                                        const { toggleBibleModal } = useUIStore.getState();
+                                        setSearchQuery(entry.id);
+                                        setSearchOpen(true);
+                                        toggleBibleModal();
+                                        executeSearch();
+                                    }}
+                                    className="p-1.5 bg-primary/5 text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-1.5"
+                                    title={`Search all occurrences of ${entry.id}`}
+                                >
+                                    <Search size={12} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none pr-1">Search Occurrences</span>
+                                </button>
+                                <button
+                                    onClick={() => {
                                         if (isItemPinned(entry.id)) {
                                             unpinItem(entry.id);
                                         } else {

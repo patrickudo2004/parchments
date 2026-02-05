@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
 import { Search } from 'lucide-react';
 

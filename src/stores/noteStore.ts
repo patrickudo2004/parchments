@@ -655,79 +655,78 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const { currentNote, isLocalMode, currentFileHandle, notes } = get();
         if (!currentNote) return;
 
-        // File System Mode
-        try {
-            let portableContent = get().dehydrateAssets(content);
+        if (isLocalMode && currentFileHandle) {
+            // File System Mode
+            try {
+                let portableContent = get().dehydrateAssets(content);
 
-            // Ensure metadata is preserved or injected
-            const metaTag = `<!-- parchments-meta: {"createdAt": ${currentNote.createdAt}} -->`;
-            if (!portableContent.includes('parchments-meta:')) {
-                portableContent += `\n${metaTag}`;
-            } else {
-                // Update existing
-                portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, metaTag);
-            }
+                // Ensure metadata is preserved or injected
+                const metaTag = `<!-- parchments-meta: {"createdAt": ${currentNote.createdAt}} -->`;
+                if (!portableContent.includes('parchments-meta:')) {
+                    portableContent += `\n${metaTag}`;
+                } else {
+                    // Update existing
+                    portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, metaTag);
+                }
 
-            await fileSystem.writeFile(currentFileHandle, portableContent);
-            // Update store state to reflect changes
-            set({
-                currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
-            });
-        } catch (error) {
-            console.error('Failed to save to file:', error);
-        }
-    } else if(!isLocalMode && currentNote.id) {
-    // DB Mode
-    try {
-        await db.notes.update(currentNote.id, {
-            title,
-            content,
-            updatedAt: Date.now(),
-        });
-
-        const updatedNotes = notes.map(n =>
-            n.id === currentNote.id
-                ? { ...n, title, content, updatedAt: Date.now() }
-                : n
-        );
-        set({ notes: updatedNotes, currentNote: { ...currentNote, title, content, updatedAt: Date.now()
-    }
-});
+                await fileSystem.writeFile(currentFileHandle, portableContent);
+                // Update store state to reflect changes
+                set({
+                    currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
+                });
             } catch (error) {
-    console.error('Failed to save to DB:', error);
-}
+                console.error('Failed to save to file:', error);
+            }
+        } else if (!isLocalMode && currentNote.id) {
+            // DB Mode
+            try {
+                await db.notes.update(currentNote.id, {
+                    title,
+                    content,
+                    updatedAt: Date.now(),
+                });
+
+                const updatedNotes = notes.map(n =>
+                    n.id === currentNote.id
+                        ? { ...n, title, content, updatedAt: Date.now() }
+                        : n
+                );
+                set({ notes: updatedNotes, currentNote: { ...currentNote, title, content, updatedAt: Date.now() } });
+            } catch (error) {
+                console.error('Failed to save to DB:', error);
+            }
         }
     },
-saveLocalAsset: async (file: File) => {
-    const { localDirectoryHandle, isLocalMode } = get();
-    if (!isLocalMode || !localDirectoryHandle) return null;
+    saveLocalAsset: async (file: File) => {
+        const { localDirectoryHandle, isLocalMode } = get();
+        if (!isLocalMode || !localDirectoryHandle) return null;
 
-    const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
-    console.log('[NoteStore] saveLocalAsset, isTauri:', _isTauri);
+        const _isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+        console.log('[NoteStore] saveLocalAsset, isTauri:', _isTauri);
 
-    try {
-        // Ensure .assets/images directory exists
-        const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
-        const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
+        try {
+            // Ensure .assets/images directory exists
+            const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
+            const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
 
-        // Generate unique filename
-        const extension = file.name.split('.').pop() || 'png';
-        const fileName = `${crypto.randomUUID()}.${extension}`;
+            // Generate unique filename
+            const extension = file.name.split('.').pop() || 'png';
+            const fileName = `${crypto.randomUUID()}.${extension}`;
 
-        // Create the file
-        const fileHandle = await fileSystem.createFile(imagesHandle, fileName, file);
+            // Create the file
+            const fileHandle = await fileSystem.createFile(imagesHandle, fileName, file);
 
-        // Return both the URL for the editor and the filename for persistent reference
-        const url = _isTauri && (fileHandle as any).path
-            ? convertFileSrc((fileHandle as any).path)
-            : URL.createObjectURL(file);
+            // Return both the URL for the editor and the filename for persistent reference
+            const url = _isTauri && (fileHandle as any).path
+                ? convertFileSrc((fileHandle as any).path)
+                : URL.createObjectURL(file);
 
-        return { url, fileName };
-    } catch (error) {
-        console.error('Failed to save asset:', error);
-        return null;
-    }
-},
+            return { url, fileName };
+        } catch (error) {
+            console.error('Failed to save asset:', error);
+            return null;
+        }
+    },
 
     hydrateAssets: async (content: string) => {
         const { localDirectoryHandle, isLocalMode } = get();
@@ -760,19 +759,19 @@ saveLocalAsset: async (file: File) => {
         return doc.body.innerHTML;
     },
 
-        dehydrateAssets: (content: string) => {
-            const doc = new DOMParser().parseFromString(content, 'text/html');
-            const images = Array.from(doc.querySelectorAll('img'));
+    dehydrateAssets: (content: string) => {
+        const doc = new DOMParser().parseFromString(content, 'text/html');
+        const images = Array.from(doc.querySelectorAll('img'));
 
-            for (const img of images) {
-                const assetName = img.getAttribute('data-asset-name');
-                if (assetName) {
-                    // Replace the blob URL with the relative path for portability
-                    img.setAttribute('src', `.assets/images/${assetName}`);
-                }
+        for (const img of images) {
+            const assetName = img.getAttribute('data-asset-name');
+            if (assetName) {
+                // Replace the blob URL with the relative path for portability
+                img.setAttribute('src', `.assets/images/${assetName}`);
             }
-            return doc.body.innerHTML;
-        },
+        }
+        return doc.body.innerHTML;
+    },
 
-            setLocalMode: (enabled) => set({ isLocalMode: enabled }),
+    setLocalMode: (enabled) => set({ isLocalMode: enabled }),
 }));

@@ -2,7 +2,7 @@ import React from 'react';
 import { useBibleStore } from '@/stores/bibleStore';
 import { Search, X, Loader2, Book } from 'lucide-react';
 import type { BibleVerse } from '@/types/database';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 export const BibleSearchOverlay: React.FC = () => {
     const {

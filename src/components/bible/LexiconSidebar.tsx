@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
 import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';

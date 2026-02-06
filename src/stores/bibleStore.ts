@@ -39,6 +39,13 @@ interface BibleStore {
     executeSearch: () => Promise<void>;
 }
 
+// Biblical Book Order for sorting
+const BOOK_ORDER: Record<string, number> = {
+    "Genesis": 1, "Exodus": 2, "Leviticus": 3, "Numbers": 4, "Deuteronomy": 5, "Joshua": 6, "Judges": 7, "Ruth": 8, "1 Samuel": 9, "2 Samuel": 10, "1 Kings": 11, "2 Kings": 12, "1 Chronicles": 13, "2 Chronicles": 14, "Ezra": 15, "Nehemiah": 16, "Esther": 17, "Job": 18, "Psalms": 19, "Proverbs": 20, "Ecclesiastes": 21, "Song of Solomon": 22, "Isaiah": 23, "Jeremiah": 24, "Lamentations": 25, "Ezekiel": 26, "Daniel": 27, "Hosea": 28, "Joel": 29, "Amos": 30, "Obadiah": 31, "Jonah": 32, "Micah": 33, "Nahum": 34, "Habakkuk": 35, "Zephaniah": 36, "Haggai": 37, "Zechariah": 38, "Malachi": 39, "Matthew": 40, "Mark": 41, "Luke": 42, "John": 43, "Acts": 44, "Romans": 45, "1 Corinthians": 46, "2 Corinthians": 47, "Galatians": 48, "Ephesians": 49, "Philippians": 50, "Colossians": 51, "1 Thessalonians": 52, "2 Thessalonians": 53, "1 Timothy": 54, "2 Timothy": 55, "Titus": 56, "Philemon": 57, "Hebrews": 58, "James": 59, "1 Peter": 60, "2 Peter": 61, "1 John": 62, "2 John": 63, "3 John": 64, "Jude": 65, "Revelation": 66
+};
+
+let lastEffectSearchId = 0;
+
 export const useBibleStore = create<BibleStore>()(
     persist(
         (set, get) => ({
@@ -73,22 +80,28 @@ export const useBibleStore = create<BibleStore>()(
             toggleVerseHoverPreviews: () => set((state) => ({ verseHoverPreviews: !state.verseHoverPreviews })),
             setSelectionRange: (range) => set({ selectionRange: range }),
 
-            setSearchOpen: (open) => set({ isSearchOpen: open, searchResults: open ? get().searchResults : [] }),
+            setSearchOpen: (open) => set({
+                isSearchOpen: open,
+                // Clear search state when closing
+                ...(open ? {} : { searchQuery: '', searchResults: [], isSearching: false })
+            }),
+
             setSearchQuery: (query) => set({ searchQuery: query }),
 
             executeSearch: async () => {
                 const { searchQuery, mainVersion } = get();
                 if (!searchQuery.trim()) return;
 
-                set({ isSearching: true });
+                const searchId = ++lastEffectSearchId;
+                set({ isSearching: true, searchResults: [] });
 
                 try {
-                    const query = searchQuery.toLowerCase().trim();
+                    const querySnippet = searchQuery.toLowerCase().trim();
                     let results: any[] = [];
 
                     // 1. Strong's Search (e.g. "G26" or "#G26")
                     const strongsRegex = /^[gh]\d+$/i;
-                    const cleanStrongs = query.startsWith('#') ? query.slice(1) : query;
+                    const cleanStrongs = querySnippet.startsWith('#') ? querySnippet.slice(1) : querySnippet;
 
                     if (strongsRegex.test(cleanStrongs)) {
                         const sId = cleanStrongs.toUpperCase();
@@ -97,18 +110,29 @@ export const useBibleStore = create<BibleStore>()(
                         const rawResults = await db.bibleVerses.bulkGet(verseIds);
                         results = rawResults.filter(v => v && v.versionId === mainVersion);
                     } else {
-                        // 2. Lexical Keyword Search (e.g. "seed")
-                        results = await db.bibleVerses
-                            .where('versionId')
-                            .equals(mainVersion)
-                            .filter(v => v.text.toLowerCase().includes(query))
-                            .toArray();
+                        // 2. Lexical Keyword Search - DELEGATED TO WORKER
+                        const { keywordSearchBible } = (await import('./aiStore')).useAIStore.getState();
+                        results = await keywordSearchBible(querySnippet, mainVersion, 100);
                     }
 
-                    set({ searchResults: results, isSearching: false });
+                    // Abort if a newer search has started
+                    if (searchId !== lastEffectSearchId) return;
+
+                    // Sort results in biblical order
+                    const sortedResults = results.sort((a, b) => {
+                        const orderA = BOOK_ORDER[a.book] || 999;
+                        const orderB = BOOK_ORDER[b.book] || 999;
+                        if (orderA !== orderB) return orderA - orderB;
+                        if (a.chapter !== b.chapter) return a.chapter - b.chapter;
+                        return a.verse - b.verse;
+                    });
+
+                    set({ searchResults: sortedResults, isSearching: false });
                 } catch (error) {
                     console.error('Search failed:', error);
-                    set({ isSearching: false });
+                    if (searchId === lastEffectSearchId) {
+                        set({ isSearching: false });
+                    }
                 }
             }
         }),

@@ -1,12 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBibleStore } from '@/stores/bibleStore';
+import { useAIStore } from '@/stores/aiStore';
 import { Search, X, Loader2, Book } from 'lucide-react';
-import type { BibleVerse } from '@/types/database';
 import { motion } from 'framer-motion';
 
 export const BibleSearchOverlay: React.FC = () => {
     const {
-        isSearchOpen,
         setSearchOpen,
         searchQuery,
         setSearchQuery,
@@ -16,91 +15,138 @@ export const BibleSearchOverlay: React.FC = () => {
         setBibleFocus
     } = useBibleStore();
 
-    const handleResultClick = (v: BibleVerse) => {
-        setBibleFocus({
-            book: v.book,
-            chapter: v.chapter,
-            verse: v.verse
-        });
+    const {
+        isInitializing: isAIInitializing,
+        statusMessage: aiStatus,
+        isModelLoaded
+    } = useAIStore();
+
+    // Local state for immediate input feedback
+    const [localQuery, setLocalQuery] = useState(searchQuery);
+
+    // Sync local state if store changes externally (e.g. from Interlinear search)
+    useEffect(() => {
+        setLocalQuery(searchQuery);
+    }, [searchQuery]);
+
+    // Debounce effect: Update the store and execute search after 400ms of inactivity
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localQuery.trim() && localQuery !== searchQuery) {
+                setSearchQuery(localQuery);
+                executeSearch();
+            }
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [localQuery, setSearchQuery, executeSearch, searchQuery]);
+
+    const handleResultClick = (v: any) => {
+        setBibleFocus({ book: v.book, chapter: v.chapter, verse: v.verse });
         setSearchOpen(false);
     };
 
-    if (!isSearchOpen) return null;
-
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-0 z-[110] bg-light-surface dark:bg-dark-surface flex flex-col"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 z-50 bg-light-surface dark:bg-dark-surface flex flex-col overflow-hidden"
         >
-            {/* Search Header */}
-            <div className="h-14 border-b border-light-border dark:border-dark-border flex items-center px-4 gap-3 shrink-0">
-                <div className="flex-1 relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-disabled" />
-                    <input
-                        autoFocus
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
-                        placeholder="Search verses, words (e.g. seed), or Strong's (e.g. G26)..."
-                        className="w-full bg-light-sidebar dark:bg-dark-sidebar border-none rounded-xl py-2 pl-10 pr-4 text-xs focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
-                </div>
+            {/* Header / Search Bar */}
+            <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center gap-3">
+                <Search className="text-light-text-secondary" size={18} />
+                <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search keywords, Strong's (G26), or semantic concept..."
+                    className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder:text-light-text-disabled"
+                    value={localQuery}
+                    onChange={(e) => setLocalQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            setSearchQuery(localQuery);
+                            executeSearch();
+                        }
+                    }}
+                />
                 <button
-                    onClick={() => setSearchOpen(false)}
-                    className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors"
+                    onClick={() => {
+                        setSearchOpen(false);
+                    }}
+                    className="p-1 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full text-light-text-secondary"
+                    title="Cancel Search"
                 >
                     <X size={18} />
                 </button>
             </div>
 
             {/* Results Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-                {isSearching ? (
-                    <div className="h-full flex flex-col items-center justify-center text-light-text-disabled gap-3">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {isAIInitializing && !isModelLoaded && (
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-3">
                         <Loader2 size={24} className="animate-spin text-primary" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Searching Scriptures...</span>
+                        <div>
+                            <p className="text-sm font-black uppercase tracking-widest text-primary">Initializing Search Engine</p>
+                            <p className="text-[10px] text-light-text-secondary opacity-70 mt-1 max-w-[200px]">
+                                {aiStatus || "One moment while we prepare your scholarly tools..."}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {isSearching ? (
+                    <div className="flex items-center justify-center h-full">
+                        <Loader2 className="animate-spin text-primary" />
                     </div>
                 ) : searchResults.length > 0 ? (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between px-2 mb-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-light-text-disabled">
-                                Found {searchResults.length} results for "{searchQuery}"
-                            </span>
-                        </div>
-                        {searchResults.map((v: BibleVerse, idx) => (
+                    <div className="py-2">
+                        {searchResults.map((v) => (
                             <button
-                                key={`${v.id}-${idx}`}
+                                key={v.id}
                                 onClick={() => handleResultClick(v)}
-                                className="w-full text-left p-4 rounded-xl hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-transparent hover:border-light-border dark:hover:border-dark-border transition-all group"
+                                className="w-full text-left p-4 hover:bg-primary/5 transition-colors border-b border-light-border/50 dark:border-dark-border/50 last:border-none group"
                             >
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-[10px] font-black uppercase text-primary tracking-tight">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Book size={12} className="text-primary opacity-50" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                                         {v.book} {v.chapter}:{v.verse}
                                     </span>
-                                    <Book size={12} className="opacity-0 group-hover:opacity-30 transition-opacity" />
                                 </div>
-                                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
-                                    {v.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
-                                        part.toLowerCase() === searchQuery.toLowerCase()
+                                <p className="text-sm text-light-text-primary dark:text-dark-text-primary leading-relaxed line-clamp-2 italic opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {v.text.split(new RegExp(`(${localQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')).map((part: string, i: number) =>
+                                        part.toLowerCase() === localQuery.toLowerCase()
                                             ? <span key={i} className="bg-primary/20 text-primary font-bold rounded-sm px-0.5">{part}</span>
                                             : part
                                     )}
                                 </p>
                             </button>
                         ))}
+                        {searchResults.length >= 100 && (
+                            <div className="p-4 text-center">
+                                <p className="text-[10px] font-bold text-light-text-secondary uppercase tracking-tighter">
+                                    Showing first 100 results. Be more specific to narrow down your study.
+                                </p>
+                            </div>
+                        )}
                     </div>
-                ) : searchQuery ? (
-                    <div className="h-full flex flex-col items-center justify-center text-light-text-disabled pt-20">
-                        <Search size={48} className="opacity-10 mb-4" />
-                        <span className="text-xs font-medium italic">No verses found for "{searchQuery}"</span>
-                        <span className="text-[9px] font-black uppercase tracking-widest mt-2">Try a different word or Strong's ID</span>
+                ) : localQuery.trim() ? (
+                    <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-50">
+                        <Search size={32} className="mb-4 text-light-text-disabled" />
+                        <p className="text-sm font-bold uppercase tracking-widest">No results found</p>
+                        <p className="text-xs text-light-text-secondary mt-1">Try a different keyword or Strong's ID.</p>
                     </div>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-light-text-disabled pt-20">
-                        <Book size={48} className="opacity-10 mb-4" />
-                        <span className="text-xs font-medium italic">Type word, reference or Strong's ID above</span>
+                    <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-50">
+                        <div className="space-y-6 max-w-[250px]">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2">Pro Tip</p>
+                                <p className="text-xs text-light-text-secondary leading-relaxed">
+                                    Search for <span className="text-primary font-bold">"seed"</span> to find every lexical match,
+                                    or <span className="text-primary font-bold">"G26"</span> for original word studies.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

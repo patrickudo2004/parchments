@@ -40,6 +40,7 @@ interface AIState {
     clearChat: () => void;
     indexBible: (versionId: string) => Promise<void>;
     searchBible: (query: string, versionId?: string) => Promise<any[]>;
+    keywordSearchBible: (query: string, versionId: string, limit?: number) => Promise<any[]>;
 }
 
 let worker: Worker | null = null;
@@ -110,9 +111,10 @@ export const useAIStore = create<AIState>((set, get) => ({
                     });
                     break;
                 case 'EMBEDDING_RESULT':
+                case 'SEARCH_RESULT':
                     const resolver = pendingRequests.get(id);
                     if (resolver) {
-                        resolver(vector);
+                        resolver(vector || event.data.results);
                         pendingRequests.delete(id);
                     }
                     break;
@@ -120,6 +122,22 @@ export const useAIStore = create<AIState>((set, get) => ({
         };
 
         worker.postMessage({ type: 'INIT' });
+    },
+
+    keywordSearchBible: async (query: string, versionId: string, limit: number = 100) => {
+        const { init } = get();
+        if (!worker) init();
+        if (!worker) return [];
+
+        const requestId = `kwsearch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return new Promise<any[]>((resolve) => {
+            pendingRequests.set(requestId, resolve);
+            worker?.postMessage({
+                type: 'BIBLE_KEYWORD_SEARCH',
+                id: requestId,
+                data: { query, versionId, limit }
+            });
+        });
     },
 
     startIndexing: async (localFiles?: any[]) => {
@@ -338,9 +356,9 @@ export const useAIStore = create<AIState>((set, get) => ({
     },
 
     searchBible: async (query: string, versionId?: string) => {
-        const { isModelLoaded, init } = get();
+        const { isModelLoaded, isInitializing, init } = get();
         if (!isModelLoaded) {
-            init();
+            if (!isInitializing) init();
             return [];
         }
 
@@ -384,10 +402,10 @@ export const useAIStore = create<AIState>((set, get) => ({
     },
 
     downloadGenerativeModel: async () => {
-        const { isGenerativeModelLoading, init } = get();
+        const { isGenerativeModelLoading, isInitializing, init } = get();
         if (isGenerativeModelLoading) return;
 
-        if (!worker) init();
+        if (!worker && !isInitializing) init();
 
         set({ isGenerativeModelLoading: true, downloadProgress: 0, statusMessage: 'Downloading AI model...' });
         worker?.postMessage({ type: 'LOAD_GENERATIVE' });
@@ -420,11 +438,18 @@ export const useAIStore = create<AIState>((set, get) => ({
     },
 
     sendMessage: async (content: string) => {
-        const { isChatting, chatHistory } = get();
+        const { isChatting, chatHistory, isGenerativeModelDownloaded, isInitializing, init } = get();
         const noteStore = useNoteStore.getState();
         const currentNote = noteStore.currentNote;
 
         if (isChatting || !content.trim()) return;
+
+        if (!isGenerativeModelDownloaded) {
+            console.warn('Generative model not downloaded yet.');
+            return;
+        }
+
+        if (!worker && !isInitializing) init();
 
         const newMsg: Message = { role: 'user', content, timestamp: Date.now() };
         const assistantMsg: Message = { role: 'assistant', content: '', timestamp: Date.now() };

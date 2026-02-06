@@ -1,4 +1,5 @@
 import { pipeline, env } from '@huggingface/transformers';
+import { db } from '@/lib/db';
 
 // Configuration for local-first use
 env.allowLocalModels = false;
@@ -7,6 +8,7 @@ env.useBrowserCache = true;
 let embedder: any = null;
 let generator: any = null;
 let stopRequested = false;
+let currentKeywordSearchId: string | null = null;
 
 const EMBED_MODEL = 'onnx-community/all-MiniLM-L6-v2-ONNX';
 const GEN_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct-ONNX';
@@ -101,8 +103,34 @@ self.onmessage = async (event) => {
         }
     }
 
+    if (type === 'BIBLE_KEYWORD_SEARCH') {
+        currentKeywordSearchId = id;
+        const { query, versionId, limit = 100 } = data;
+        const querySnippet = query.toLowerCase().trim();
+
+        try {
+            const results = await db.bibleVerses
+                .where('versionId')
+                .equals(versionId)
+                .filter(v => {
+                    // Early exit if search was superseded or cancelled
+                    if (currentKeywordSearchId !== id) return false;
+                    return v.text.toLowerCase().includes(querySnippet);
+                })
+                .limit(limit)
+                .toArray();
+
+            if (currentKeywordSearchId === id) {
+                self.postMessage({ type: 'SEARCH_RESULT', id, results });
+            }
+        } catch (error: any) {
+            self.postMessage({ type: 'ERROR', id, message: `Search failed: ${error.message}` });
+        }
+    }
+
     if (type === 'STOP_GENERATION') {
         stopRequested = true;
+        currentKeywordSearchId = null; // Also cancel any search
         return;
     }
 

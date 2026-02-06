@@ -9,7 +9,7 @@ import { AnimatePresence } from 'framer-motion';
 
 export const BibleModal: React.FC = () => {
     const { isBibleModalOpen, toggleBibleModal } = useUIStore();
-    const { setSearchOpen } = useBibleStore();
+    const { isSearchOpen, setSearchOpen } = useBibleStore();
     const constraintsRef = useRef(null);
     const dragControls = useDragControls();
 
@@ -44,9 +44,9 @@ export const BibleModal: React.FC = () => {
                     {/* Right: Actions */}
                     <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
                         <button
-                            onClick={() => setSearchOpen(true)}
-                            className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors"
-                            title="Search (Keywords, References, Strong's)"
+                            onClick={() => setSearchOpen(!isSearchOpen)}
+                            className={`p-2 rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary'}`}
+                            title={isSearchOpen ? "Back to Bible" : "Search (Keywords, References, Strong's)"}
                         >
                             <Search size={16} />
                         </button>
@@ -69,7 +69,7 @@ export const BibleModal: React.FC = () => {
                 <div className="flex-1 overflow-hidden relative">
                     <BibleReader isIndependent={true} />
                     <AnimatePresence>
-                        <BibleSearchOverlay />
+                        {isSearchOpen && <BibleSearchOverlay key="search-overlay" />}
                     </AnimatePresence>
                 </div>
 

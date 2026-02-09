@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Mic, Square, Trash2, Pause, Play, CheckCircle } from 'lucide-react';
+import { Mic, Square, Trash2, Pause, Play, CheckCircle, X as CloseIcon } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 
 interface VoiceRecorderProps {
@@ -247,14 +247,28 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
         setTimeout(() => {
             const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
             onSave(blob, duration, transcriptRef.current);
+
+            // Full Reset
+            setStatus('idle');
+            setDuration(0);
             setTranscript('');
             setInterimTranscript('');
             transcriptRef.current = '';
+            chunksRef.current = [];
         }, 100);
     };
 
     const handleCancel = () => {
         if (status === 'recording' || status === 'paused') stopRecording();
+
+        // Full Reset
+        setStatus('idle');
+        setDuration(0);
+        setTranscript('');
+        setInterimTranscript('');
+        transcriptRef.current = '';
+        chunksRef.current = [];
+
         onCancel();
     };
 
@@ -265,7 +279,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center p-4 bg-light-surface/50 dark:bg-dark-surface/50 rounded-2xl border border-light-border dark:border-dark-border shadow-sm w-full">
+        <div className="relative flex flex-col items-center justify-center p-8 bg-light-surface dark:bg-dark-surface rounded-3xl border border-light-border dark:border-dark-border shadow-2xl w-full max-w-md mx-auto animate-in zoom-in duration-300">
+            {/* Global Exit Button */}
+            <button
+                onClick={handleCancel}
+                className="absolute top-4 right-4 p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors opacity-40 hover:opacity-100"
+                title="Exit Recorder"
+            >
+                <CloseIcon size={20} />
+            </button>
             <div
                 className={`relative w-24 h-24 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 
                 ${status === 'recording' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
@@ -299,10 +321,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             </div>
 
             {(transcript || interimTranscript) && (
-                <div className="w-full bg-light-background dark:bg-dark-background/50 rounded-lg p-3 mb-6 border border-light-border dark:border-dark-border max-h-32 overflow-y-auto custom-scrollbar shadow-inner">
-                    <p className="text-xs leading-relaxed text-light-text-primary dark:text-dark-text-primary">
+                <div className="w-full bg-light-background dark:bg-dark-background/50 rounded-xl p-4 mb-6 border border-light-border dark:border-dark-border max-h-40 overflow-y-auto custom-scrollbar shadow-inner relative group">
+                    <div className="flex items-center gap-1.5 mb-2 opacity-50">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Live Transcription</span>
+                    </div>
+                    <p className="text-sm leading-relaxed text-light-text-primary dark:text-dark-text-primary font-medium">
                         {transcript}
-                        <span className="text-primary/60 italic">{interimTranscript}</span>
+                        <span className="text-primary opacity-60 italic">{interimTranscript}</span>
                     </p>
                 </div>
             )}

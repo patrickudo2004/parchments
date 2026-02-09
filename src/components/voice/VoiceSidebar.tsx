@@ -57,7 +57,9 @@ export const VoiceSidebar: React.FC = () => {
                                 await createVoiceNote(null, blob, duration, transcript);
                                 showToast('Voice note created!', 'success');
                             }}
-                            onCancel={() => { }}
+                            onCancel={() => {
+                                showToast('Recording discarded', 'info');
+                            }}
                         />
 
                         <div className="pt-4 border-t border-light-border dark:border-dark-border">

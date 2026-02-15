@@ -35,6 +35,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const { saveLocalAsset } = useNoteStore();
     const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
     const [previousUrl, setPreviousUrl] = useState('');
+    const [isCaseMenuExpanded, setIsCaseMenuExpanded] = useState(false);
 
     if (!editor) return null;
 

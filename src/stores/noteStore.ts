@@ -139,6 +139,7 @@ interface NoteStore {
     saveLocalAsset: (file: File) => Promise<{ url: any; fileName: string; } | null>;
     hydrateAssets: (content: string) => Promise<string>;
     dehydrateAssets: (content: string) => string;
+    sortLocalItems: (items: LocalItem[]) => LocalItem[];
 }
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
@@ -153,6 +154,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     localFiles: [],
     currentFileHandle: null,
     hasStudyspace: false,
+
+    // Internal Helper: Enforce stable sorting (Folders > Files, then alphabetical)
+    sortLocalItems: (items: LocalItem[]) => {
+        return [...items].sort((a, b) => {
+            if (a.kind !== b.kind) {
+                return a.kind === 'directory' ? -1 : 1;
+            }
+            return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    },
 
     broadcastFolderChange: async (folderId: string) => {
         if (!folderId) {
@@ -435,7 +446,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
                     // Refresh
                     const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-                    const files: LocalItem[] = rawFiles.map(f => ({
+                    const mappedFiles: LocalItem[] = rawFiles.map(f => ({
                         id: f.id,
                         name: f.name,
                         kind: f.kind,
@@ -444,7 +455,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     }));
 
                     set({
-                        localFiles: files,
+                        localFiles: get().sortLocalItems(mappedFiles),
                         currentNote: currentNote?.id === id
                             ? { ...currentNote, title: newName.replace(/\.html$|\.md$|\.txt$/, '') }
                             : currentNote
@@ -505,7 +516,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const handle = await fileSystem.openDirectory();
             const rawFiles = await fileSystem.readDirectoryRecursive(handle);
 
-            // Map the recursive result to LocalItems
+            // Map and sort
             const files: LocalItem[] = rawFiles.map(f => ({
                 id: f.id,
                 name: f.name,
@@ -517,7 +528,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             set({
                 isLocalMode: true,
                 localDirectoryHandle: handle,
-                localFiles: files,
+                localFiles: get().sortLocalItems(files),
                 hasStudyspace: true,
             });
         } catch (error) {
@@ -532,7 +543,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         try {
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files: LocalItem[] = rawFiles.map(f => ({
+
+            // 1. Map to LocalItem structure
+            const mappedFiles: LocalItem[] = rawFiles.map(f => ({
                 id: f.id,
                 name: f.name,
                 kind: f.kind,
@@ -540,15 +553,34 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 parentId: f.parentId
             }));
 
-            // Create new array reference to ensure React detects change
-            set({ localFiles: [...files] });
-            console.log('[File System] Refreshed file list:', files.length, 'items');
+            // 2. STABLE SORTING using helper
+            const newFiles = get().sortLocalItems(mappedFiles);
+
+            // 3. CHANGE DETECTION (Diffing)
+            // Only update state if the list actually changed to prevent jumping/flickering
+            const currentFiles = get().localFiles;
+            const hasChanged = currentFiles.length !== newFiles.length ||
+                newFiles.some((f, i) =>
+                    f.id !== currentFiles[i]?.id ||
+                    f.name !== currentFiles[i]?.name ||
+                    f.kind !== currentFiles[i]?.kind ||
+                    f.parentId !== currentFiles[i]?.parentId
+                );
+
+            if (!hasChanged) {
+                // console.log('[File System] No changes detected, skipping refresh');
+                return;
+            }
+
+            // 4. APPLY UPDATE
+            set({ localFiles: newFiles });
+            console.log('[File System] Refreshed file list:', newFiles.length, 'items (Changes detected)');
 
             // SYNC STEP: Clean up IndexedDB orphans
             // Find all notes in DB that belong to this local folder but no longer exist on disk
             try {
                 // Get all valid file IDs from the file system
-                const validFileIds = new Set(files.map(f => f.id));
+                const validFileIds = new Set(newFiles.map(f => f.id));
 
                 // Get all notes from DB that are in this local structure
                 // We identify them by checking if they are NOT in the validFileIds set
@@ -716,9 +748,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
             const handle = await fileSystem.createFile(parentHandle, name, content);
 
-            // Refresh file list recursively
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files: LocalItem[] = rawFiles.map(f => ({
+            const files = rawFiles.map(f => ({
                 id: f.id,
                 name: f.name,
                 kind: f.kind,
@@ -726,7 +757,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 parentId: f.parentId
             }));
 
-            set({ localFiles: files });
+            set({ localFiles: get().sortLocalItems(files) });
 
             // Open the new file (construct a LocalItem)
             // We need to reconstruct the ID for the new file
@@ -764,14 +795,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Refresh file list
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files: LocalItem[] = rawFiles.map(f => ({
+            const files = rawFiles.map(f => ({
                 id: f.id,
                 name: f.name,
                 kind: f.kind,
                 handle: f.handle,
                 parentId: f.parentId
             }));
-            set({ localFiles: files });
+            set({ localFiles: get().sortLocalItems(files) });
         } catch (error) {
             console.error('Failed to create local folder:', error);
             throw error;
@@ -808,7 +839,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Refresh file list
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files: LocalItem[] = rawFiles.map(f => ({
+            const files = rawFiles.map(f => ({
                 id: f.id,
                 name: f.name,
                 kind: f.kind,
@@ -816,7 +847,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 parentId: f.parentId
             }));
 
-            set({ localFiles: files });
+            set({ localFiles: get().sortLocalItems(files) });
 
             // Automatically open the new transcript note
             const newId = targetFolderId ? `${targetFolderId}/${noteName}` : noteName;

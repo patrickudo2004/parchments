@@ -23,6 +23,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { FocusExtension } from './extensions/FocusExtension';
 import { EnterKeyExtension } from './extensions/EnterKeyExtension';
 import { ManualSaveExtension } from './extensions/ManualSaveExtension';
+import { TextCaseExtension } from './extensions/TextCaseExtension';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useAIStore } from '@/stores/aiStore';
@@ -41,6 +42,7 @@ interface RichTextEditorProps {
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, identity, shouldSync }) => {
     const { currentNote, saveCurrentNote, saveLocalAsset } = useNoteStore();
+    const titleRef = React.useRef<HTMLTextAreaElement>(null);
     const {
         writingLayout,
         editorFontFamily,
@@ -66,6 +68,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             provider: YjsService.getProvider(currentNote.id)
         };
     }, [currentNote?.id, shouldSync, activeRoom, identity]);
+
+    // Auto-resize title textarea
+    useEffect(() => {
+        if (titleRef.current) {
+            titleRef.current.style.height = 'auto';
+            titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
+        }
+    }, [title]);
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -213,6 +223,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             ScriptureExtension,
             FocusExtension,
             EnterKeyExtension,
+            TextCaseExtension,
             ManualSaveExtension.configure({
                 onSave: () => {
                     if (editor && currentNote) {
@@ -404,8 +415,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     }, [editor, setEditorStats]);
 
-    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newTitle = e.target.value;
+    const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newTitle = e.target.value.replace(/\n/g, ''); // Prevent newlines in title
         setTitle(newTitle);
 
         // Sync title to Yjs metadata for collaboration
@@ -450,12 +461,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                     }}
                 >
                     {/* Note Header / Title */}
-                    <input
-                        type="text"
+                    <textarea
+                        ref={titleRef}
                         value={title}
                         onChange={handleTitleChange}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                editor?.chain().focus().run(); // Focus editor on Enter
+                            }
+                        }}
                         placeholder="Note Title"
-                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''}`}
+                        rows={1}
+                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''}`}
+                        style={{ height: 'auto' }}
                     />
 
                     {/* Meta Info */}

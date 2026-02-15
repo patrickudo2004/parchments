@@ -269,55 +269,51 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
             <div className="ml-auto flex items-center gap-2">
                 {/* Text Case Menu */}
-                <div className="relative ml-2 mr-2">
-                    <Button
-                        onClick={(e: React.MouseEvent) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const menu = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (menu) {
-                                const isVisible = menu.style.display === 'block';
-                                // Close all other similar menus first if any
-                                document.querySelectorAll('.case-menu').forEach((m: any) => m.style.display = 'none');
-                                menu.style.display = isVisible ? 'none' : 'block';
-                            }
-                        }}
-                        icon={CaseSensitive}
-                        title="Text Case Transformations"
-                    />
-                    <div
-                        className="case-menu absolute right-0 top-full mt-1 w-32 bg-white dark:bg-dark-surface rounded-lg shadow-xl border border-light-border dark:border-dark-border py-1 z-50 hidden"
-                        style={{ display: 'none' }}
-                    >
+                {isCaseMenuExpanded ? (
+                    <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-right-2 duration-200">
                         <button
                             onClick={() => {
                                 editor.chain().focus().uppercase().run();
-                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                                setIsCaseMenuExpanded(false);
                             }}
-                            className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
+                            className="px-2 py-1 text-[10px] font-black uppercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                         >
-                            UPPERCASE
+                            UPPER
                         </button>
                         <button
                             onClick={() => {
                                 editor.chain().focus().lowercase().run();
-                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                                setIsCaseMenuExpanded(false);
                             }}
-                            className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
+                            className="px-2 py-1 text-[10px] font-black lowercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                         >
-                            lowercase
+                            lower
                         </button>
                         <button
                             onClick={() => {
                                 editor.chain().focus().capitalize().run();
-                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                                setIsCaseMenuExpanded(false);
                             }}
-                            className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
+                            className="px-2 py-1 text-[10px] font-black capitalize tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                         >
-                            Capitalize
+                            Title
+                        </button>
+                        <div className="w-[1px] h-3 bg-primary/20 mx-1" />
+                        <button
+                            onClick={() => setIsCaseMenuExpanded(false)}
+                            className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                            title="Close"
+                        >
+                            <RotateCcw size={12} className="rotate-45" />
                         </button>
                     </div>
-                </div>
+                ) : (
+                    <Button
+                        onClick={() => setIsCaseMenuExpanded(true)}
+                        icon={CaseSensitive}
+                        title="Text Case Transformations"
+                    />
+                )}
 
                 <Button
                     onClick={handleScan}

@@ -62,14 +62,16 @@ Welcome to the comprehensive guide for **Parchments**—your intelligent, offlin
 
 ## 🔄 Phase 5: Sync & Collaboration
 
-### User Scenario: The Study Room
-*A small group is studying a passage together. David hosts a "Study Room," and Sarah joins from her tablet. They both see each other's cursors moving in real-time as they annotate the text.*
+### User Scenario: The Study Room (Study Spaces)
+*A small group is studying a passage together. Pastor Sarah shares her "Romans Series" folder. David joins, and they both see each other's notes and voice transcripts update in real-time as they annotate the text. Sarah's local disk remains the protected "Source of Truth."*
 
 ### Instructions
 1.  **Enabling Sync:** Go to **Settings > Sync** and set up your **Private Vault**. This generates your unique encryption keys.
-2.  **Sharing a Note:** Click the **Share icon** on any note. Copy the **Room Hash**.
-3.  **Real-Time Collaboration:** Your partners can paste the Room Hash in their "Join Room" dialog. You will now see **colored cursors** for every participant.
-4.  **E2EE Security:** All data synced between devices is End-to-End Encrypted (AES-256). Only those with the Room Hash and Vault Key can see the content.
+2.  **Sharing a Space:** Right-click any folder in the Sidebar (or click the **Users icon**) and select **"Share Folder."**
+3.  **Real-Time Collaboration:** Your partners can paste the Space Hash in their "Join Room" dialog. You will now see **colored cursors** for every participant.
+4.  **Voice Sync:** Record a voice note while sharing; your collaborators will see the **transcript update instantly** in their sidebars.
+5.  **Host-Dictatorship Security:** As the Host, your local files are protected. If you delete a file on your disk, it vanishes for everyone instantly—no "ghost" icons left behind.
+6.  **E2EE Security:** All data synced between devices is End-to-End Encrypted (AES-256). Only those with the Room Hash and Vault Key can see the content.
 
 ---
 

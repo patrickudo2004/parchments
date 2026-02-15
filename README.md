@@ -8,6 +8,7 @@ Parchments is a premium, offline-first Bible study and sermon composition worksp
 -   **Interlinear & Lexicon**: Access original Greek/Hebrew lemmas and Strong's Concordance definitions directly in your study flow.
 -   **Smart Outline**: Reshuffle your sermon or study notes with **Drag-to-Reorder** and isolate sections with **Focus Mode**.
 -   **Research Bench**: Persistently pin scriptures and cross-references across sessions.
+-   **Study Spaces**: Real-time folder-level collaboration with **Host-Dictatorship** sync for pastoral teams.
 -   **Voice-to-Text**: High-accuracy real-time transcription for capturing oral reflections and sermon ideas.
 -   **Local-First Architecture**: Your data stays on your machine, always accessible, lightning fast.
 
@@ -49,4 +50,4 @@ Parchments is a premium, offline-first Bible study and sermon composition worksp
 
 ---
 
-*Parchments is currently in Phase 4: Advanced AI & Metadata. Check the [Task Checklist](TASK_CHECKLIST.md) for detailed progress.*
+*Parchments is currently in Phase 6: Finalization & Distribution. Check the [Task Checklist](TASK_CHECKLIST.md) for detailed progress.*

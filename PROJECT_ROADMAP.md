@@ -67,22 +67,27 @@ Moving beyond simple transcription into active research assistance.
 ---
 
 ## ☁️ Phase 5: Sync & Collaboration
-*Goal: Access your Studyspace anywhere, with anyone.*
+*Status: Complete*
 
 Building a secure cloud layer that doesn't compromise the "Local-First" promise.
 
 ### 1. Encrypted Cloud Sync
-- Sync your local Studyspace across devices (Desktop <-> Tablet <-> Web).
-- Uses End-to-End Encryption (E2EE): Your notes are scrambled before they ever leave your computer.
+- [x] **Identity-First Security**: Private/Public keypair generation for every user.
+- [x] **AES-256-GCM Encryption**: Document data scrambled locally before transmission.
+- [x] **Yjs Sync Engine**: Conflict-free merging of local and remote changes.
 
-### 2. Collaboration (Study Groups)
-- Shared Studyspaces: Two or more people (e.g., a pastoral team) working on the same sermon in real-time.
-- Commenting and review system within the editor.
+### 2. Collaboration (Study Spaces)
+- [x] **Folder-Level Sharing**: Share an entire Studyspace with a pastoral team.
+- [x] **Voice Intelligence Sync**: Real-time distribution of voice transcripts.
+- [x] **Host-Dictatorship**: Disc-source-of-truth syncing to prevent ghost files.
+- [x] **WebRTC Real-Time Cursors**: See collaborators working in the same note.
 
 ---
 
 ## 📱 Phase 6: Multi-Platform Distribution
-*Goal: Native performance on every screen.*
+*Status: Current*
+
+Goal: Native performance on every screen.
 
 Transitioning from a browser-based app to native binaries for maximum power.
 

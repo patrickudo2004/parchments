@@ -638,6 +638,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             </section>
 
                                             <section className="space-y-6">
+                                                <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border group">
+                                                    <div className="text-light-text-primary dark:text-dark-text-primary">
+                                                        <p className="text-sm font-bold">Enable Auto-Save</p>                                                        <p className="text-xs text-light-text-secondary">Automatically save changes as you type</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => updateSettings({ enableAutoSave: !settings.enableAutoSave })}
+                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${settings.enableAutoSave ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.enableAutoSave ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+
                                                 <div className="flex items-center justify-between">
                                                     <div className="text-light-text-primary dark:text-dark-text-primary">
                                                         <p className="text-sm font-bold">Auto-save Frequency</p>
@@ -648,7 +660,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             type="number"
                                                             value={settings.autoSaveFrequency}
                                                             onChange={(e) => updateSettings({ autoSaveFrequency: Number(e.target.value) })}
-                                                            className="w-20 p-2 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-sm text-center text-light-text-primary dark:text-dark-text-primary"
+                                                            disabled={!settings.enableAutoSave}
+                                                            className="w-20 p-2 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-lg text-sm text-center text-light-text-primary dark:text-dark-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                         />
                                                         <span className="text-xs text-light-text-disabled">ms</span>
                                                     </div>
@@ -834,13 +847,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         {identity?.publicKey.slice(0, 2).toUpperCase()}
                                                                     </div>
                                                                     <div className="max-w-[200px] sm:max-w-xs">
-                                                                        <p className="text-xs font-bold truncate text-light-text-primary dark:text-dark-text-primary">{identity?.publicKey}</p>
+                                                                        <p className="text-xs font-bold break-all text-light-text-primary dark:text-dark-text-primary">{identity?.publicKey}</p>
                                                                         <p className="text-[10px] text-light-text-disabled uppercase font-black">Share this key to be invited to Study Rooms</p>
                                                                     </div>
                                                                 </div>
                                                                 <button
                                                                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-primary"
-                                                                    onClick={() => navigator.clipboard.writeText(identity?.publicKey || '')}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(identity?.publicKey || '');
+                                                                        settings.showToast('Public key copied', 'success');
+                                                                    }}
                                                                 >
                                                                     <Share2 size={18} />
                                                                 </button>
@@ -853,7 +869,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 <Smartphone size={24} className="text-primary" />
                                                                 <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Add Device</h5>
                                                                 <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes.</p>
-                                                                <button className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all">
+                                                                <button
+                                                                    onClick={() => settings.showToast('Device pairing coming soon in next update', 'info')}
+                                                                    className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all"
+                                                                >
                                                                     Generate Pairing Code
                                                                 </button>
                                                             </div>
@@ -861,7 +880,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 <Key size={24} className="text-primary" />
                                                                 <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Recovery Phrase</h5>
                                                                 <p className="text-xs text-light-text-secondary leading-relaxed">Your "Master Key" to restore your vault on new devices.</p>
-                                                                <button className="w-full py-2 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-light-text-primary dark:text-dark-text-primary">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setAlertConfig({
+                                                                            isOpen: true,
+                                                                            title: 'Your Recovery Phrase',
+                                                                            message: identity?.mnemonic || 'No mnemonic available.',
+                                                                            type: 'info'
+                                                                        });
+                                                                    }}
+                                                                    className="w-full py-2 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-light-text-primary dark:text-dark-text-primary"
+                                                                >
                                                                     View Safe Phrase
                                                                 </button>
                                                             </div>

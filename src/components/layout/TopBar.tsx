@@ -17,7 +17,7 @@ export const TopBar: React.FC = () => {
         isExportModalOpen, exportFormat, closeExportModal, openExportModal,
         toggleTemplateModal
     } = useUIStore();
-    const { syncStatus, identity } = useSyncStore();
+    const { identity, isConnected } = useSyncStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
@@ -148,7 +148,7 @@ export const TopBar: React.FC = () => {
                     </div>
                 )}
 
-                {currentNote && (
+                {currentNote && identity && (
                     <button
                         onClick={() => setIsShareModalOpen(true)}
                         className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-primary active:scale-95"
@@ -179,12 +179,16 @@ export const TopBar: React.FC = () => {
                 <button
                     onClick={toggleSettingsModal}
                     className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
-                    title={identity ? `Vault Active - ${syncStatus}` : 'Enable Sync'}
+                    title={identity ? `Vault Active - ${isConnected ? 'Online' : 'Connecting...'}` : 'Enable Sync'}
                 >
                     <div className="relative">
-                        <Cloud size={18} className={identity ? 'text-primary' : 'text-light-text-disabled'} />
+                        <Cloud
+                            size={18}
+                            className={identity ? 'text-primary' : 'text-light-text-disabled'}
+                        />
                         {identity && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-dark-surface bg-green-500 animate-pulse" />
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-dark-surface animate-pulse transition-colors ${isConnected ? 'bg-green-500' : 'bg-amber-500'
+                                }`} />
                         )}
                     </div>
                 </button>
@@ -206,6 +210,7 @@ export const TopBar: React.FC = () => {
             />
             {currentNote && (
                 <ShareNoteModal
+                    key={`share-${currentNote.id}`}
                     isOpen={isShareModalOpen}
                     onClose={() => setIsShareModalOpen(false)}
                     noteId={currentNote.id}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { YjsService } from '@/lib/sync/YjsService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users } from 'lucide-react';
+import { useSyncStore } from '@/stores/syncStore';
 
 interface Peer {
     clientId: number;
@@ -12,12 +13,16 @@ interface Peer {
 export const CollaborationList: React.FC<{ noteId: string }> = ({ noteId }) => {
     const [peers, setPeers] = useState<Peer[]>([]);
     const [showAll, setShowAll] = useState(false);
+    const { activeRoom, identity } = useSyncStore();
 
     useEffect(() => {
         const providers = YjsService.providers.get(noteId);
         const webrtcProvider = providers?.find((p: any) => p.awareness);
 
-        if (!webrtcProvider) return;
+        if (!webrtcProvider) {
+            setPeers([]);
+            return;
+        }
 
         const handleUpdate = () => {
             const states = webrtcProvider.awareness.getStates();
@@ -42,7 +47,7 @@ export const CollaborationList: React.FC<{ noteId: string }> = ({ noteId }) => {
         return () => {
             webrtcProvider.awareness.off('update', handleUpdate);
         };
-    }, [noteId]);
+    }, [noteId, activeRoom, identity]);
 
     if (peers.length <= 1) return null;
 

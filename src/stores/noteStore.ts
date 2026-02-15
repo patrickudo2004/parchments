@@ -3,6 +3,8 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
+import { useSyncStore } from './syncStore';
+import { YjsService } from '@/lib/sync/YjsService';
 
 export interface LocalItem {
     id: string;
@@ -105,7 +107,7 @@ interface NoteStore {
     // Actions
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
-    createNote: (folderId: string | null, title?: string) => Promise<Note>;
+    createNote: (folderId: string | null, title?: string, forceId?: string) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
     createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
@@ -115,13 +117,23 @@ interface NoteStore {
     renameFolder: (id: string, newName: string) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
     setNotes: (notes: Note[]) => void;
+
+    // Global Selection State
+    selectedFolderId: string | null;
+    setSelectedFolderId: (id: string | null) => void;
+
+    // Sync Actions
+    broadcastFolderChange: (folderId: string) => Promise<void>;
+
     // Local Actions
+
+    refreshLocalFiles: (handle?: FileSystemDirectoryHandle) => Promise<void>;
     openLocalFolder: () => Promise<void>;
     openLocalFile: (item: LocalItem) => Promise<void>;
     // Local Creation Actions
     saveCurrentNote: (title: string, content: string) => Promise<void>;
     setLocalMode: (enabled: boolean) => void;
-    createLocalNote: (fileName: string, targetFolderId: string | null, content?: string) => Promise<void>;
+    createLocalNote: (fileName: string, targetFolderId: string | null, content?: string, forceId?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
     createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, transcript: string) => Promise<void>;
     saveLocalAsset: (file: File) => Promise<{ url: any; fileName: string; } | null>;
@@ -134,11 +146,83 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     notes: [],
     folders: [],
     isLoading: false,
+    selectedFolderId: null,
+    setSelectedFolderId: (id) => set({ selectedFolderId: id }),
     isLocalMode: true, // Default to local mode for Studyspace-First
     localDirectoryHandle: null,
     localFiles: [],
     currentFileHandle: null,
     hasStudyspace: false,
+
+    broadcastFolderChange: async (folderId: string) => {
+        if (!folderId) {
+            console.log('[Space Sync BROADCAST] No folderId provided, skipping');
+            return;
+        }
+
+        const { joinedRooms, sharedFolders } = useSyncStore.getState();
+        const isJoined = joinedRooms.some(r => r.type === 'folder' && r.hash.includes(encodeURIComponent(folderId)));
+        const isHosted = sharedFolders.includes(folderId);
+
+        console.log(`[Space Sync BROADCAST] Folder: ${folderId}, isJoined: ${isJoined}, isHosted: ${isHosted}`);
+        console.log(`[Space Sync BROADCAST] joinedRooms:`, joinedRooms);
+        console.log(`[Space Sync BROADCAST] sharedFolders:`, sharedFolders);
+
+        if (!isJoined && !isHosted) {
+            console.log(`[Space Sync BROADCAST] Folder ${folderId} is not shared, skipping broadcast`);
+            return;
+        }
+
+        console.log(`[Space Sync BROADCAST] Broadcasting change for folder: ${folderId}`);
+        const doc = YjsService.getDoc(folderId, 'folder');
+        const manifest = doc.getMap('manifest');
+
+        const { notes, localFiles, isLocalMode } = get();
+
+        // In local mode, notes are stored in localFiles, not in the notes array
+        let folderNotes: any[] = [];
+
+        if (isLocalMode && localFiles.length > 0) {
+            // Get notes from local file system
+            folderNotes = localFiles.filter(f => f.kind === 'file' && f.parentId === folderId);
+            console.log(`[Space Sync BROADCAST] Local mode: Found ${folderNotes.length} local files in folder ${folderId}`);
+        } else {
+            // Get notes from database
+            folderNotes = notes.filter(n => n.folderId === folderId);
+            console.log(`[Space Sync BROADCAST] Database mode: Found ${folderNotes.length} notes in folder ${folderId}`);
+        }
+
+        console.log(`[Space Sync BROADCAST] Notes:`, folderNotes.map(n => ({ id: n.id, title: n.title || n.name, type: n.type })));
+
+        // Update the manifest with the current list of notes
+        // We use a simple object structure for each note
+        const manifestData: Record<string, any> = {};
+        folderNotes.forEach(n => {
+            const baseMetadata = {
+                id: n.id,
+                title: n.title || n.name, // localFiles use 'name', notes use 'title'
+                type: n.type || 'text',
+                updatedAt: n.updatedAt || Date.now()
+            };
+
+            // Add voice note specific metadata
+            if (n.type === 'voice') {
+                manifestData[n.id] = {
+                    ...baseMetadata,
+                    transcript: n.transcript || '',
+                    duration: n.duration || 0
+                };
+            } else {
+                manifestData[n.id] = baseMetadata;
+            }
+        });
+
+        // Set the entire manifest at once to ensure consistency
+        manifest.set('files', manifestData);
+        manifest.set('lastUpdated', Date.now());
+
+        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${folderId}`, manifestData);
+    },
 
     loadNotes: async () => {
         set({ isLoading: true });
@@ -151,12 +235,21 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         set({ folders });
     },
 
-    createNote: async (folderId, title) => {
-        const { isLocalMode, createLocalNote } = get();
-        if (isLocalMode) {
+    createNote: async (folderId, title, forceId) => {
+        const { isLocalMode, localDirectoryHandle, createLocalNote } = get();
+
+        // Fallback to DB if localized but no folder is open (Incognito/PWA fallback)
+        if (isLocalMode && localDirectoryHandle) {
             const name = title || 'Untitled Note';
-            await createLocalNote(name, folderId);
-            return {} as Note;
+            await createLocalNote(name, folderId, '', forceId);
+            // Re-fetch from currentNote because createLocalNote sets it
+            const currentNote = get().currentNote;
+            // BROADCAST: Notify collaborators of the new note
+            if (folderId) {
+                console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${folderId}`);
+                get().broadcastFolderChange(folderId);
+            }
+            return currentNote as Note;
         }
 
         const note = await dbHelpers.createNote({
@@ -165,9 +258,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             folderId,
             tags: [],
             type: 'text',
-        });
-        const { notes } = get();
+        }, forceId);
+        const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
+        if (folderId) broadcastFolderChange(folderId);
         return note;
     },
 
@@ -191,8 +285,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             tags: [],
             type: 'text',
         });
-        const { notes } = get();
+        const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
+        if (folderId) broadcastFolderChange(folderId);
         return note;
     },
 
@@ -205,15 +300,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         const note = await dbHelpers.createNote({
             title: 'Voice Note',
-            content: `<p>${transcript}</p>`,
+            content: '', // Empty - transcript is stored in transcript field
             folderId,
             tags: [],
             type: 'voice',
             audioBlob,
             duration,
+            transcript, // Store transcript as separate field for sync
         });
-        const { notes } = get();
+        const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
+        if (folderId) broadcastFolderChange(folderId);
         return note;
     },
 
@@ -258,16 +355,24 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         localFiles: files,
                         currentNote: currentNote?.id === id ? null : currentNote
                     });
+
+                    // SYNC: Broadcast the change to collaborators if this folder is shared
+                    if (item.parentId) {
+                        get().broadcastFolderChange(item.parentId);
+                    }
                 } catch (error) {
                     console.error('Failed to delete local file:', error);
                 }
             }
         } else {
+            const noteToDelete = notes.find(n => n.id === id);
+            const folderId = noteToDelete?.folderId;
             await db.notes.delete(id);
             set({
                 notes: notes.filter((n) => n.id !== id),
                 currentNote: currentNote?.id === id ? null : currentNote,
             });
+            if (folderId) get().broadcastFolderChange(folderId);
         }
     },
 
@@ -296,6 +401,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         parentId: f.parentId
                     }));
                     set({ localFiles: files });
+
+                    // SYNC: Broadcast if parent folder is shared
+                    if (item.parentId) {
+                        get().broadcastFolderChange(item.parentId);
+                    }
                 } catch (error) {
                     console.error('Failed to delete local folder:', error);
                 }
@@ -350,6 +460,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 notes: notes.map(n => n.id === id ? { ...n, title: newName, updatedAt: Date.now() } : n),
                 currentNote: currentNote?.id === id ? { ...currentNote, title: newName } : currentNote
             });
+            const folderId = notes.find(n => n.id === id)?.folderId;
+            if (folderId) get().broadcastFolderChange(folderId);
         }
     },
 
@@ -411,6 +523,72 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         } catch (error) {
             console.error('Failed to open directory:', error);
             // User likely cancelled, do nothing
+        }
+    },
+
+    refreshLocalFiles: async () => {
+        const { localDirectoryHandle } = get();
+        if (!localDirectoryHandle) return;
+
+        try {
+            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+            const files: LocalItem[] = rawFiles.map(f => ({
+                id: f.id,
+                name: f.name,
+                kind: f.kind,
+                handle: f.handle,
+                parentId: f.parentId
+            }));
+
+            // Create new array reference to ensure React detects change
+            set({ localFiles: [...files] });
+            console.log('[File System] Refreshed file list:', files.length, 'items');
+
+            // SYNC STEP: Clean up IndexedDB orphans
+            // Find all notes in DB that belong to this local folder but no longer exist on disk
+            try {
+                // Get all valid file IDs from the file system
+                const validFileIds = new Set(files.map(f => f.id));
+
+                // Get all notes from DB that are in this local structure
+                // We identify them by checking if they are NOT in the validFileIds set
+                // but ARE currently loaded in the 'localFiles' state (before update) or just scan DB
+
+                // Better approach: Scan DB notes that have a folderId matching one of our local folders
+                // or just iterate all notes and check if they are "local-like" (id contains path separators usually)
+                // For now, let's just use the fact that we know the valid IDs.
+
+                // Actually, since we don't store "isLocal" flag in DB strictly, 
+                // we should rely on the fact that local mode uses file paths as IDs.
+
+                // Let's iterate the PREVIOUS localFiles to find what was removed
+                const prevLocalFiles = get().localFiles;
+                const activeNoteId = get().currentNote?.id;
+
+                for (const prevFile of prevLocalFiles) {
+                    if (!validFileIds.has(prevFile.id)) {
+                        console.log(`[File System] Detected deleted file: ${prevFile.id}`);
+
+                        // 1. Remove from DB
+                        await db.notes.delete(prevFile.id);
+
+                        // 2. If it was the active note, close it
+                        if (activeNoteId === prevFile.id) {
+                            set({ currentNote: null, currentFileHandle: null });
+                        }
+
+                        // 3. SYNC: Broadcast if parent folder is shared
+                        if (prevFile.parentId) {
+                            get().broadcastFolderChange(prevFile.parentId);
+                        }
+                    }
+                }
+            } catch (dbError) {
+                console.error('[File System] Failed to clean up DB orphans:', dbError);
+            }
+
+        } catch (error) {
+            console.error('[File System] Failed to refresh:', error);
         }
     },
 
@@ -482,10 +660,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Look for metadata in content: <!-- parchments-meta: json -->
             const metaMatch = content.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
             let createdAt = Date.now();
+            let transcript: string | undefined;
+
             if (metaMatch && metaMatch[1]) {
                 try {
                     const meta = JSON.parse(metaMatch[1]);
                     if (meta.createdAt) createdAt = meta.createdAt;
+                    if (meta.transcript) transcript = meta.transcript;
                 } catch (e) {
                     console.warn('[NoteStore] Failed to parse metadata:', e);
                 }
@@ -508,6 +689,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 tags: [],
                 type: noteType,
                 audioBlob: audioBlob,
+                transcript: transcript, // Add parsed transcript
                 createdAt: createdAt,
                 updatedAt: Date.now(),
             };
@@ -517,7 +699,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    createLocalNote: async (fileName, targetFolderId, content = '') => {
+    createLocalNote: async (fileName, targetFolderId, content = '', _forceId?: string) => {
         const { localDirectoryHandle, localFiles, openLocalFile } = get();
         if (!localDirectoryHandle) return;
 
@@ -620,7 +802,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Save the transcript as an HTML note with hidden audio link metadata and creation date
             const createdAt = Date.now();
-            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"createdAt": ${createdAt}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            // Store transcript in BOTH metadata (for clean parsing) AND content (for fallback display)
+            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh file list
@@ -645,6 +828,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 handle: noteHandle,
                 parentId: targetFolderId
             });
+
+            // BROADCAST: Notify collaborators of the new voice note
+            if (targetFolderId) {
+                console.log(`[CREATE VOICE NOTE LOCAL] Broadcasting folder change for: ${targetFolderId}`);
+                get().broadcastFolderChange(targetFolderId);
+            }
         } catch (error) {
             console.error('Failed to create local voice note:', error);
             throw error;

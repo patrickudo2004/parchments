@@ -1,8 +1,8 @@
 # Parchments - Technical Architecture Document
 
-> **Version:** 1.0  
-> **Date:** December 24, 2024  
-> **Status:** Planning Phase
+> **Version:** 1.1  
+> **Date:** February 13, 2026  
+> **Status:** Finalization Phase
 
 ---
 
@@ -74,13 +74,30 @@ Database Schema:
 ```
 Strategy: File-based sync to user's cloud storage
 Supported Providers:
-  - Google Drive API
-  - Microsoft OneDrive API
-  - Dropbox API
-  - iCloud Drive (via WebDAV)
+  - WebRTC P2P (Signaling via Deno)
+  - Google Drive API (In-progress)
+  - Microsoft OneDrive API (In-progress)
 
-Sync Format: Encrypted JSON bundles
-Conflict Resolution: Last-write-wins with manual merge option
+Sync Format: Encrypted JSON bundles & Yjs Updates (binary)
+Conflict Resolution: Host-Dictatorship (Local Disk as Source of Truth)
+```
+
+### Collaboration Engine (Yjs)
+```
+Protocol: Yjs (CRDTs)
+Networking: y-webrtc + Custom Signaling Server (wss)
+Persistence: y-indexeddb (Local Cache)
+
+Sync Pattern: Host-Dictatorship
+  - The Host (owner of the local folder) is the "Dictator" of the manifest.
+  - Hosts broadcast their local disk state to the shared space on change/startup.
+  - Guests (Peers) hydrate "Ghost Placeholders" from the manifest.
+  - Prevents race conditions and "Ghost File" reappearance by enforcing disk-level reality.
+
+Voice Intelligence Sync:
+  - Real-time distribution of transcripts via the Folder Manifest Map.
+  - Voice metadata (duration, transcript) included as manifest fields.
+```
 ```
 
 ### Voice Transcription

@@ -12,6 +12,7 @@ export interface Note {
     audioUrl?: string; // For voice notes
     audioBlob?: Blob; // Offline storage
     duration?: number; // In seconds
+    transcript?: string; // Voice note transcript from Web Speech API
 }
 
 export interface Folder {

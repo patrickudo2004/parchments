@@ -16,14 +16,14 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 
 export const TemplatePickerModal: React.FC = () => {
     const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
-    const { createNoteFromTemplate, createNote, hasStudyspace } = useNoteStore();
+    const { createNoteFromTemplate, createNote, hasStudyspace, selectedFolderId } = useNoteStore();
 
     const handleSelectTemplate = async (templateId: string) => {
         if (!hasStudyspace) {
             toggleNoFolderModal(true);
             return;
         }
-        await createNoteFromTemplate(null, templateId);
+        await createNoteFromTemplate(selectedFolderId, templateId);
         toggleTemplateModal();
     };
 
@@ -141,7 +141,7 @@ export const TemplatePickerModal: React.FC = () => {
                                     toggleNoFolderModal(true);
                                     return;
                                 }
-                                createNote(null);
+                                createNote(selectedFolderId);
                                 toggleTemplateModal();
                             }}
                             className="sm:col-span-2 group flex items-center justify-between p-4 rounded-xl border-2 border-dashed border-light-border dark:border-dark-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left italic"

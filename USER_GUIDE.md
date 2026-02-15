@@ -104,6 +104,26 @@ The **Assistant** sidebar (Brain icon 🧠) provides structural help for your wr
 
 ---
 
+## 🤝 Real-Time Collaboration (Study Spaces)
+
+Parchments allows you to turn any local folder into a shared collaborative workspace.
+
+### 1. Sharing a Folder (Host Mode)
+- Click the **Users (👥)** icon on any folder in the Left Sidebar.
+- This creates a **Space Hash**. Share this hash with your team.
+- **Source of Truth**: As the Host, your local disk is the master. Any changes you make to files or folders are instantly broadcast to all participants.
+
+### 2. Joining a Space (Guest Mode)
+- Go to the Sidebar and click **"Join Study Space."**
+- Paste the Space Hash provided by the host.
+- Parchments will create **Local Ghost Placeholders** for all files in that space.
+- You can edit notes and see others' cursors, but you cannot delete the host's files from their disk.
+
+### 3. Synchronized Voice Intelligence
+When collaborating in a Study Space, voice recordings made by any participant are transcribed. The **transcripts are synced instantly** to every guest's sidebar, allowing for high-speed oral drafting in a group setting.
+
+---
+
 ## Local Folders (Studyspace)
 Parchments can turn any folder on your computer into a searchable library.
 *   Click the **Folder (📁)** icon in the sidebar to select a local directory.

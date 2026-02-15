@@ -12,6 +12,7 @@ interface UIStore {
     editorLineSpacing: number;
     writingLayout: 'centered' | 'full';
     autoSaveFrequency: number;
+    enableAutoSave: boolean;
     markdownSupport: boolean;
     highAccuracyTranscription: boolean;
 
@@ -93,6 +94,7 @@ export const useUIStore = create<UIStore>()(
             editorLineSpacing: 1.5,
             writingLayout: 'centered',
             autoSaveFrequency: 5000,
+            enableAutoSave: true,
             markdownSupport: true,
             highAccuracyTranscription: false,
 
@@ -259,6 +261,7 @@ export const useUIStore = create<UIStore>()(
                 editorLineSpacing: state.editorLineSpacing,
                 writingLayout: state.writingLayout,
                 autoSaveFrequency: state.autoSaveFrequency,
+                enableAutoSave: state.enableAutoSave,
                 markdownSupport: state.markdownSupport,
                 highAccuracyTranscription: state.highAccuracyTranscription,
                 leftSidebarWidth: state.leftSidebarWidth,

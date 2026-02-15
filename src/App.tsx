@@ -9,7 +9,12 @@ import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
 import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 
+import { JoinHandler } from '@/components/sync/JoinHandler';
+import { useSpaceSync } from '@/hooks/useSpaceSync';
+
 const App: React.FC = () => {
+    useSpaceSync();
+
     useEffect(() => {
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));
     }, []);
@@ -34,6 +39,15 @@ const App: React.FC = () => {
                 <MainLayout>
                     <EditorContainer />
                 </MainLayout>
+            } />
+            <Route path="/join/*" element={<JoinHandler />} />
+            <Route path="*" element={
+                <div className="p-8 font-mono text-xs">
+                    <h1 className="text-red-500 font-bold mb-4">No Route Matched</h1>
+                    <p>Pathname: {window.location.pathname}</p>
+                    <p>Search: {window.location.search}</p>
+                    <p>Hash: {window.location.hash}</p>
+                </div>
             } />
         </Routes>
     );

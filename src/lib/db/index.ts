@@ -42,16 +42,33 @@ export const db = new ParchmentsDatabase();
 // Helper functions
 export const dbHelpers = {
     // Notes
-    createNote: async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
-        const timestamp = Date.now();
-        const newNote: Note = {
-            ...note,
-            id: uuidv4(),
-            createdAt: timestamp,
-            updatedAt: timestamp,
-        };
-        await db.notes.add(newNote);
-        return newNote;
+    createNote: async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>, id?: string) => {
+        return await db.transaction('rw', db.notes, async () => {
+            if (id) {
+                const existing = await db.notes.get(id);
+                if (existing) return existing;
+            }
+
+            const timestamp = Date.now();
+            const newNote: Note = {
+                ...note,
+                id: id || uuidv4(),
+                createdAt: timestamp,
+                updatedAt: timestamp,
+            };
+
+            try {
+                await db.notes.add(newNote);
+                return newNote;
+            } catch (err) {
+                // If another process added it between our check and our add
+                if (id) {
+                    const existing = await db.notes.get(id);
+                    if (existing) return existing;
+                }
+                throw err;
+            }
+        });
     },
 
     updateNote: async (id: string, updates: Partial<Note>) => {

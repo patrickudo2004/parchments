@@ -11,32 +11,61 @@ import {
     ChevronRight,
     ChevronDown,
     AlertTriangle,
-    Edit2
+    Edit2,
+    Users,
+    Globe,
+    GripHorizontal
 } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
+import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
 import { PenTool, Pin } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
+import { useSyncStore } from '@/stores/syncStore';
+import { LogOut } from 'lucide-react';
+import { roomHashToId, YjsService } from '@/lib/sync/YjsService';
+import { ShareSpaceModal } from '@/components/sync/ShareSpaceModal';
+
 
 
 export const FilesSidebar: React.FC = () => {
+    // Debug log to check re-renders
+    // console.log('[FilesSidebar] Rendering...');
+
     const {
         setCurrentNote, createNote, createVoiceNote, createFolder,
         notes, folders, deleteNote, deleteFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
         createLocalFolder,
         renameNote, renameFolder,
-        hasStudyspace
+        hasStudyspace,
+        refreshLocalFiles,
+        selectedFolderId,
+        setSelectedFolderId
     } = useNoteStore();
+
+    // console.log('[FilesSidebar] localFiles count:', localFiles.length);
+
+    const navigate = useNavigate();
     const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
+    const { joinedRooms, activeRoom, removeJoinedRoom, updateRoomTitle, sharedFolders, shareFolder, unshareFolder } = useSyncStore();
     const [showRecorder, setShowRecorder] = useState(false);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+    // const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null); // MOVED TO GLOBAL STORE
+    const [sharedSpacesCollapsed, setSharedSpacesCollapsed] = useState(() => {
+        const saved = localStorage.getItem('sharedSpacesCollapsed');
+        return saved === 'true';
+    });
+    const [sharedSpacesHeight, setSharedSpacesHeight] = useState(() => {
+        const saved = localStorage.getItem('sharedSpacesHeight');
+        return saved ? parseInt(saved) : 250; // Default 250px
+    });
+    const [isDragging, setIsDragging] = useState(false);
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
         targetId: string;
@@ -61,6 +90,92 @@ export const FilesSidebar: React.FC = () => {
         defaultValue: '',
         onConfirm: () => { },
     });
+    const [shareSpaceConfig, setShareSpaceConfig] = useState<{
+        isOpen: boolean;
+        folderId: string;
+        folderName: string;
+    }>({
+        isOpen: false,
+        folderId: '',
+        folderName: '',
+    });
+
+    // Folder Title Sync Effect
+    React.useEffect(() => {
+        const activeFolderRoom = joinedRooms.find(r => r.hash === activeRoom && r.type === 'folder');
+        if (!activeFolderRoom) return;
+
+        const folderId = roomHashToId(activeFolderRoom.hash);
+        const ydoc = YjsService.getDoc(folderId, 'folder');
+        const metadata = ydoc.getMap('metadata');
+
+        // Seed or Update
+        const syncedName = metadata.get('name') as string;
+        if (syncedName && syncedName !== activeFolderRoom.title) {
+            updateRoomTitle(activeFolderRoom.hash, syncedName);
+        }
+
+        const observer = (event: any) => {
+            if (event.keysChanged.has('name')) {
+                const newName = metadata.get('name') as string;
+                if (newName) updateRoomTitle(activeFolderRoom.hash, newName);
+            }
+        };
+
+        metadata.observe(observer);
+        return () => metadata.unobserve(observer);
+    }, [activeRoom, joinedRooms, updateRoomTitle]);
+
+    // Periodic File System Refresh (watch for external changes)
+    React.useEffect(() => {
+        if (!isLocalMode) return;
+
+        // Refresh every 10 seconds to detect external file changes
+        const interval = setInterval(() => {
+            refreshLocalFiles();
+        }, 10000); // 10 seconds
+
+        return () => clearInterval(interval);
+    }, [isLocalMode, refreshLocalFiles]);
+
+    // Shared Spaces Resize Handler
+    const handleResizeMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    React.useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const sidebar = document.querySelector('[data-sidebar]');
+            if (!sidebar) return;
+
+            const sidebarRect = sidebar.getBoundingClientRect();
+            const newHeight = Math.max(100, Math.min(600, sidebarRect.bottom - e.clientY));
+            setSharedSpacesHeight(newHeight);
+            localStorage.setItem('sharedSpacesHeight', newHeight.toString());
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging]);
+
+    // Toggle collapse state
+    const toggleSharedSpacesCollapse = () => {
+        const newState = !sharedSpacesCollapsed;
+        setSharedSpacesCollapsed(newState);
+        localStorage.setItem('sharedSpacesCollapsed', newState.toString());
+    };
 
     const toggleFolder = (e: React.MouseEvent, folderId: string) => {
         e.stopPropagation();
@@ -85,7 +200,7 @@ export const FilesSidebar: React.FC = () => {
                 }
             }
         } else if (item.kind === 'directory' || item.type === 'folder') {
-            setSelectedFolderId(prev => (prev === item.id ? null : item.id));
+            setSelectedFolderId(selectedFolderId === item.id ? null : item.id);
         }
     };
 
@@ -131,6 +246,30 @@ export const FilesSidebar: React.FC = () => {
         } else {
             await createFolder('New Folder', selectedFolderId);
         }
+    };
+
+    const handleJoinRoom = () => {
+        setPromptConfig({
+            isOpen: true,
+            title: 'Join Study Room',
+            label: 'Room Hash or Link',
+            defaultValue: '',
+            onConfirm: (input) => {
+                if (input) {
+                    let hash = input.trim();
+                    // Handle full URLs: http://localhost:3000/join/p-xxx
+                    if (hash.includes('/join/')) {
+                        const parts = hash.split('/join/');
+                        hash = parts[parts.length - 1];
+                    }
+
+                    if (hash) {
+                        navigate(`/join/${hash}`);
+                    }
+                }
+                setPromptConfig(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
@@ -180,6 +319,22 @@ export const FilesSidebar: React.FC = () => {
         return !notes.some(n => n.folderId === folderId);
     };
 
+    const handleShareFolder = (e: React.MouseEvent, folder: any) => {
+        e.stopPropagation();
+        console.log('[SHARE FOLDER] Sharing folder:', folder.id, folder);
+        console.log('[SHARE FOLDER] Calling shareFolder:', folder.id);
+        shareFolder(folder.id);
+
+        // SYNC: Immediately broadcast the current local state to overwrite any potentially stale remote manifest
+        useNoteStore.getState().broadcastFolderChange(folder.id);
+
+        setShareSpaceConfig({
+            isOpen: true,
+            folderId: folder.id,
+            folderName: folder.name || folder.title || 'Untitled Folder'
+        });
+    };
+
     // Tree Rendering Logic
     const renderTreeItem = (item: any, level: number = 0) => {
         const isExpanded = expandedFolders.has(item.id);
@@ -187,7 +342,13 @@ export const FilesSidebar: React.FC = () => {
 
         let children: any[] = [];
         if (isLocalMode) {
-            children = localFiles.filter(f => f.parentId === item.id);
+            // Get children from local files
+            const localChildren = localFiles.filter(f => f.parentId === item.id);
+            // ALSO get children from database (for ghost notes in shared folders)
+            const dbChildren = notes
+                .filter(n => n.folderId === item.id && !localChildren.some(lc => lc.id === n.id))
+                .map(n => ({ ...n, type: 'file' as const, name: n.title }));
+            children = [...localChildren, ...dbChildren];
         } else if (item.type === 'folder') {
             children = notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }));
         }
@@ -196,13 +357,14 @@ export const FilesSidebar: React.FC = () => {
 
         // Determine icon based on item type
         const isFolder = item.type === 'folder' || item.kind === 'directory';
+        const isShared = isFolder && sharedFolders.includes(item.id);
 
         return (
             <React.Fragment key={item.id}>
                 <div
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items-center justify-between p-1 rounded cursor-pointer text-sm transition-colors ${selectedFolderId === item.id
-                        ? 'bg-primary/10 text-primary font-medium'
+                    className={`group flex items-center justify-between p-1 rounded cursor-pointer text-sm transition-colors select-none ${selectedFolderId === item.id
+                        ? 'bg-primary/20 text-primary font-medium'
                         : 'hover:bg-light-background dark:hover:bg-dark-background'
                         }`}
                     style={{ paddingLeft: `${level * 16 + 4}px` }}
@@ -223,7 +385,9 @@ export const FilesSidebar: React.FC = () => {
                         {/* Icon Column */}
                         <div className="w-5 h-5 flex items-center justify-center shrink-0 mr-1.5">
                             {isFolder ? (
-                                isExpanded ? (
+                                isShared ? (
+                                    <Users className="text-primary animate-pulse" size={16} />
+                                ) : isExpanded ? (
                                     <FolderOpen className="text-primary" size={16} />
                                 ) : (
                                     <Folder className="text-primary" size={16} />
@@ -268,6 +432,15 @@ export const FilesSidebar: React.FC = () => {
                         >
                             <Edit2 size={14} />
                         </button>
+                        {isFolder && (
+                            <button
+                                onClick={(e) => handleShareFolder(e, item)}
+                                className={`p-1 opacity-0 group-hover:opacity-100 transition-all ${isShared ? 'text-primary' : 'hover:text-primary'}`}
+                                title={isShared ? "Copy Share Link" : "Share Folder"}
+                            >
+                                <Users size={14} />
+                            </button>
+                        )}
                         <button
                             onClick={(e) => handleDeleteClick(e, item)}
                             className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
@@ -290,12 +463,27 @@ export const FilesSidebar: React.FC = () => {
     const rootFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
     const rootNotes = notes.filter(n => !n.folderId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
 
-    const rootItems = isLocalMode
-        ? localFiles.filter(D => !D.parentId)
-        : [...rootFolders, ...rootNotes];
+    // Merge Local Files with DB Ghost Notes/Folders
+    // This ensures that shared items (which are in DB but maybe not yet on disk) appear in the sidebar
+    const allFolders = isLocalMode
+        ? [
+            ...localFiles.filter(D => !D.parentId && D.kind === 'directory').map(f => ({ ...f, type: 'folder' as const })),
+            ...folders.filter(f => !localFiles.some(lf => lf.id === f.id)).map(f => ({ ...f, type: 'folder' as const }))
+        ]
+        : rootFolders;
+
+    const allNotes = isLocalMode
+        ? [
+            ...localFiles.filter(D => !D.parentId && D.kind === 'file').map(f => ({ ...f, type: 'file' as const })),
+            ...rootNotes.filter(n => !localFiles.some(lf => lf.id === n.id))
+        ]
+        : rootNotes;
+
+    const rootItems = [...allFolders, ...allNotes];
 
     return (
         <div
+            data-sidebar
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
@@ -340,6 +528,13 @@ export const FilesSidebar: React.FC = () => {
                         title={isLocalMode ? "New Local Folder" : "New Folder"}
                     >
                         <FolderPlus size={16} />
+                    </button>
+                    <button
+                        onClick={handleJoinRoom}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                        title="Join Shared Room"
+                    >
+                        <Users size={16} />
                     </button>
                     <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors text-primary" title="Open Local Studyspace">
                         <Upload size={16} />
@@ -396,6 +591,199 @@ export const FilesSidebar: React.FC = () => {
                 )}
             </div>
 
+            {/* Shared Spaces Section - Collapsible & Resizable */}
+            <div className="border-t border-light-border dark:border-dark-border bg-light-sidebar/30 dark:bg-dark-sidebar/30 overflow-hidden flex flex-col shrink-0">
+                {/* Resize Handle */}
+                {!sharedSpacesCollapsed && (
+                    <div
+                        onMouseDown={handleResizeMouseDown}
+                        className={`h-1 cursor-row-resize hover:bg-primary/20 transition-colors relative group shrink-0 ${isDragging ? 'bg-primary/30' : ''
+                            }`}
+                        title="Drag to resize"
+                    >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <GripHorizontal size={12} className="text-light-text-disabled" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Header */}
+                <div
+                    onClick={toggleSharedSpacesCollapse}
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-light-background/50 dark:hover:bg-dark-background/50 transition-colors shrink-0"
+                >
+                    <div className="flex items-center gap-2">
+                        {sharedSpacesCollapsed ? (
+                            <ChevronRight size={12} className="text-light-text-secondary" />
+                        ) : (
+                            <ChevronDown size={12} className="text-light-text-secondary" />
+                        )}
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-70">
+                            Shared Spaces
+                        </h4>
+                    </div>
+                    <Globe size={12} className="text-light-text-disabled" />
+                </div>
+
+                {/* Content */}
+                {!sharedSpacesCollapsed && (
+                    <div
+                        className="px-2 pb-4 overflow-y-auto custom-scrollbar"
+                        style={{ height: `${sharedSpacesHeight}px` }}
+                    >
+                        <div className="space-y-1">
+                            {joinedRooms.filter(r => r.type === 'folder').length === 0 && sharedFolders.length === 0 ? (
+                                <p className="text-[10px] text-light-text-disabled italic px-2">No shared spaces yet.</p>
+                            ) : (
+                                <>
+                                    {/* Joined Folders */}
+                                    {joinedRooms
+                                        .filter(r => r.type === 'folder')
+                                        .map((room) => {
+                                            const folderId = roomHashToId(room.hash);
+                                            const isExpanded = expandedFolders.has(folderId);
+                                            const folderNotes = notes.filter(n => n.folderId === folderId);
+
+                                            return (
+                                                <div key={room.hash}>
+                                                    {/* Folder Header */}
+                                                    <div
+                                                        onClick={() => {
+                                                            if (expandedFolders.has(folderId)) {
+                                                                const next = new Set(expandedFolders);
+                                                                next.delete(folderId);
+                                                                setExpandedFolders(next);
+                                                            } else {
+                                                                setExpandedFolders(new Set([...expandedFolders, folderId]));
+                                                            }
+                                                        }}
+                                                        className="group flex items-center justify-between p-2 rounded-xl cursor-pointer text-xs transition-all hover:bg-light-background dark:hover:bg-dark-background border border-transparent"
+                                                    >
+                                                        <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                                                            {folderNotes.length > 0 && (
+                                                                isExpanded ? (
+                                                                    <ChevronDown size={14} className="text-light-text-secondary shrink-0" />
+                                                                ) : (
+                                                                    <ChevronRight size={14} className="text-light-text-secondary shrink-0" />
+                                                                )
+                                                            )}
+                                                            {!folderNotes.length && <div className="w-3.5" />}
+                                                            <Globe size={14} className="text-primary shrink-0" />
+                                                            <span className="truncate font-medium">{room.title || 'Shared Space'}</span>
+                                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold">JOINED</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                removeJoinedRoom(room.hash);
+                                                            }}
+                                                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                            title="Leave Space"
+                                                        >
+                                                            <LogOut size={12} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Folder Children */}
+                                                    {isExpanded && folderNotes.length > 0 && (
+                                                        <div className="ml-6 mt-1 space-y-0.5">
+                                                            {folderNotes.map(note => (
+                                                                <div
+                                                                    key={note.id}
+                                                                    onClick={() => setCurrentNote(note)}
+                                                                    className="group flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
+                                                                >
+                                                                    <FileText size={13} className="text-light-text-secondary shrink-0" />
+                                                                    <span className="truncate">{note.title}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+
+                                    {/* Hosted Folders */}
+                                    {sharedFolders.map((folderId) => {
+                                        const folder = folders.find(f => f.id === folderId);
+                                        const localFolder = localFiles.find(f => f.id === folderId && f.kind === 'directory');
+                                        const folderName = folder?.name || localFolder?.name || 'Untitled Space';
+                                        const isExpanded = expandedFolders.has(folderId);
+                                        const folderNotes = notes.filter(n => n.folderId === folderId);
+                                        const localFolderNotes = localFiles.filter(f => f.parentId === folderId && f.kind === 'file');
+                                        const allNotes = [...folderNotes, ...localFolderNotes.filter(lf => !folderNotes.some(n => n.id === lf.id))];
+
+                                        return (
+                                            <div key={folderId}>
+                                                {/* Folder Header */}
+                                                <div
+                                                    onClick={() => {
+                                                        if (expandedFolders.has(folderId)) {
+                                                            const next = new Set(expandedFolders);
+                                                            next.delete(folderId);
+                                                            setExpandedFolders(next);
+                                                        } else {
+                                                            setExpandedFolders(new Set([...expandedFolders, folderId]));
+                                                        }
+                                                    }}
+                                                    className="group flex items-center justify-between p-2 rounded-xl cursor-pointer text-xs transition-all hover:bg-light-background dark:hover:bg-dark-background border border-transparent"
+                                                >
+                                                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                                                        {allNotes.length > 0 && (
+                                                            isExpanded ? (
+                                                                <ChevronDown size={14} className="text-light-text-secondary shrink-0" />
+                                                            ) : (
+                                                                <ChevronRight size={14} className="text-light-text-secondary shrink-0" />
+                                                            )
+                                                        )}
+                                                        {!allNotes.length && <div className="w-3.5" />}
+                                                        <Globe size={14} className="text-green-600 dark:text-green-400 shrink-0" />
+                                                        <span className="truncate font-medium">{folderName}</span>
+                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold">HOSTING</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            unshareFolder(folderId);
+                                                        }}
+                                                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                        title="Stop Sharing"
+                                                    >
+                                                        <LogOut size={12} />
+                                                    </button>
+                                                </div>
+
+                                                {/* Folder Children */}
+                                                {isExpanded && allNotes.length > 0 && (
+                                                    <div className="ml-6 mt-1 space-y-0.5">
+                                                        {allNotes.map(note => (
+                                                            <div
+                                                                key={note.id}
+                                                                onClick={() => {
+                                                                    if ('title' in note) {
+                                                                        setCurrentNote(note);
+                                                                    } else {
+                                                                        openLocalFile(note);
+                                                                    }
+                                                                }}
+                                                                className="group flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
+                                                            >
+                                                                <FileText size={13} className="text-light-text-secondary shrink-0" />
+                                                                <span className="truncate">{('title' in note) ? note.title : note.name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <ConfirmModal
                 isOpen={deleteConfig.isOpen}
                 title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'}`}
@@ -425,6 +813,13 @@ export const FilesSidebar: React.FC = () => {
                 defaultValue={promptConfig.defaultValue}
                 onConfirm={promptConfig.onConfirm}
                 onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <ShareSpaceModal
+                isOpen={shareSpaceConfig.isOpen}
+                onClose={() => setShareSpaceConfig(prev => ({ ...prev, isOpen: false }))}
+                folderId={shareSpaceConfig.folderId}
+                folderName={shareSpaceConfig.folderName}
             />
         </div>
     );

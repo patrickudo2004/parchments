@@ -1,8 +1,8 @@
 # Parchments - Development Task Checklist
 
-> **Status:** In Progress - Phase 1, Week 1  
-> **Current Phase:** Foundation & Core Editor  
-> **Last Updated:** December 24, 2024
+> **Status:** In Progress - Phase 6: Finalization & Distribution  
+> **Current Phase:** Finalization & Distribution  
+> **Last Updated:** February 13, 2026
 
 ---
 
@@ -164,6 +164,9 @@
 - [x] Install and configure Yjs, y-indexeddb, and y-webrtc
 - [x] Implement real-time colored cursors and multi-user sync
 - [x] Build "Share Note" dialog with Room Hash generation
+- [x] **Study Spaces**: Implement folder-level sharing and discovery
+- [x] **Voice Sync**: Real-time distribution of voice transcripts via manifest
+- [x] **Host-Dictatorship**: Resolve ghost file sync using disk-source-of-truth
 
 ---
 
@@ -171,6 +174,8 @@
 - [x] Resolve Vite build and Tiptap dependency conflicts
 - [x] Fix JSX structural nesting and icon import errors
 - [x] Optimize `html2pdf.js` for ESM module compatibility
+- [x] Resolution of Shadow/Ghost File Sync (Race Condition Fix)
+- [x] Refactor `useSpaceSync` for host-dictatorship logic
 - [/] Perform Technical Health Check (Audit TODOs and Logs)
 - [x] Create scenario-based `PROJECT_MASTER_GUIDE.md`
 - [ ] Prepare final production distribution assets (Tauri/Capacitor)
@@ -183,10 +188,10 @@
 **Phase 2 Total:** [x] 15/15 tasks completed (100%)  
 **Phase 3 Total:** [x] 14/14 tasks completed (100%)  
 **Phase 4 Total:** [x] 5/5 tasks completed (100%)  
-**Phase 5 Total:** [x] 6/6 tasks completed (100%)  
-**Phase 6 Progress:** [/] 5/8 tasks completed (62%)  
+**Phase 5 Total:** [x] 9/9 tasks completed (100%)  
+**Phase 6 Progress:** [/] 7/9 tasks completed (78%)  
 
-**Project Overall:** [x] 109/112 tasks approx.
+**Project Overall:** [x] 114/116 tasks approx. (98%)
 
 ---
 

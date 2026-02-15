@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -18,21 +18,29 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { ScriptureExtension } from './extensions/ScriptureExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
+import { RotateCcw } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { FocusExtension } from './extensions/FocusExtension';
+import { EnterKeyExtension } from './extensions/EnterKeyExtension';
+import { ManualSaveExtension } from './extensions/ManualSaveExtension';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useAIStore } from '@/stores/aiStore';
 import { AutoLinkSuggestion } from './AutoLinkSuggestion';
 import Collaboration from '@tiptap/extension-collaboration';
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
 import Image from '@tiptap/extension-image';
 import { YjsService } from '@/lib/sync/YjsService';
-import { useSyncStore } from '@/stores/syncStore';
 import { ImageResizer } from './extensions/ImageResizer';
+import { useSyncStore } from '@/stores/syncStore';
 
-export const RichTextEditor: React.FC = () => {
-    const { currentNote, saveCurrentNote, isLocalMode, saveLocalAsset } = useNoteStore();
+interface RichTextEditorProps {
+    activeRoom: string | null;
+    identity: { publicKey: string } | null; // Minimal interface needed
+    shouldSync: boolean;
+}
+
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, identity, shouldSync }) => {
+    const { currentNote, saveCurrentNote, saveLocalAsset } = useNoteStore();
     const {
         writingLayout,
         editorFontFamily,
@@ -41,18 +49,23 @@ export const RichTextEditor: React.FC = () => {
         setEditorStats,
         updateSettings,
         focusedHeadingPos,
-        setFocusedHeadingPos
+        setFocusedHeadingPos,
+        enableAutoSave
     } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
     const [suggestedNoteId, setSuggestedNoteId] = useState<string | null>(null);
 
     const { search } = useAIStore();
-    const { identity } = useSyncStore();
 
-    // 1. Initialize Yjs Doc for this note (Only if not in local mode)
-    const ydoc = (currentNote && !isLocalMode) ? YjsService.getDoc(currentNote.id) : null;
-    const provider = (currentNote && !isLocalMode) ? YjsService.getProvider(currentNote.id) : null;
+    // 1. Initialize Yjs Doc for this note
+    const { ydoc, provider } = useMemo(() => {
+        if (!currentNote || !shouldSync) return { ydoc: null, provider: null };
+        return {
+            ydoc: YjsService.getDoc(currentNote.id),
+            provider: YjsService.getProvider(currentNote.id)
+        };
+    }, [currentNote?.id, shouldSync, activeRoom, identity]);
 
     // Sync local title state with currentNote
     useEffect(() => {
@@ -61,17 +74,114 @@ export const RichTextEditor: React.FC = () => {
         }
     }, [currentNote?.id]);
 
+    // Title Synchronization via Yjs for Collaboration
+    useEffect(() => {
+        if (!shouldSync || !ydoc || !currentNote) return;
+
+        const metadata = YjsService.getMetadata(currentNote.id);
+        if (!metadata) return;
+
+        // Seed initial title if empty
+        const syncedTitle = metadata.get('title');
+        if (!syncedTitle && currentNote.title) {
+            metadata.set('title', currentNote.title);
+            console.log('[Title Sync] Seeded title to Yjs:', currentNote.title);
+        } else if (syncedTitle && syncedTitle !== title) {
+            // Update local state if Yjs has a different title
+            setTitle(syncedTitle);
+            console.log('[Title Sync] Updated local title from Yjs:', syncedTitle);
+        }
+
+        // Listen for title changes from other collaborators
+        const observer = (event: any) => {
+            if (event.keysChanged.has('title')) {
+                const newTitle = metadata.get('title');
+                if (newTitle && newTitle !== title) {
+                    setTitle(newTitle);
+                    // Also update the note in the database
+                    saveCurrentNote(newTitle, currentNote.content);
+                    console.log('[Title Sync] Received title update from collaborator:', newTitle);
+                }
+            }
+        };
+
+        metadata.observe(observer);
+        return () => metadata.unobserve(observer);
+    }, [shouldSync, ydoc, currentNote?.id, currentNote?.content, saveCurrentNote, title]);
+
+    const { updateRoomTitle, joinedRooms } = useSyncStore();
+
+    // Title Discovery for Shared Rooms: Update sidebar title once data is synced
+    // BUT: Only update if the activeRoom is a NOTE room, not a FOLDER room
+    useEffect(() => {
+        if (!activeRoom || !currentNote?.title || currentNote.title === 'Shared Room Note') return;
+
+        // Find if this activeRoom corresponds to a folder
+        const activeFolderRoom = joinedRooms.find(r => r.hash === activeRoom && r.type === 'folder');
+
+        // ONLY update title if activeRoom is NOT a folder (i.e., it's a note or unknown)
+        // This prevents note titles from overwriting folder titles
+        if (!activeFolderRoom) {
+            updateRoomTitle(activeRoom, currentNote.title);
+        }
+    }, [activeRoom, currentNote?.title, updateRoomTitle, joinedRooms]);
+
+    // Unified Save Logic via Store
+    const saveToDB = async (newTitle: string, newContent: string) => {
+        setIsSaving(true);
+        try {
+            await saveCurrentNote(newTitle, newContent);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+    // Debounce Save (2 seconds)
+    const debouncedSave = useCallback(
+        (() => {
+            let timeout: any;
+            let autoLinkTimeout: any;
+
+            return (t: string, c: string) => {
+                // Only auto-save if the setting is enabled
+                if (!enableAutoSave) return;
+
+                clearTimeout(timeout);
+                clearTimeout(autoLinkTimeout);
+
+                timeout = setTimeout(() => saveToDB(t, c), 2000);
+
+                // Auto-Linking Logic: Search for related context
+                autoLinkTimeout = setTimeout(async () => {
+                    const cleanText = c.replace(/\<[^\>]*\>/g, '').trim();
+                    if (cleanText.length < 50) return; // Only search if there's enough context
+
+                    // Last 200 chars for context-aware search
+                    const searchSnippet = cleanText.slice(-200);
+                    const results = await search(searchSnippet);
+
+                    // Find a highly relevant note that isn't the current one
+                    const topMatch = results.find(r => r.noteId !== currentNote?.id && r.score > 0.75);
+                    if (topMatch) {
+                        setSuggestedNoteId(topMatch.noteId);
+                    }
+                }, 3000);
+            };
+        })(),
+        [currentNote?.id, search, saveCurrentNote, enableAutoSave]
+    );
+
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
+                // Ensure none of our manual ones conflict with StarterKit defaults
                 bulletList: false,
                 orderedList: false,
                 blockquote: false,
                 listItem: false,
-                // history is included by default, no need to configure it here if it's causing issues
-                // These are the ones often duplicated in some Tiptap versions
-                dropcursor: false,
-                gapcursor: false,
+                underline: false, // We import Underline separately
+                link: false, // We import Link separately
             }),
             Underline,
             TextStyle,
@@ -102,6 +212,14 @@ export const RichTextEditor: React.FC = () => {
             CharacterCount,
             ScriptureExtension,
             FocusExtension,
+            EnterKeyExtension,
+            ManualSaveExtension.configure({
+                onSave: () => {
+                    if (editor && currentNote) {
+                        saveToDB(title, editor.getHTML());
+                    }
+                },
+            }),
             Image.extend({
                 addAttributes() {
                     return {
@@ -127,15 +245,8 @@ export const RichTextEditor: React.FC = () => {
                     class: 'rounded-lg shadow-md max-w-full h-auto my-8 mx-auto block cursor-pointer transition-transform hover:scale-[1.01]',
                 },
             }),
-            // Collaboration logic - only include if document/provider exists AND not in local mode
-            ...((ydoc && !isLocalMode) ? [Collaboration.configure({ document: ydoc })] : []),
-            ...((provider && !isLocalMode) ? [CollaborationCursor.configure({
-                provider: provider,
-                user: {
-                    name: identity?.publicKey.slice(0, 8) || 'Anonymous Scribe',
-                    color: '#1a73e8',
-                },
-            })] : []),
+            // Collaboration logic - only include if shouldSync
+            ...(shouldSync && ydoc ? [Collaboration.configure({ document: ydoc })] : []),
         ],
         editorProps: {
             handlePaste: (view, event) => {
@@ -192,11 +303,40 @@ export const RichTextEditor: React.FC = () => {
                 return false;
             },
         },
-        content: currentNote?.content || '',
+        // When sync is enabled, don't set initial content - let Yjs load from IndexedDB
+        // Only set content when in local-only mode
+        ...(shouldSync ? {} : { content: currentNote?.content || '' }),
         onUpdate: ({ editor }) => {
             debouncedSave(title, editor.getHTML());
         },
-    }, [currentNote?.id]);
+    }, [currentNote?.id, ydoc, provider, shouldSync, activeRoom, identity]);
+
+    // Seed Yjs with local content if it's empty and we're starting a sync session
+    useEffect(() => {
+        if (editor && shouldSync && currentNote?.content && ydoc) {
+            const fragment = ydoc.getXmlFragment('default');
+
+            // Get current editor HTML to compare
+            const editorHTML = editor.getHTML();
+            const isEditorEmpty = editorHTML === '<p></p>' || editorHTML === '';
+
+            console.log('[RichTextEditor] Seeding check:', {
+                fragmentLength: fragment.length,
+                fragmentToString: fragment.toString().substring(0, 100),
+                editorHTML: editorHTML.substring(0, 100),
+                isEditorEmpty,
+                hasLocalContent: !!currentNote?.content,
+                noteId: currentNote?.id
+            });
+
+            // Seed if the fragment is empty OR if the editor is showing empty content
+            // but we have local content to seed from
+            if ((fragment.length === 0 || isEditorEmpty) && currentNote?.content) {
+                console.log('[RichTextEditor] Seeding Yjs doc with local content');
+                editor.commands.setContent(currentNote.content);
+            }
+        }
+    }, [editor, shouldSync, currentNote?.id, currentNote?.content, ydoc]);
 
     // Clear Yjs cleanup on unmount
     useEffect(() => {
@@ -264,51 +404,15 @@ export const RichTextEditor: React.FC = () => {
         }
     }, [editor, setEditorStats]);
 
-    // Unified Save Logic via Store
-    const saveToDB = async (newTitle: string, newContent: string) => {
-        setIsSaving(true);
-        try {
-            await saveCurrentNote(newTitle, newContent);
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    // Debounce Save (2 seconds)
-    const debouncedSave = useCallback(
-        (() => {
-            let timeout: any;
-            let autoLinkTimeout: any;
-
-            return (t: string, c: string) => {
-                clearTimeout(timeout);
-                clearTimeout(autoLinkTimeout);
-
-                timeout = setTimeout(() => saveToDB(t, c), 2000);
-
-                // Auto-Linking Logic: Search for related context
-                autoLinkTimeout = setTimeout(async () => {
-                    const cleanText = c.replace(/<[^>]*>/g, '').trim();
-                    if (cleanText.length < 50) return; // Only search if there's enough context
-
-                    // Last 200 chars for context-aware search
-                    const searchSnippet = cleanText.slice(-200);
-                    const results = await search(searchSnippet);
-
-                    // Find a highly relevant note that isn't the current one
-                    const topMatch = results.find(r => r.noteId !== currentNote?.id && r.score > 0.75);
-                    if (topMatch) {
-                        setSuggestedNoteId(topMatch.noteId);
-                    }
-                }, 3000);
-            };
-        })(),
-        [currentNote?.id, search]
-    );
-
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newTitle = e.target.value;
         setTitle(newTitle);
+
+        // Sync title to Yjs metadata for collaboration
+        if (shouldSync && currentNote) {
+            YjsService.setMetadata(currentNote.id, 'title', newTitle);
+        }
+
         if (editor) {
             debouncedSave(newTitle, editor.getHTML());
         }
@@ -355,12 +459,26 @@ export const RichTextEditor: React.FC = () => {
                     />
 
                     {/* Meta Info */}
-                    <div className="flex items-center gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest mb-6 border-b border-light-border dark:border-dark-border pb-4">
-                        <span>Created: {new Date(currentNote.createdAt).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span className={isSaving ? 'text-primary animate-pulse' : ''}>
-                            {isSaving ? 'Saving Changes...' : 'All Changes Saved'}
-                        </span>
+                    <div className="flex items-center justify-between mb-6 border-b border-light-border dark:border-dark-border pb-4">
+                        <div className="flex items-center gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest">
+                            <span>Created: {new Date(currentNote.createdAt).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <span className={isSaving ? 'text-primary animate-pulse' : ''}>
+                                {isSaving ? 'Saving...' : 'All Saved'}
+                            </span>
+                        </div>
+
+                        {/* Manual Save Button for Local Mode */}
+                        {!shouldSync && (
+                            <button
+                                onClick={() => saveToDB(title, editor?.getHTML() || '')}
+                                disabled={isSaving || !editor}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
+                                <span>Save Now</span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Voice Note Player (Inline) */}
@@ -370,22 +488,53 @@ export const RichTextEditor: React.FC = () => {
                                 audioBlob={currentNote.audioBlob}
                                 audioUrl={currentNote.audioUrl}
                             />
+
+                            {/* Transcript Display */}
+                            {currentNote.transcript && (
+                                <div className="mt-8 p-6 bg-light-background/50 dark:bg-dark-background/30 rounded-2xl border border-light-border dark:border-dark-border">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary opacity-50">
+                                            Voice Transcript
+                                        </h3>
+                                        <button
+                                            onClick={() => navigator.clipboard.writeText(currentNote.transcript || '')}
+                                            className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                                        >
+                                            Copy Text
+                                        </button>
+                                    </div>
+                                    <p className="text-base leading-relaxed text-light-text-main dark:text-dark-text-main font-medium border-l-2 border-primary/30 pl-4 py-2">
+                                        {currentNote.transcript}
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="mt-8 border-b-2 border-dashed border-light-border dark:border-dark-border opacity-50" />
                         </div>
                     )}
 
                     {/* Tiptap Editor */}
-                    <ScriptureTooltipProvider>
-                        <div
-                            className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''}`}
-                            style={{
-                                fontSize: `${editorFontSize}px`,
-                                lineHeight: editorLineSpacing,
-                            }}
-                        >
-                            <EditorContent editor={editor} />
-                        </div>
-                    </ScriptureTooltipProvider>
+                    {/* If we have a structured transcript field, we hide the visual editor content if it duplicates the transcript */
+                        /* Logic: If type is voice AND we have transcript field, hide the editor content (which contains the backup transcript) */
+                        (currentNote.type === 'voice' && currentNote.transcript) ? (
+                            <div className="hidden">
+                                {/* Hide content because we already showed the transcript above */}
+                                <EditorContent editor={editor} />
+                            </div>
+                        ) : (
+                            <ScriptureTooltipProvider>
+                                <div
+                                    className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''}`}
+                                    style={{
+                                        fontSize: `${editorFontSize}px`,
+                                        lineHeight: editorLineSpacing,
+                                    }}
+                                >
+                                    <EditorContent editor={editor} />
+                                </div>
+                            </ScriptureTooltipProvider>
+                        )
+                    }
                 </div>
             </div>
 
@@ -407,6 +556,6 @@ export const RichTextEditor: React.FC = () => {
                     }}
                 />
             )}
-        </div>
+        </div >
     );
 };

@@ -27,7 +27,8 @@ export const storagePersistence = {
         if (persisted) {
             console.log('[Storage] persistence granted 🛡️');
         } else {
-            console.warn('[Storage] persistence denied/not possible ⚠️');
+            // Silencing this warning as it's common in development/uninstalled environments
+            // console.warn('[Storage] persistence denied/not possible ⚠️');
         }
         return persisted;
     },

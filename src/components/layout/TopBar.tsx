@@ -33,24 +33,24 @@ export const TopBar: React.FC = () => {
 
         closeExportModal();
         const { title, content } = currentNote;
+        const author = identity ? `Parchments User (${identity.publicKey.slice(0, 8)})` : 'Parchments User';
+        const exportOptions = { ...options, author };
 
         try {
             switch (exportFormat) {
                 case 'docx':
-                    await exportService.exportToDocx(title, content, options);
+                    await exportService.exportToDocx(title, content, exportOptions);
                     break;
                 case 'pdf':
-                    await exportService.exportToPdf(title, content, options);
+                    await exportService.exportToPdf(title, content, exportOptions);
                     break;
                 case 'md':
-                    await exportService.exportToMarkdown(title, content, options);
+                    await exportService.exportToMarkdown(title, content, exportOptions);
                     break;
                 case 'html':
-                    await exportService.exportToHtml(title, content, options);
+                    await exportService.exportToHtml(title, content, exportOptions);
                     break;
                 case 'txt':
-                    // We might want proper plain text extraction later, for now using content
-                    // Ideally pass simple text
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = content;
                     exportService.exportToTxt(title, tempDiv.textContent || '');

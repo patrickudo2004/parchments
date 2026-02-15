@@ -1,33 +1,32 @@
 // Check if we are running in Tauri
-export const isTauri = !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__;
+export const isTauri = await (async () => {
+    try {
+        // @ts-ignore
+        return !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__;
+    } catch {
+        return false;
+    }
+})();
 
 export interface FileSystemHandle {
     kind: 'file' | 'directory';
     name: string;
-    path?: string; // Used for Tauri
+    path?: string; // Used for Native (Tauri)
+    rawHandle?: any; // Used for Browser (showDirectoryPicker)
 }
 
 export interface FileSystemFileHandle extends FileSystemHandle {
     kind: 'file';
-    getFile(): Promise<File>;
-    createWritable(): Promise<FileSystemWritableFileStream>;
 }
 
 export interface FileSystemDirectoryHandle extends FileSystemHandle {
     kind: 'directory';
-    values(): AsyncIterableIterator<FileSystemHandle>;
-    getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<FileSystemDirectoryHandle>;
-    getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
-}
-
-export interface FileSystemWritableFileStream extends WritableStream {
-    write(data: string | BufferSource | Blob): Promise<void>;
-    seek(position: number): Promise<void>;
-    truncate(size: number): Promise<void>;
-    close(): Promise<void>;
 }
 
 export class FileSystemService {
+    /**
+     * Opens a directory picker and returns a handle.
+     */
     async openDirectory(): Promise<FileSystemDirectoryHandle> {
         if (isTauri) {
             const { open } = await import('@tauri-apps/plugin-dialog');
@@ -42,22 +41,8 @@ export class FileSystemService {
                 return {
                     kind: 'directory',
                     name,
-                    path,
-                    // Mocking expected browser handle methods for Tauri
-                    values: async function* () {
-                        const { readDir } = await import('@tauri-apps/plugin-fs');
-                        const entries = await readDir(path);
-                        for (const entry of entries) {
-                            yield {
-                                kind: entry.isDirectory ? 'directory' : 'file',
-                                name: entry.name,
-                                path: `${path}/${entry.name}`
-                            } as any;
-                        }
-                    },
-                    getDirectoryHandle: async (newName: string) => ({ kind: 'directory', name: newName, path: `${path}/${newName}` } as any),
-                    getFileHandle: async (newName: string) => ({ kind: 'file', name: newName, path: `${path}/${newName}` } as any),
-                } as any;
+                    path
+                };
             }
             throw new Error('No directory selected');
         }
@@ -67,9 +52,16 @@ export class FileSystemService {
         const handle = await window.showDirectoryPicker({
             mode: 'readwrite'
         });
-        return handle;
+        return {
+            kind: 'directory',
+            name: handle.name,
+            rawHandle: handle
+        };
     }
 
+    /**
+     * Reads entries from a directory handle.
+     */
     async readDirectory(handle: FileSystemDirectoryHandle): Promise<FileSystemHandle[]> {
         if (isTauri && handle.path) {
             const { readDir } = await import('@tauri-apps/plugin-fs');
@@ -81,66 +73,140 @@ export class FileSystemService {
             }));
         }
 
-        const entries: FileSystemHandle[] = [];
-        // @ts-ignore
-        for await (const entry of handle.values()) {
-            entries.push(entry);
-        }
-        return entries;
-    }
-
-    async readFile(handle: FileSystemFileHandle, binary: boolean = false): Promise<string | Blob> {
-        if (isTauri && (handle as any).path) {
-            const { readFile } = await import('@tauri-apps/plugin-fs');
-            const data = await readFile((handle as any).path);
-            if (binary) {
-                return new Blob([data]);
+        if (handle.rawHandle) {
+            const entries: FileSystemHandle[] = [];
+            for await (const entry of handle.rawHandle.values()) {
+                entries.push({
+                    kind: entry.kind,
+                    name: entry.name,
+                    rawHandle: entry
+                });
             }
-            return new TextDecoder().decode(data);
+            return entries;
         }
 
-        const file = await handle.getFile();
-        if (binary) return file;
-        return await file.text();
+        return [];
     }
 
+    /**
+     * Reads the content of a file.
+     */
+    async readFile(handle: FileSystemFileHandle, binary: boolean = false): Promise<string | Blob> {
+        if (isTauri && handle.path) {
+            const { readFile } = await import('@tauri-apps/plugin-fs');
+            const data = await readFile(handle.path);
+            return binary ? new Blob([data]) : new TextDecoder().decode(data);
+        }
+
+        if (handle.rawHandle) {
+            const file = await handle.rawHandle.getFile();
+            return binary ? file : await file.text();
+        }
+
+        throw new Error('Invalid file handle');
+    }
+
+    /**
+     * Gets a file handle by name from a parent directory.
+     */
+    async getFileHandle(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemFileHandle> {
+        if (isTauri && parent.path) {
+            return { kind: 'file', name, path: `${parent.path}/${name}` };
+        }
+        if (parent.rawHandle) {
+            const handle = await parent.rawHandle.getFileHandle(name);
+            return { kind: 'file', name, rawHandle: handle };
+        }
+        throw new Error('Invalid parent handle');
+    }
+
+    /**
+     * Gets a directory handle by name from a parent directory.
+     */
+    async getDirectoryHandle(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
+        if (isTauri && parent.path) {
+            return { kind: 'directory', name, path: `${parent.path}/${name}` };
+        }
+        if (parent.rawHandle) {
+            const handle = await parent.rawHandle.getDirectoryHandle(name);
+            return { kind: 'directory', name, rawHandle: handle };
+        }
+        throw new Error('Invalid parent handle');
+    }
+
+    /**
+     * Gets file metadata (like lastModified).
+     */
+    async getMetadata(handle: FileSystemFileHandle): Promise<{ lastModified: number; size: number }> {
+        if (isTauri && handle.path) {
+            const { stat } = await import('@tauri-apps/plugin-fs');
+            const stats = await stat(handle.path);
+            return {
+                lastModified: stats.mtime ? new Date(stats.mtime).getTime() : Date.now(),
+                size: stats.size
+            };
+        }
+
+        if (handle.rawHandle) {
+            const file = await handle.rawHandle.getFile();
+            return {
+                lastModified: file.lastModified,
+                size: file.size
+            };
+        }
+
+        throw new Error('Invalid file handle');
+    }
+
+    /**
+     * Writes content to a file.
+     */
     async writeFile(handle: FileSystemFileHandle, content: string | Blob): Promise<void> {
-        if (isTauri && (handle as any).path) {
+        if (isTauri && handle.path) {
             if (typeof content === 'string') {
                 const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-                await writeTextFile((handle as any).path, content);
+                await writeTextFile(handle.path, content);
             } else {
                 const { writeFile } = await import('@tauri-apps/plugin-fs');
                 const arrayBuffer = await content.arrayBuffer();
-                await writeFile((handle as any).path, new Uint8Array(arrayBuffer));
+                await writeFile(handle.path, new Uint8Array(arrayBuffer));
             }
             return;
         }
 
-        const writable = await handle.createWritable();
-        await writable.write(content);
-        await writable.close();
+        if (handle.rawHandle) {
+            const writable = await handle.rawHandle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            return;
+        }
+
+        throw new Error('Invalid file handle');
     }
 
+    /**
+     * Creates a new file in a directory.
+     */
     async createFile(parent: FileSystemDirectoryHandle, name: string, content: string | Blob): Promise<FileSystemFileHandle> {
         if (isTauri && parent.path) {
             const path = `${parent.path}/${name}`;
-            if (typeof content === 'string') {
-                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-                await writeTextFile(path, content);
-            } else {
-                const { writeFile } = await import('@tauri-apps/plugin-fs');
-                const arrayBuffer = await content.arrayBuffer();
-                await writeFile(path, new Uint8Array(arrayBuffer));
-            }
-            return { kind: 'file', name, path } as any;
+            await this.writeFile({ kind: 'file', name, path }, content);
+            return { kind: 'file', name, path };
         }
 
-        const handle = await parent.getFileHandle(name, { create: true });
-        await this.writeFile(handle, content);
-        return handle;
+        if (parent.rawHandle) {
+            const handle = await parent.rawHandle.getFileHandle(name, { create: true });
+            const fileHandle: FileSystemFileHandle = { kind: 'file', name, rawHandle: handle };
+            await this.writeFile(fileHandle, content);
+            return fileHandle;
+        }
+
+        throw new Error('Invalid parent handle');
     }
 
+    /**
+     * Creates a new directory in a parent directory.
+     */
     async createDirectory(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
         if (isTauri && parent.path) {
             const path = `${parent.path}/${name}`;
@@ -150,12 +216,20 @@ export class FileSystemService {
             } catch (e) {
                 // Ignore if it already exists
             }
-            return { kind: 'directory', name, path } as any;
+            return { kind: 'directory', name, path };
         }
 
-        return await parent.getDirectoryHandle(name, { create: true });
+        if (parent.rawHandle) {
+            const handle = await parent.rawHandle.getDirectoryHandle(name, { create: true });
+            return { kind: 'directory', name, rawHandle: handle };
+        }
+
+        throw new Error('Invalid parent handle');
     }
 
+    /**
+     * Deletes an entry from a directory.
+     */
     async deleteEntry(parent: FileSystemDirectoryHandle, name: string): Promise<void> {
         if (isTauri && parent.path) {
             const { remove } = await import('@tauri-apps/plugin-fs');
@@ -163,10 +237,17 @@ export class FileSystemService {
             return;
         }
 
-        // @ts-ignore
-        return await parent.removeEntry(name, { recursive: true });
+        if (parent.rawHandle) {
+            await parent.rawHandle.removeEntry(name, { recursive: true });
+            return;
+        }
+
+        throw new Error('Invalid parent handle');
     }
 
+    /**
+     * Renames an entry.
+     */
     async renameEntry(handle: FileSystemHandle, newName: string): Promise<void> {
         if (isTauri && handle.path) {
             const { rename } = await import('@tauri-apps/plugin-fs');
@@ -176,15 +257,17 @@ export class FileSystemService {
             return;
         }
 
-        // @ts-ignore - .move() is supported in modern Chromium
-        if (typeof handle.move === 'function') {
-            // @ts-ignore
-            await handle.move(newName);
-        } else {
-            throw new Error('Rename not supported in this browser version');
+        if (handle.rawHandle && typeof handle.rawHandle.move === 'function') {
+            await handle.rawHandle.move(newName);
+            return;
         }
+
+        throw new Error('Rename not supported or invalid handle');
     }
 
+    /**
+     * Reads a directory recursively.
+     */
     async readDirectoryRecursive(dirHandle: FileSystemDirectoryHandle, parentId: string | null = null): Promise<{ handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[]> {
         let entries: { handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[] = [];
 
@@ -196,42 +279,45 @@ export class FileSystemService {
                 const id = parentId ? `${parentId}/${entry.name}` : entry.name;
                 const kind = entry.isDirectory ? 'directory' : 'file';
                 const path = `${dirHandle.path}/${entry.name}`;
-                const handle = { kind, name: entry.name, path };
+                const handle: FileSystemHandle = { kind, name: entry.name, path };
 
                 entries.push({
-                    handle: handle as any,
-                    parentId: parentId,
-                    id: id,
+                    handle,
+                    parentId,
+                    id,
                     kind,
                     name: entry.name
                 });
 
                 if (kind === 'directory') {
-                    const subEntries = await this.readDirectoryRecursive(handle as any, id);
+                    const subEntries = await this.readDirectoryRecursive(handle as FileSystemDirectoryHandle, id);
                     entries = [...entries, ...subEntries];
                 }
             }
             return entries;
         }
 
-        // @ts-ignore
-        for await (const entry of dirHandle.values()) {
-            const id = parentId ? `${parentId}/${entry.name}` : entry.name;
-            const kind = entry.kind;
+        if (dirHandle.rawHandle) {
+            for await (const entry of dirHandle.rawHandle.values()) {
+                const id = parentId ? `${parentId}/${entry.name}` : entry.name;
+                const kind = entry.kind;
+                const handle: FileSystemHandle = { kind, name: entry.name, rawHandle: entry };
 
-            entries.push({
-                handle: entry,
-                parentId: parentId,
-                id: id,
-                kind: kind,
-                name: entry.name
-            });
+                entries.push({
+                    handle,
+                    parentId,
+                    id,
+                    kind,
+                    name: entry.name
+                });
 
-            if (kind === 'directory') {
-                const subEntries = await this.readDirectoryRecursive(entry as FileSystemDirectoryHandle, id);
-                entries = [...entries, ...subEntries];
+                if (kind === 'directory') {
+                    const subEntries = await this.readDirectoryRecursive(handle as FileSystemDirectoryHandle, id);
+                    entries = [...entries, ...subEntries];
+                }
             }
         }
+
         return entries;
     }
 }

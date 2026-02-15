@@ -10,6 +10,7 @@ import { dbHelpers } from '@/lib/db';
 export interface ExportOptions {
     includeScripture?: boolean;
     bibleVersion?: string;
+    author?: string;
 }
 
 export class ExportService {
@@ -75,6 +76,7 @@ export class ExportService {
 
             const data = await htmlToDocx(fullHtml, null, {
                 title: title,
+                author: options?.author || 'Parchments User',
                 orientation: 'portrait',
             });
 
@@ -120,6 +122,20 @@ export class ExportService {
                     avoid: ['img', 'table', 'tr', 'td']
                 }
             };
+
+            const pdfObj = html2pdf().set(opt).from(typeof elementOrHtml === 'string' ? elementOrHtml : elementOrHtml);
+
+            // Set PDF metadata if author is provided
+            if (options?.author) {
+                // Note: html2pdf uses jsPDF internally. We can access the worker.
+                pdfObj.toPdf().get('pdf').then((pdf: any) => {
+                    pdf.setProperties({
+                        title: title,
+                        author: options.author,
+                        creator: 'Parchments Scripture IDE'
+                    });
+                });
+            }
 
             if (typeof elementOrHtml === 'string') {
                 // If string, create a temp container with better formatting

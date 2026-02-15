@@ -6,6 +6,10 @@ import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type
 import { useSyncStore } from './syncStore';
 import { YjsService } from '@/lib/sync/YjsService';
 
+export const UNTITLED_NOTE = 'Untitled Note';
+export const UNTITLED_FOLDER = 'Untitled Folder';
+export const UNTITLED_SPACE = 'Untitled Space';
+
 export interface LocalItem {
     id: string;
     name: string;
@@ -251,7 +255,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         // Fallback to DB if localized but no folder is open (Incognito/PWA fallback)
         if (isLocalMode && localDirectoryHandle) {
-            const name = title || 'Untitled Note';
+            const name = title || UNTITLED_NOTE;
             await createLocalNote(name, folderId, '', forceId);
             // Re-fetch from currentNote because createLocalNote sets it
             const currentNote = get().currentNote;
@@ -264,7 +268,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
 
         const note = await dbHelpers.createNote({
-            title: title || 'Untitled Note',
+            title: title || UNTITLED_NOTE,
             content: '',
             folderId,
             tags: [],
@@ -705,8 +709,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             } else {
                 // Fallback to file system lastModified
                 try {
-                    const file = await (fileHandle as any).getFile();
-                    createdAt = file.lastModified;
+                    const metadata = await fileSystem.getMetadata(fileHandle as FileSystemFileHandle);
+                    createdAt = metadata.lastModified;
                 } catch (e) {
                     console.warn('[NoteStore] Failed to get file lastModified:', e);
                 }
@@ -872,8 +876,23 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     saveCurrentNote: async (title, content) => {
-        const { currentNote, isLocalMode, currentFileHandle, notes } = get();
+        const { currentNote, isLocalMode, currentFileHandle, notes, renameNote } = get();
         if (!currentNote) return;
+
+        // SMART AUTO-NAMING: If title is "Untitled Note", try to extract from content
+        let finalTitle = title;
+        if (title === UNTITLED_NOTE || title.trim() === '') {
+            const h1Match = content.match(/<h1[^>]*>(.*?)<\/h1>/i);
+            const textContent = content.replace(/<[^>]*>/g, '').trim();
+            const extracted = h1Match ? h1Match[1].replace(/<[^>]*>/g, '').trim() : (textContent.slice(0, 30));
+
+            if (extracted && extracted.length > 2 && extracted !== UNTITLED_NOTE) {
+                finalTitle = extracted;
+                console.log(`[Auto-Naming] Detected title from content: "${finalTitle}"`);
+                // Trigger an async rename so we don't block the save
+                setTimeout(() => renameNote(currentNote.id, finalTitle), 100);
+            }
+        }
 
         if (isLocalMode && currentFileHandle) {
             // File System Mode
@@ -892,7 +911,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 await fileSystem.writeFile(currentFileHandle, portableContent);
                 // Update store state to reflect changes
                 set({
-                    currentNote: { ...currentNote, title, content, updatedAt: Date.now() }
+                    currentNote: { ...currentNote, title: finalTitle, content, updatedAt: Date.now() }
                 });
             } catch (error) {
                 console.error('Failed to save to file:', error);
@@ -901,17 +920,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // DB Mode
             try {
                 await db.notes.update(currentNote.id, {
-                    title,
+                    title: finalTitle,
                     content,
                     updatedAt: Date.now(),
                 });
 
                 const updatedNotes = notes.map(n =>
                     n.id === currentNote.id
-                        ? { ...n, title, content, updatedAt: Date.now() }
+                        ? { ...n, title: finalTitle, content, updatedAt: Date.now() }
                         : n
                 );
-                set({ notes: updatedNotes, currentNote: { ...currentNote, title, content, updatedAt: Date.now() } });
+                set({ notes: updatedNotes, currentNote: { ...currentNote, title: finalTitle, content, updatedAt: Date.now() } });
             } catch (error) {
                 console.error('Failed to save to DB:', error);
             }
@@ -965,9 +984,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
                     // The src might be "filename.png" or ".assets/images/filename.png"
                     const fileName = src.split('/').pop()!;
-                    const fileHandle = await imagesHandle.getFileHandle(fileName);
-                    const file = await (fileHandle as any).getFile();
-                    const blobUrl = URL.createObjectURL(file);
+                    const fileHandle = await fileSystem.getFileHandle(imagesHandle, fileName);
+                    const blob = await fileSystem.readFile(fileHandle as FileSystemFileHandle, true);
+                    const blobUrl = URL.createObjectURL(blob as Blob);
                     img.setAttribute('src', blobUrl);
                     // Store the mapping so we can dehydrate later if needed, 
                     // or just rely on the fact that blobs are recognizable.

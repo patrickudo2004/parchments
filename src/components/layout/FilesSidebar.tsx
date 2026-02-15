@@ -14,18 +14,19 @@ import {
     Edit2,
     Users,
     Globe,
-    GripHorizontal
+    GripHorizontal,
+    PenTool,
+    Pin,
+    LogOut
 } from 'lucide-react';
-import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
+import { useNoteStore, UNTITLED_NOTE, UNTITLED_FOLDER, UNTITLED_SPACE } from '@/stores/noteStore';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
-import { PenTool, Pin } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { useSyncStore } from '@/stores/syncStore';
-import { LogOut } from 'lucide-react';
 import { roomHashToId, YjsService } from '@/lib/sync/YjsService';
 import { ShareSpaceModal } from '@/components/sync/ShareSpaceModal';
 
@@ -215,7 +216,7 @@ export const FilesSidebar: React.FC = () => {
                 isOpen: true,
                 title: 'New Note',
                 label: 'Note Name',
-                defaultValue: 'Untitled Note',
+                defaultValue: UNTITLED_NOTE,
                 onConfirm: async (name) => {
                     await createNote(selectedFolderId, name);
                     setPromptConfig(prev => ({ ...prev, isOpen: false }));
@@ -331,7 +332,7 @@ export const FilesSidebar: React.FC = () => {
         setShareSpaceConfig({
             isOpen: true,
             folderId: folder.id,
-            folderName: folder.name || folder.title || 'Untitled Folder'
+            folderName: folder.name || folder.title || UNTITLED_FOLDER
         });
     };
 
@@ -707,7 +708,7 @@ export const FilesSidebar: React.FC = () => {
                                     {sharedFolders.map((folderId) => {
                                         const folder = folders.find(f => f.id === folderId);
                                         const localFolder = localFiles.find(f => f.id === folderId && f.kind === 'directory');
-                                        const folderName = folder?.name || localFolder?.name || 'Untitled Space';
+                                        const folderName = folder?.name || localFolder?.name || UNTITLED_SPACE;
                                         const isExpanded = expandedFolders.has(folderId);
                                         const folderNotes = notes.filter(n => n.folderId === folderId);
                                         const localFolderNotes = localFiles.filter(f => f.parentId === folderId && f.kind === 'file');

@@ -82,7 +82,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         if (currentNote) {
             setTitle(currentNote.title);
         }
-    }, [currentNote?.id]);
+    }, [currentNote?.id, currentNote?.title]);
 
     // Title Synchronization via Yjs for Collaboration
     useEffect(() => {

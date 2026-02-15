@@ -269,30 +269,49 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
             <div className="ml-auto flex items-center gap-2">
                 {/* Text Case Menu */}
-                <div className="relative group/case ml-2 mr-2">
+                <div className="relative ml-2 mr-2">
                     <Button
                         onClick={(e: React.MouseEvent) => {
                             e.preventDefault();
-                            // Toggle menu handled by group hover or click logic
+                            e.stopPropagation();
+                            const menu = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (menu) {
+                                const isVisible = menu.style.display === 'block';
+                                // Close all other similar menus first if any
+                                document.querySelectorAll('.case-menu').forEach((m: any) => m.style.display = 'none');
+                                menu.style.display = isVisible ? 'none' : 'block';
+                            }
                         }}
                         icon={CaseSensitive}
                         title="Text Case Transformations"
                     />
-                    <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-dark-surface rounded-lg shadow-xl border border-light-border dark:border-dark-border py-1 z-30 opacity-0 invisible group-hover/case:opacity-100 group-hover/case:visible transition-all">
+                    <div
+                        className="case-menu absolute right-0 top-full mt-1 w-32 bg-white dark:bg-dark-surface rounded-lg shadow-xl border border-light-border dark:border-dark-border py-1 z-50 hidden"
+                        style={{ display: 'none' }}
+                    >
                         <button
-                            onClick={() => editor.chain().focus().uppercase().run()}
+                            onClick={() => {
+                                editor.chain().focus().uppercase().run();
+                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                            }}
                             className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
                         >
                             UPPERCASE
                         </button>
                         <button
-                            onClick={() => editor.chain().focus().lowercase().run()}
+                            onClick={() => {
+                                editor.chain().focus().lowercase().run();
+                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                            }}
                             className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
                         >
                             lowercase
                         </button>
                         <button
-                            onClick={() => editor.chain().focus().capitalize().run()}
+                            onClick={() => {
+                                editor.chain().focus().capitalize().run();
+                                document.querySelectorAll('.case-menu').forEach((m: any) => (m as HTMLElement).style.display = 'none');
+                            }}
                             className="w-full px-3 py-1.5 text-left text-xs font-bold hover:bg-light-background dark:hover:bg-dark-background transition-colors"
                         >
                             Capitalize

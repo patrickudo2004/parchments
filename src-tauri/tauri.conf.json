@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Parchments",
   "version": "0.1.0",
-  "identifier": "com.parchments.app",
+  "identifier": "com.parchments.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",

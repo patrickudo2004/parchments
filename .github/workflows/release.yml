@@ -48,4 +48,4 @@ jobs:
           releaseBody: "Automated release from GitHub Actions"
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-desktop' || '' }}
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}

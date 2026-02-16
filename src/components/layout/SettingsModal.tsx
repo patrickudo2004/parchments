@@ -350,7 +350,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             ))}
                         </nav>
                         <div className="mt-auto pt-4 border-t border-light-border dark:border-dark-border opacity-50">
-                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v0.1.0-beta.4</p>
+                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v0.1.0-beta.5</p>
                         </div>
                     </div>
 

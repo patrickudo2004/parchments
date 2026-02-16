@@ -48,6 +48,7 @@ const TABS = [
     { id: 'intelligence', label: 'Intelligence', icon: Brain },
     { id: 'sync', label: 'Sync & Collaboration', icon: Cloud },
     { id: 'storage', label: 'Data & Storage', icon: Database },
+    { id: 'support', label: 'Support & About', icon: Info },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
@@ -349,7 +350,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             ))}
                         </nav>
                         <div className="mt-auto pt-4 border-t border-light-border dark:border-dark-border opacity-50">
-                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v1.0.0</p>
+                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v0.1.0-beta.4</p>
                         </div>
                     </div>
 
@@ -683,107 +684,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </>
                                     )}
 
-                                    {activeTab === 'intelligence' && (
+                                    {activeTab === 'support' && (
                                         <>
-                                            <section className="space-y-4">
-                                                <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background/40 rounded-xl border border-light-border dark:border-dark-border group">
-                                                    <div>
-                                                        <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-                                                            Enable Deep Intelligence
-                                                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Local-First</span>
-                                                        </p>
-                                                        <p className="text-xs text-light-text-secondary group-hover:text-light-text-primary transition-colors">Activate conversational research and advanced theological analysis.</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => toggleAIFeatures(!isAIFeaturesEnabled)}
-                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${isAIFeaturesEnabled ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
-                                                    >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${isAIFeaturesEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            </section>
-
                                             <section className="space-y-6">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">AI Asset Manager</h4>
-
-                                                <div className="p-6 bg-light-background dark:bg-dark-background/20 border border-light-border dark:border-dark-border rounded-2xl space-y-4">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="p-3 bg-primary/10 text-primary rounded-xl">
-                                                            <Cpu size={24} />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Advanced Logic Engine (Qwen 2.5)</h5>
-                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~500 MB</span>
-                                                            </div>
-                                                            <p className="text-xs text-light-text-secondary leading-relaxed">
-                                                                Downloading this engine enables offline chat, sermon outlining, and topic summarization. It runs entirely on your hardware.
-                                                            </p>
-                                                        </div>
+                                                <div className="flex items-start gap-4 p-6 bg-primary/5 border border-primary/20 rounded-2xl">
+                                                    <div className="p-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
+                                                        <Info size={24} />
                                                     </div>
-
-                                                    {isGenerativeModelLoading ? (
-                                                        <div className="space-y-3 pt-2">
-                                                            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-primary">
-                                                                <span>{statusMessage}</span>
-                                                                <span>{Math.round(downloadProgress * 100)}%</span>
-                                                            </div>
-                                                            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                                <motion.div
-                                                                    className="h-full bg-primary"
-                                                                    initial={{ width: 0 }}
-                                                                    animate={{ width: `${downloadProgress * 100}%` }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ) : isGenerativeModelDownloaded ? (
-                                                        <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-200 dark:border-green-900/30">
-                                                            <CheckCircle2 size={16} />
-                                                            <span className="text-xs font-bold">Engine ready and stored locally.</span>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={downloadGenerativeModel}
-                                                            className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all flex items-center justify-center gap-2"
-                                                        >
-                                                            <Download size={16} /> Download Engine
-                                                        </button>
-                                                    )}
-
-                                                    <div className="pt-2 border-t border-light-border dark:border-dark-border mt-4">
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (confirm('Are you sure you want to delete all local AI models? This will free up space but require a re-download if you want to use AI again.')) {
-                                                                    const { clearModelCache } = useAIStore.getState();
-                                                                    await clearModelCache();
-                                                                }
-                                                            }}
-                                                            className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-600 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <Trash2 size={12} /> Purge Local AI Cache
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </section>
-
-                                            <section className="space-y-4 pt-4">
-                                                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl flex gap-3">
-                                                    <Shield size={20} className="text-blue-600 shrink-0" />
                                                     <div>
-                                                        <h5 className="text-xs font-bold text-blue-800 dark:text-blue-400">Your Study stays Yours</h5>
-                                                        <p className="text-[11px] text-blue-700/80 dark:text-blue-400/70 mt-0.5 leading-relaxed">
-                                                            Parchments uses <b>Local Intelligence</b>. Unlike other apps, your notes are never uploaded to a cloud for processing. All "thinking" happens inside this browser window.
+                                                        <h4 className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">Parchments Beta</h4>
+                                                        <p className="text-sm text-light-text-secondary mt-1 leading-relaxed">
+                                                            Thank you for participating in the Parchments Beta! Your feedback is essential for making this the best workspace for scriptural research and sermon composition.
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl flex gap-3">
-                                                    <Info size={20} className="text-amber-600 shrink-0" />
-                                                    <div>
-                                                        <h5 className="text-xs font-bold text-amber-800 dark:text-amber-400">Performance Notice</h5>
-                                                        <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 mt-0.5 leading-relaxed">
-                                                            Generative AI requires a modern computer with enough RAM (8GB+ recommended). If your device feels sluggish, you can disable these features at any time.
-                                                        </p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <a
+                                                        href="https://github.com/patrickudo2004/parchments/issues"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl group hover:border-primary/50 transition-all"
+                                                    >
+                                                        <Search size={24} className="text-primary mb-3" />
+                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Report a Bug</h5>
+                                                        <p className="text-xs text-light-text-secondary mt-1">Found a glitch? Let us know on GitHub.</p>
+                                                        <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            Open GitHub Issues →
+                                                        </div>
+                                                    </a>
+
+                                                    <a
+                                                        href="mailto:patrickudo2004@gmail.com?subject=Parchments%20Beta%20Feedback"
+                                                        className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl group hover:border-primary/50 transition-all"
+                                                    >
+                                                        <Edit3 size={24} className="text-primary mb-3" />
+                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Send Feedback</h5>
+                                                        <p className="text-xs text-light-text-secondary mt-1">Have a suggestion? Send an email directly to the developer.</p>
+                                                        <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            Compose Email →
+                                                        </div>
+                                                    </a>
+                                                </div>
+
+                                                <div className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Project Links</h4>
+                                                    <div className="flex gap-3">
+                                                        <a
+                                                            href="https://github.com/patrickudo2004/parchments/releases"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
+                                                        >
+                                                            <Zap size={14} /> Release Notes
+                                                        </a>
+                                                        <a
+                                                            href="https://github.com/patrickudo2004/parchments"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
+                                                        >
+                                                            <Share2 size={14} /> Source Code
+                                                        </a>
                                                     </div>
                                                 </div>
                                             </section>

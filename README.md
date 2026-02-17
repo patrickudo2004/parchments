@@ -14,9 +14,9 @@ To get started with the Parchments Beta, download the installer for your operati
 
 | Platform | Download Link | File Type |
 | :--- | :--- | :--- |
-| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi) | `.msi` Installer |
-| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg) | `.dmg` (Universal) |
-| **Linux** | [**Download .deb**](https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb) or [**.AppImage**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_amd64.AppImage) | `.deb` / `.AppImage` |
+| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_x64_en-US.msi) | `.msi` Installer |
+| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_universal.dmg) | `.dmg` (Universal) |
+| **Linux** | [**Download .deb**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/parchments_0.1.0_amd64.deb) or [**.AppImage**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_amd64.AppImage) | `.deb` / `.AppImage` |
 
 > [!TIP]
 > **First-time Installation Help:**

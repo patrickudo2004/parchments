@@ -1,5 +1,5 @@
 import React from 'react';
-import { Book, Github, Mail, Globe } from 'lucide-react';
+import { Github, Mail, Globe } from 'lucide-react';
 
 interface MarketingLayoutProps {
     children: React.ReactNode;
@@ -12,9 +12,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5">
                 <nav className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-                            <Book className="text-white" size={24} />
-                        </div>
+                        <img src="/logo.png" alt="Parchments Logo" className="w-10 h-10 object-contain" />
                         <div>
                             <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
                             <span className="block text-[10px] uppercase tracking-[0.2em] font-bold text-primary opacity-80 -mt-1">Beta v0.1.0</span>
@@ -57,9 +55,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                         <div className="col-span-1 md:col-span-2 space-y-6">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                                    <Book className="text-white" size={18} />
-                                </div>
+                                <img src="/logo.png" alt="Parchments Logo" className="w-8 h-8 object-contain" />
                                 <span className="text-lg font-black tracking-tighter uppercase italic">Parchments</span>
                             </div>
                             <p className="text-white/40 text-sm max-w-sm leading-relaxed">

@@ -37,20 +37,29 @@ export const LandingPage: React.FC = () => {
                             Built for theologians who value <span className="text-white hover:text-primary transition-colors cursor-default">privacy</span> and <span className="text-white hover:text-primary transition-colors cursor-default">focus</span>.
                         </p>
 
-                        <div id="download" className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
-                            <div className="flex flex-col gap-3">
+                        <div id="download" className="flex flex-col items-center justify-center gap-8 pt-4">
+                            <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi"
+                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_x64_en-US.msi"
                                     className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
                                     <span>Download for Windows</span>
                                 </a>
-                                <div className="flex items-center justify-center gap-4 text-[10px] uppercase font-bold text-white/20 tracking-[0.2em]">
-                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg" className="hover:text-primary transition-colors flex items-center gap-1.5 underline-offset-4 underline decoration-white/10 hover:decoration-primary/50">macOS (Apple Silicon/Intel)</a>
-                                    <span>•</span>
-                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb" className="hover:text-primary transition-colors flex items-center gap-1.5 underline-offset-4 underline decoration-white/10 hover:decoration-primary/50">Linux (.deb)</a>
-                                </div>
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_universal.dmg"
+                                    className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
+                                >
+                                    <Download size={22} />
+                                    <span>Download for macOS</span>
+                                </a>
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/parchments_0.1.0_amd64.deb"
+                                    className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
+                                >
+                                    <Download size={22} />
+                                    <span>Download for Linux</span>
+                                </a>
                             </div>
                         </div>
                     </motion.div>
@@ -64,17 +73,11 @@ export const LandingPage: React.FC = () => {
                     >
                         <div className="absolute inset-0 bg-primary/20 blur-[120px] rounded-full scale-75 opacity-50" />
                         <div className="relative bg-[#0d0d0d] rounded-3xl border border-white/10 shadow-3xl overflow-hidden aspect-video group">
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-
-                            {/* Browser Bars */}
-                            <div className="h-10 bg-[#151515] border-b border-white/5 flex items-center px-4 gap-2">
-                                <div className="flex gap-1.5">
-                                    <div className="w-3 h-3 rounded-full bg-red-500/20" />
-                                    <div className="w-3 h-3 rounded-full bg-amber-500/20" />
-                                    <div className="w-3 h-3 rounded-full bg-green-500/20" />
-                                </div>
-                                <div className="mx-auto w-1/3 h-5 bg-white/5 rounded-md" />
-                            </div>
+                            <img
+                                src="/preview.png"
+                                alt="Parchments App Preview"
+                                className="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity duration-500"
+                            />
 
                             {/* Center Logo / CTA Overlay */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">
@@ -84,23 +87,6 @@ export const LandingPage: React.FC = () => {
                                 >
                                     Try Web Preview <ArrowRight size={20} />
                                 </a>
-                            </div>
-
-                            {/* Visual Placeholder Content */}
-                            <div className="p-8 space-y-4">
-                                <div className="flex gap-6 h-full">
-                                    <div className="w-48 space-y-2 opacity-20">
-                                        <div className="h-4 bg-white rounded w-3/4" />
-                                        <div className="h-4 bg-white rounded w-1/2" />
-                                        <div className="h-64 bg-white/5 rounded-xl mt-4" />
-                                    </div>
-                                    <div className="flex-1 space-y-4 pt-10">
-                                        <div className="h-12 bg-white/10 rounded-2xl w-2/3" />
-                                        <div className="h-4 bg-white/5 rounded w-full" />
-                                        <div className="h-4 bg-white/5 rounded w-full" />
-                                        <div className="h-4 bg-white/5 rounded w-3/4" />
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </motion.div>

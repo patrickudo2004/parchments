@@ -85,4 +85,14 @@ To get started with the Parchments Beta, download the installer for your operati
 
 ---
 
-*Parchments is currently in Phase 6: Finalization & Distribution. Check the [Task Checklist](TASK_CHECKLIST.md) for detailed progress.*
+*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.1.0-beta.7`.*
+
+## 🆕 What's New in Beta 7
+- **Remote Version Control (Nag & Lock)**: The app now notifies you of updates automatically.
+- **Support Hub**: Direct feedback links (GitHub/Email) now available in Settings.
+- **Stability Fixes**: Fixed macOS universal binary targets and Linux dependency chains.
+- **Local AI Transcription**: Whisper AI optimizations for smoother sermon capturing.
+
+---
+
+Check the [Task Checklist](TASK_CHECKLIST.md) for detailed progress.

@@ -44,6 +44,10 @@ interface UIStore {
     exportFormat: 'pdf' | 'docx' | 'md' | 'html' | 'txt' | null;
     isNoFolderModalOpen: boolean;
 
+    // Versioning
+    versionStatus: 'up-to-date' | 'outdated' | 'obsolete';
+    updateInfo: { latest: string, minRequired: string, downloadUrl: string, message: string } | null;
+
     // Editor stats
     wordCount: number;
     characterCount: number;
@@ -81,6 +85,7 @@ interface UIStore {
     openCrossRefs: (verseId?: string) => void;
     setEditorStats: (words: number, characters: number) => void;
     setIsMobile: (isMobile: boolean) => void;
+    setVersionStatus: (status: 'up-to-date' | 'outdated' | 'obsolete', info?: any) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -129,6 +134,9 @@ export const useUIStore = create<UIStore>()(
             wordCount: 0,
             characterCount: 0,
             isMobile: false,
+
+            versionStatus: 'up-to-date',
+            updateInfo: null,
 
             toggleTheme: () =>
                 set((state) => {
@@ -250,6 +258,7 @@ export const useUIStore = create<UIStore>()(
             setLeftSidebarPosition: (pos) => set({ leftSidebarPosition: pos }),
             setRightSidebarPosition: (pos) => set({ rightSidebarPosition: pos }),
             setIsMobile: (isMobile) => set({ isMobile }),
+            setVersionStatus: (status, info) => set({ versionStatus: status, updateInfo: info || null }),
         }),
         {
             name: 'parchments-ui',

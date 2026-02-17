@@ -11,9 +11,11 @@ import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 
 import { JoinHandler } from '@/components/sync/JoinHandler';
 import { useSpaceSync } from '@/hooks/useSpaceSync';
+import { useVersionCheck } from '@/hooks/useVersionCheck';
 
 const App: React.FC = () => {
     useSpaceSync();
+    useVersionCheck();
 
     useEffect(() => {
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));

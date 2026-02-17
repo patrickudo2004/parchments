@@ -31,6 +31,7 @@ import { useAIStore } from '@/stores/aiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { UpdateBanner, VersionLockModal } from './VersioningUI';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -182,6 +183,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return (
         <ErrorBoundary>
             <div className={`h-screen flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary ${density === 'compact' ? 'density-compact' : ''} ${isMobile ? 'pb-16' : ''}`}>
+                <UpdateBanner />
+                <VersionLockModal />
                 {!isMobile && <TopBar />}
                 {!isFocusMode && !isMobile && <MenuBar />}
 

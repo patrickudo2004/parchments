@@ -54,6 +54,13 @@ export const LandingPage: React.FC = () => {
                                     <span>View User Guide</span>
                                 </a>
                             </div>
+
+                            <p className="text-white/40 text-sm font-medium">
+                                Also available for{' '}
+                                <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg" className="text-white/60 hover:text-primary transition-colors underline underline-offset-4 decoration-white/10">macOS</a>
+                                {' '}and{' '}
+                                <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb" className="text-white/60 hover:text-primary transition-colors underline underline-offset-4 decoration-white/10">Linux</a>
+                            </p>
                         </div>
                     </motion.div>
 
@@ -169,6 +176,10 @@ export const LandingPage: React.FC = () => {
 
                     <a
                         href="#download"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
                         className="inline-flex items-center gap-3 px-10 py-6 bg-primary text-white font-black rounded-[24px] hover:scale-110 active:scale-95 transition-all shadow-3xl shadow-primary/20 text-lg"
                     >
                         Download the Beta <Download size={24} />

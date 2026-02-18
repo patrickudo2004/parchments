@@ -31,6 +31,10 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                     <div className="flex items-center gap-4">
                         <a
                             href="#download"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
                             className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
                         >
                             Get Beta
@@ -77,8 +81,33 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <ul className="space-y-4 text-sm text-white/40">
                                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                                 <li><a href="/guide" className="hover:text-white transition-colors">Guide</a></li>
-                                <li><a href="#download" className="hover:text-white transition-colors">Download</a></li>
                                 <li><a href="/app" className="hover:text-white transition-colors italic">Web Preview</a></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-6">Downloads</h4>
+                            <ul className="space-y-4 text-sm text-white/40">
+                                <li>
+                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi" className="hover:text-white transition-colors flex items-center gap-2">
+                                        Windows (.msi)
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg" className="hover:text-white transition-colors flex items-center gap-2">
+                                        macOS (.dmg)
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb" className="hover:text-white transition-colors flex items-center gap-2 text-xs">
+                                        Linux (.deb)
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.AppImage" className="hover:text-white transition-colors flex items-center gap-2 text-xs">
+                                        Linux (.AppImage)
+                                    </a>
+                                </li>
                             </ul>
                         </div>
 

@@ -3,6 +3,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/patrickudo2004/parchments?label=latest%20beta&color=blue)](https://github.com/patrickudo2004/parchments/releases/latest)
 [![Build Status](https://github.com/patrickudo2004/parchments/actions/workflows/release.yml/badge.svg)](https://github.com/patrickudo2004/parchments/actions/workflows/release.yml)
 [![License](https://img.shields.io/github/license/patrickudo2004/parchments)](LICENSE)
+[![Total Downloads](https://img.shields.io/github/downloads/patrickudo2004/parchments/total?style=for-the-badge&color=primary)](https://github.com/patrickudo2004/parchments/releases)
 
 Parchments is a premium, offline-first Bible study and sermon composition workspace. Built for theologians, pastors, and scriptural researchers, it combines a high-performance rich text editor with deep Bible intelligence and structural editing tools.
 

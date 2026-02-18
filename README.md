@@ -14,9 +14,9 @@ To get started with the Parchments Beta, download the installer for your operati
 
 | Platform | Download Link | File Type |
 | :--- | :--- | :--- |
-| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_x64_en-US.msi) | `.msi` Installer |
-| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_universal.dmg) | `.dmg` (Universal) |
-| **Linux** | [**Download .deb**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/parchments_0.1.0_amd64.deb) or [**.AppImage**](https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_amd64.AppImage) | `.deb` / `.AppImage` |
+| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi) | `.msi` Installer |
+| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg) | `.dmg` (Universal) |
+| **Linux** | [**Download .deb**](https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb) or [**.AppImage**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_amd64.AppImage) | `.deb` / `.AppImage` |
 
 > [!TIP]
 > **First-time Installation Help:**
@@ -92,6 +92,14 @@ To get started with the Parchments Beta, download the installer for your operati
 - **Support Hub**: Direct feedback links (GitHub/Email) now available in Settings.
 - **Stability Fixes**: Fixed macOS universal binary targets and Linux dependency chains.
 - **Local AI Transcription**: Whisper AI optimizations for smoother sermon capturing.
+
+---
+
+## 🛡️ License
+
+Parchments is free and open-source software licensed under the **GNU General Public License v3**. This ensures that the application and its source code remain free forever, protecting the rights of users and contributors.
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ---
 

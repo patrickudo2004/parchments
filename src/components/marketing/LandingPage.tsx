@@ -40,21 +40,21 @@ export const LandingPage: React.FC = () => {
                         <div id="download" className="flex flex-col items-center justify-center gap-8 pt-4">
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_x64_en-US.msi"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi"
                                     className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
                                     <span>Download for Windows</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/Parchments_0.1.0_universal.dmg"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg"
                                     className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
                                 >
                                     <Download size={22} />
                                     <span>Download for macOS</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/download/v0.1.0-beta.7/parchments_0.1.0_amd64.deb"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb"
                                     className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
                                 >
                                     <Download size={22} />

@@ -21,6 +21,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
 
                     <div className="hidden md:flex items-center gap-8">
                         <a href="#features" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Features</a>
+                        <a href="/guide" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Guide</a>
                         <a href="#download" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Download</a>
                         <a href="https://github.com/patrickudo2004/parchments" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
                             <Github size={20} />
@@ -75,6 +76,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-6">Product</h4>
                             <ul className="space-y-4 text-sm text-white/40">
                                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                                <li><a href="/guide" className="hover:text-white transition-colors">Guide</a></li>
                                 <li><a href="#download" className="hover:text-white transition-colors">Download</a></li>
                                 <li><a href="/app" className="hover:text-white transition-colors italic">Web Preview</a></li>
                             </ul>

@@ -47,18 +47,11 @@ export const LandingPage: React.FC = () => {
                                     <span>Download for Windows</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg"
+                                    href="/guide"
                                     className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
                                 >
-                                    <Download size={22} />
-                                    <span>Download for macOS</span>
-                                </a>
-                                <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb"
-                                    className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
-                                >
-                                    <Download size={22} />
-                                    <span>Download for Linux</span>
+                                    <Layout size={22} />
+                                    <span>View User Guide</span>
                                 </a>
                             </div>
                         </div>
@@ -101,7 +94,17 @@ export const LandingPage: React.FC = () => {
                         <h3 className="text-3xl md:text-5xl font-black tracking-tight">Everything a researcher needs.</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {/* Scripture Intelligence */}
+                        <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
+                            <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500 mb-6 group-hover:scale-110 transition-transform">
+                                <Layout size={28} />
+                            </div>
+                            <h4 className="text-xl font-bold mb-3">Scripture Intelligence</h4>
+                            <p className="text-white/40 text-sm leading-relaxed">
+                                Type a verse reference (John 3:16) and watch it turn into a smart link instantly. Instant hover previews for deep flow.
+                            </p>
+                        </div>
                         {/* Privacy */}
                         <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
                             <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">

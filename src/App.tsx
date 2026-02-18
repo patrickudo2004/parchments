@@ -13,6 +13,7 @@ import { JoinHandler } from '@/components/sync/JoinHandler';
 import { useSpaceSync } from '@/hooks/useSpaceSync';
 import { useVersionCheck } from '@/hooks/useVersionCheck';
 import { LandingPage } from '@/components/marketing/LandingPage';
+import { UserGuide } from '@/components/marketing/UserGuide';
 
 const App: React.FC = () => {
     useSpaceSync();
@@ -47,6 +48,7 @@ const App: React.FC = () => {
                     <EditorContainer />
                 </MainLayout>
             } />
+            <Route path="/guide" element={<UserGuide />} />
             <Route path="/join/*" element={<JoinHandler />} />
             <Route path="*" element={
                 <div className="p-8 font-mono text-xs">

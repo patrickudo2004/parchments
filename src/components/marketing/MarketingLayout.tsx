@@ -11,13 +11,13 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
             {/* Header */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5">
                 <nav className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <img src="/logo.png" alt="Parchments Logo" className="w-10 h-10 object-contain" />
                         <div>
                             <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
                             <span className="block text-[10px] uppercase tracking-[0.2em] font-bold text-primary opacity-80 -mt-1">Beta v0.1.0</span>
                         </div>
-                    </div>
+                    </a>
 
                     <div className="hidden md:flex items-center gap-8">
                         <a href="#features" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Features</a>
@@ -59,10 +59,10 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                         <div className="col-span-1 md:col-span-2 space-y-6">
-                            <div className="flex items-center gap-3">
+                            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                                 <img src="/logo.png" alt="Parchments Logo" className="w-8 h-8 object-contain" />
                                 <span className="text-lg font-black tracking-tighter uppercase italic">Parchments</span>
-                            </div>
+                            </a>
                             <p className="text-white/40 text-sm max-w-sm leading-relaxed">
                                 A premium, offline-first Bible study and sermon composition workspace. Built for theologians, pastors, and scriptural researchers.
                             </p>

@@ -10,6 +10,7 @@ import {
     Cpu,
     ArrowRight
 } from 'lucide-react';
+import { APP_VERSION } from '@/lib/version';
 
 export const LandingPage: React.FC = () => {
     return (
@@ -25,7 +26,7 @@ export const LandingPage: React.FC = () => {
                     >
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full">
                             <span className="w-2 h-2 bg-primary animate-pulse rounded-full" />
-                            <span className="text-[10px] uppercase font-black tracking-widest text-primary">Beta v0.1.0-beta.7 Now Live</span>
+                            <span className="text-[10px] uppercase font-black tracking-widest text-primary">Beta v{APP_VERSION} Now Live</span>
                         </div>
 
                         <h1 className="text-5xl md:text-8xl font-black tracking-tight leading-[0.9] max-w-4xl mx-auto italic">

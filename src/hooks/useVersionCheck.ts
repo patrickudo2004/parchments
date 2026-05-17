@@ -1,20 +1,48 @@
 import { useEffect, useCallback } from 'react';
 import { useUIStore } from '@/stores/uiStore';
-import packageJson from '../../package.json';
+import { APP_VERSION, VERSION_INFO } from '@/lib/version';
 
-const VERSION_URL = 'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json';
-const CURRENT_VERSION = packageJson.version; // e.g., "0.1.0"
+const VERSION_URLS = [
+    '/version.json',
+    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/public/version.json',
+    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json'
+];
+const CURRENT_VERSION = APP_VERSION;
 
 // Helper to compare semantic versions (basic version for beta tags)
 const compareVersions = (v1: string, v2: string) => {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
+    const parse = (version: string) => {
+        const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/);
+        if (!match) return [0, 0, 0, 0];
+        return [
+            Number(match[1]),
+            Number(match[2]),
+            Number(match[3]),
+            match[4] ? Number(match[4]) : 9999
+        ];
+    };
 
-    for (let i = 0; i < 3; i++) {
+    const parts1 = parse(v1);
+    const parts2 = parse(v2);
+
+    for (let i = 0; i < 4; i++) {
         if (parts1[i] > parts2[i]) return 1;
         if (parts1[i] < parts2[i]) return -1;
     }
     return 0;
+};
+
+const fetchVersionInfo = async () => {
+    for (const url of VERSION_URLS) {
+        try {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (response.ok) return await response.json();
+        } catch {
+            // Try the next source. Version checks should never disturb app startup.
+        }
+    }
+
+    return VERSION_INFO;
 };
 
 export const useVersionCheck = () => {
@@ -22,10 +50,7 @@ export const useVersionCheck = () => {
 
     const checkVersion = useCallback(async () => {
         try {
-            const response = await fetch(VERSION_URL);
-            if (!response.ok) throw new Error('Failed to fetch version info');
-
-            const data = await response.json();
+            const data = await fetchVersionInfo();
             const { latest, min_required, download_url, message } = data;
 
             // 1. Check for Obsolescence (Lock)
@@ -44,8 +69,7 @@ export const useVersionCheck = () => {
 
             // 3. Up to date
             setVersionStatus('up-to-date', null);
-        } catch (error) {
-            console.error('[Version Check] Error checking version:', error);
+        } catch {
             // Default to up-to-date if offline/failed to avoid blocking
             setVersionStatus('up-to-date', null);
         }

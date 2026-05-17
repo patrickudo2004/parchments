@@ -11,11 +11,11 @@ import { CollaborationList } from '@/components/editor/CollaborationList';
 import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 
 export const TopBar: React.FC = () => {
-    const { currentNote } = useNoteStore();
+    const { currentNote, hasStudyspace } = useNoteStore();
     const {
         theme, toggleTheme, toggleSettingsModal, toggleSearchModal,
         isExportModalOpen, exportFormat, closeExportModal, openExportModal,
-        toggleTemplateModal
+        toggleTemplateModal, toggleNoFolderModal
     } = useUIStore();
     const { identity, isConnected } = useSyncStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -26,6 +26,15 @@ export const TopBar: React.FC = () => {
     const handleFormatSelect = (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => {
         openExportModal(format);
         setShowExportMenu(false);
+    };
+
+    const handleNewStudy = () => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+            return;
+        }
+
+        toggleTemplateModal();
     };
 
     const handleExportConfirm = async (options: ExportOptions) => {
@@ -75,7 +84,7 @@ export const TopBar: React.FC = () => {
                 </div>
 
                 <button
-                    onClick={toggleTemplateModal}
+                    onClick={handleNewStudy}
                     className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95"
                 >
                     <PenTool size={14} />

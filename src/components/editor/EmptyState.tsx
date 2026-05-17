@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { FilePlus, FolderPlus, Mic, FolderOpen, Upload } from 'lucide-react';
+import { BookOpen, FilePlus, FolderPlus, Mic, FolderOpen, Upload } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
+import { useUIStore } from '@/stores/uiStore';
 
 export const EmptyState: React.FC = () => {
     const { createNote, createVoiceNote, createFolder, isLocalMode, hasStudyspace, openLocalFolder } = useNoteStore();
+    const { openRightSidebar } = useUIStore();
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
 
     if (!hasStudyspace) {
@@ -22,14 +24,24 @@ export const EmptyState: React.FC = () => {
                     Parchments is a file-first editor. To begin your study, open a folder on your computer to use as your local library.
                 </p>
 
-                <button
-                    onClick={openLocalFolder}
-                    className="group relative flex items-center gap-4 px-10 py-5 bg-primary text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95"
-                >
-                    <Upload size={24} />
-                    <span>Open Local Folder</span>
-                    <div className="absolute inset-0 rounded-2xl ring-4 ring-primary/20 scale-110 opacity-0 group-hover:opacity-100 transition-all" />
-                </button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                        onClick={openLocalFolder}
+                        className="group relative flex items-center gap-4 px-8 py-5 bg-primary text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95"
+                    >
+                        <Upload size={24} />
+                        <span>Open Local Folder</span>
+                        <div className="absolute inset-0 rounded-2xl ring-4 ring-primary/20 scale-110 opacity-0 group-hover:opacity-100 transition-all" />
+                    </button>
+
+                    <button
+                        onClick={() => openRightSidebar('bible')}
+                        className="flex items-center gap-3 px-8 py-5 bg-light-sidebar dark:bg-dark-sidebar text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-2xl font-black text-lg shadow-xl transition-all hover:border-primary hover:text-primary hover:scale-105 active:scale-95"
+                    >
+                        <BookOpen size={24} />
+                        <span>Browse Bible</span>
+                    </button>
+                </div>
 
                 <div className="mt-12 p-4 bg-light-background dark:bg-dark-background/50 rounded-xl border border-light-border dark:border-dark-border max-w-sm">
                     <p className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled mb-2">Why Local?</p>

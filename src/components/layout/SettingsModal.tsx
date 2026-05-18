@@ -37,6 +37,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
 import { useAIStore } from '@/stores/aiStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { useNoteStore } from '@/stores/noteStore';
 import { APP_VERSION } from '@/lib/version';
 
 interface SettingsModalProps {
@@ -92,12 +93,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         const [bibleSearchQuery, setBibleSearchQuery] = useState('');
 
     // Feedback State
+    const { currentNote } = useNoteStore();
     const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'question' | 'praise'>('bug');
     const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [userName, setUserName] = useState('');
+    const [userEmail, setUserEmail] = useState('');
+    const [bugSeverity, setBugSeverity] = useState<'minor' | 'major' | 'critical'>('major');
+    const [bugFrequency, setBugFrequency] = useState<'one_off' | 'intermittent' | 'constant'>('intermittent');
+    const [capturedErrors, setCapturedErrors] = useState<string[]>([]);
     const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
     const [showDiagnosticPreview, setShowDiagnosticPreview] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const [diagnosticData, setDiagnosticData] = useState<any>(null);
+
+    // Auto-populate Name & Email from local IndexedDB profile if available
+    useEffect(() => {
+        const loadUserProfile = async () => {
+            try {
+                const firstUser = await db.users.toCollection().first();
+                if (firstUser) {
+                    if (firstUser.fullName) setUserName(firstUser.fullName);
+                    if (firstUser.email) setUserEmail(firstUser.email);
+                }
+            } catch (err) {
+                console.error('Failed to load user profile for feedback:', err);
+            }
+        };
+        loadUserProfile();
+    }, []);
+
+    // Session console error listener
+    useEffect(() => {
+        const handleError = (event: ErrorEvent) => {
+            const errStr = `${event.message} at ${event.filename}:${event.lineno}:${event.colno}\nStack: ${event.error?.stack || 'No Stack'}`;
+            setCapturedErrors(prev => [...prev.slice(-9), errStr]);
+        };
+
+        const handleRejection = (event: PromiseRejectionEvent) => {
+            const errStr = `Unhandled Promise Rejection: ${event.reason}`;
+            setCapturedErrors(prev => [...prev.slice(-9), errStr]);
+        };
+
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleRejection);
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleRejection);
+        };
+    }, []);
+
+    // Privacy-safe HTML structural tag redactor
+    const redactHTML = (html: string) => {
+        return html.replace(/(>)([^<]+)(<)/g, (match, p1, p2, p3) => {
+            const redacted = p2.replace(/[a-zA-Z0-9]/g, 'x');
+            return p1 + redacted + p3;
+        });
+    };
 
     // Gather diagnostics dynamically when Support tab is loaded
     useEffect(() => {
@@ -125,6 +176,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     setDiagnosticData({
                         appVersion: APP_VERSION,
                         platform: platformName,
+                        user: {
+                            name: userName || 'Anonymous',
+                            email: userEmail || 'Anonymous'
+                        },
+                        bugMetrics: feedbackType === 'bug' ? { severity: bugSeverity, frequency: bugFrequency } : undefined,
                         database: {
                             notes: noteCount,
                             folders: folderCount,
@@ -140,7 +196,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             aiFeaturesEnabled: isAIFeaturesEnabled,
                             isGenerativeModelDownloaded,
                             highAccuracyTranscription: settings.highAccuracyTranscription
-                        }
+                        },
+                        activeNoteStructure: currentNote ? redactHTML(currentNote.content) : undefined,
+                        runtimeErrors: capturedErrors.length > 0 ? capturedErrors : undefined
                     });
                 } catch (error) {
                     console.error('Failed to gather diagnostics:', error);
@@ -148,7 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             };
             getStats();
         }
-    }, [activeTab, installedVersions.length, mainVersion, isAIFeaturesEnabled, isGenerativeModelDownloaded, settings.theme, settings.density, settings.highAccuracyTranscription]);
+    }, [activeTab, installedVersions.length, mainVersion, isAIFeaturesEnabled, isGenerativeModelDownloaded, settings.theme, settings.density, settings.highAccuracyTranscription, userName, userEmail, bugSeverity, bugFrequency, capturedErrors.length, currentNote]);
 
     const handleSendEmail = () => {
         if (!feedbackMessage.trim()) {
@@ -159,7 +217,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         const email = 'patrickudo2004@gmail.com';
         const subject = `Parchments Feedback [${feedbackType.toUpperCase()}]`;
         
-        let body = `### User Message\n\n${feedbackMessage}\n\n`;
+        let body = `### User Information\n`;
+        body += `*   **Name:** ${userName || 'Anonymous'}\n`;
+        body += `*   **Email:** ${userEmail || 'Anonymous'}\n\n`;
+
+        body += `### User Message\n\n${feedbackMessage}\n\n`;
+
+        if (feedbackType === 'bug') {
+            body += `### Bug Severity & Frequency\n`;
+            body += `*   **Impact:** ${bugSeverity.toUpperCase()}\n`;
+            body += `*   **Occurrences:** ${bugFrequency.toUpperCase()}\n\n`;
+        }
         
         if (includeDiagnostics && diagnosticData) {
             body += `### Diagnostic Information\n\n`;
@@ -171,6 +239,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             body += `*   **Installed Bibles:** ${diagnosticData.database.installedBibles}\n`;
             body += `*   **Storage Estimated:** ${diagnosticData.storage.estimatedUsage}\n`;
             body += `*   **Local AI Status:** AI Enabled: ${diagnosticData.settings.aiFeaturesEnabled ? 'Yes' : 'No'}, Model Downloaded: ${diagnosticData.settings.isGenerativeModelDownloaded ? 'Yes' : 'No'}, High Accuracy: ${diagnosticData.settings.highAccuracyTranscription ? 'Yes' : 'No'}\n`;
+            
+            if (diagnosticData.activeNoteStructure) {
+                body += `\n### Active Note Structure (Privacy-Redacted)\n`;
+                body += `\`\`\`html\n${diagnosticData.activeNoteStructure}\n\`\`\`\n`;
+            }
+
+            if (diagnosticData.runtimeErrors) {
+                body += `\n### Session Runtime Exceptions\n`;
+                body += `\`\`\`text\n${diagnosticData.runtimeErrors.join('\n\n')}\n\`\`\`\n`;
+            }
         }
         
         body += `\n*Submitted via Parchments Diagnostic Feedback Center*`;
@@ -188,7 +266,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
 
         let report = `# Parchments Feedback Report [${feedbackType.toUpperCase()}]\n\n`;
+        report += `## User Contact Details\n`;
+        report += `*   **Name:** ${userName || 'Anonymous'}\n`;
+        report += `*   **Email:** ${userEmail || 'Anonymous'}\n\n`;
+
         report += `## User Message\n${feedbackMessage}\n\n`;
+
+        if (feedbackType === 'bug') {
+            report += `## Bug Metrics\n`;
+            report += `*   **Severity:** ${bugSeverity.toUpperCase()}\n`;
+            report += `*   **Frequency:** ${bugFrequency.toUpperCase()}\n\n`;
+        }
         
         if (includeDiagnostics && diagnosticData) {
             report += `## Diagnostic Details\n`;
@@ -960,6 +1048,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     </div>
                                                 </div>
 
+                                                {/* Contact Details Grid */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                            Your Name (Optional)
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={userName}
+                                                            onChange={(e) => setUserName(e.target.value)}
+                                                            placeholder="Patrick Udoh"
+                                                            className="w-full px-4 py-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-xs placeholder-light-text-disabled dark:placeholder-dark-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary transition-all"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                            Your Email (Optional)
+                                                        </label>
+                                                        <input
+                                                            type="email"
+                                                            value={userEmail}
+                                                            onChange={(e) => setUserEmail(e.target.value)}
+                                                            placeholder="patrick@example.com"
+                                                            className="w-full px-4 py-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-xs placeholder-light-text-disabled dark:placeholder-dark-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary transition-all"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Bug Metrics Panel */}
+                                                {feedbackType === 'bug' && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-red-500/5 border border-red-500/10 rounded-2xl transition-all">
+                                                        <div className="space-y-2">
+                                                            <label className="text-[9px] font-black uppercase tracking-wider text-red-500 dark:text-red-400 block">
+                                                                Bug Severity
+                                                            </label>
+                                                            <div className="flex gap-2">
+                                                                {[
+                                                                    { id: 'minor', label: 'Minor ⚙️' },
+                                                                    { id: 'major', label: 'Major ⚠️' },
+                                                                    { id: 'critical', label: 'Critical 🚨' }
+                                                                ].map(opt => (
+                                                                    <button
+                                                                        key={opt.id}
+                                                                        type="button"
+                                                                        onClick={() => setBugSeverity(opt.id as any)}
+                                                                        className={`flex-1 py-1.5 px-2 rounded-lg border text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                                                                            bugSeverity === opt.id
+                                                                                ? 'bg-red-500 text-white border-red-500 shadow-sm shadow-red-500/20'
+                                                                                : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                                                        }`}
+                                                                    >
+                                                                        {opt.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="text-[9px] font-black uppercase tracking-wider text-red-500 dark:text-red-400 block">
+                                                                Bug Frequency
+                                                            </label>
+                                                            <div className="flex gap-2">
+                                                                {[
+                                                                    { id: 'one_off', label: 'Once 📍' },
+                                                                    { id: 'intermittent', label: 'Sometimes 🔀' },
+                                                                    { id: 'constant', label: 'Constant 🔄' }
+                                                                ].map(opt => (
+                                                                    <button
+                                                                        key={opt.id}
+                                                                        type="button"
+                                                                        onClick={() => setBugFrequency(opt.id as any)}
+                                                                        className={`flex-1 py-1.5 px-2 rounded-lg border text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                                                                            bugFrequency === opt.id
+                                                                                ? 'bg-red-500 text-white border-red-500 shadow-sm shadow-red-500/20'
+                                                                                : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                                                        }`}
+                                                                    >
+                                                                        {opt.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Textarea Message */}
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
@@ -978,7 +1150,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 ? 'What are you stuck on or curious about? We are happy to help...'
                                                                 : 'We love hearing from you! What has been your favorite part of Parchments?'
                                                         }
-                                                        className="w-full p-4 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-2xl text-sm placeholder-light-text-disabled dark:placeholder-dark-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary resize-y min-h-[100px] transition-all"
+                                                        className="w-full p-4 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-2xl text-xs placeholder-light-text-disabled dark:placeholder-dark-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary resize-y min-h-[100px] transition-all"
                                                     />
                                                 </div>
 
@@ -990,7 +1162,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             <div>
                                                                 <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary">Attach Local Diagnostics</p>
                                                                 <p className="text-[10px] text-light-text-secondary mt-0.5 leading-relaxed">
-                                                                    Includes anonymized app version, OS platform, and database sizes to help debug the issue.
+                                                                    Includes anonymized app version, database sizes, error traces, and active note structures.
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -1018,18 +1190,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                 </span>
                                                             </button>
                                                             {showDiagnosticPreview && (
-                                                                <div className="border-t border-light-border dark:border-dark-border p-4 text-[10px] font-mono leading-relaxed bg-light-background dark:bg-black/25 text-light-text-secondary dark:text-dark-text-secondary overflow-x-auto max-h-[160px] custom-scrollbar">
-                                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 min-w-[300px]">
+                                                                <div className="border-t border-light-border dark:border-dark-border p-4 text-[10px] font-mono leading-relaxed bg-light-background dark:bg-black/25 text-light-text-secondary dark:text-dark-text-secondary overflow-y-auto max-h-[220px] custom-scrollbar space-y-3">
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Contact User</span> {userName ? `${userName} (${userEmail || 'No Email'})` : 'Anonymous'}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">App Version</span> {diagnosticData.appVersion}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Platform</span> {diagnosticData.platform}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Active Theme</span> {diagnosticData.settings.theme}</div>
-                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Preferred Bible</span> {diagnosticData.settings.preferredBible}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Notes</span> {diagnosticData.database.notes}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Folders</span> {diagnosticData.database.folders}</div>
-                                                                        <div className="col-span-2"><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Installed Bibles</span> {diagnosticData.database.installedBibles}</div>
+                                                                        <div className="col-span-1 sm:col-span-2"><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Installed Bibles</span> {diagnosticData.database.installedBibles}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Storage Used</span> {diagnosticData.storage.estimatedUsage}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">AI Features Active</span> {diagnosticData.settings.aiFeaturesEnabled ? 'Yes' : 'No'}</div>
                                                                     </div>
+                                                                    
+                                                                    {diagnosticData.activeNoteStructure && (
+                                                                        <div className="border-t border-light-border dark:border-dark-border/20 pt-2">
+                                                                            <span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide mb-1">Active Note Structure (Privacy-Redacted)</span>
+                                                                            <pre className="p-2 bg-light-background dark:bg-black/10 rounded border border-light-border/50 dark:border-dark-border/10 overflow-x-auto text-[9px] whitespace-pre-wrap">{diagnosticData.activeNoteStructure}</pre>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {diagnosticData.runtimeErrors && (
+                                                                        <div className="border-t border-light-border dark:border-dark-border/20 pt-2">
+                                                                            <span className="text-red-500 uppercase font-bold text-[8px] block tracking-wide mb-1">Session Console Exceptions ({diagnosticData.runtimeErrors.length})</span>
+                                                                            <pre className="p-2 bg-red-500/5 dark:bg-red-950/10 rounded border border-red-500/10 overflow-x-auto text-[9px] text-red-600 dark:text-red-400 whitespace-pre-wrap">{diagnosticData.runtimeErrors.join('\n\n')}</pre>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>

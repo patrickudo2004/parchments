@@ -23,7 +23,9 @@ import {
     Smartphone,
     Brain,
     Cpu,
-    Info
+    Info,
+    Copy,
+    Check
 } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
@@ -87,7 +89,125 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
     const bibleVersions = useLiveQuery(() => db.bibleVersions.toArray()) || [];
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
-    const [bibleSearchQuery, setBibleSearchQuery] = useState('');
+        const [bibleSearchQuery, setBibleSearchQuery] = useState('');
+
+    // Feedback State
+    const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'question' | 'praise'>('bug');
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
+    const [showDiagnosticPreview, setShowDiagnosticPreview] = useState(false);
+    const [isCopying, setIsCopying] = useState(false);
+    const [diagnosticData, setDiagnosticData] = useState<any>(null);
+
+    // Gather diagnostics dynamically when Support tab is loaded
+    useEffect(() => {
+        if (activeTab === 'support') {
+            const getStats = async () => {
+                try {
+                    const noteCount = await db.notes.count();
+                    const folderCount = await db.folders.count();
+                    const bibleCount = installedVersions.length;
+                    const bibleList = installedVersions.map(v => v.abbreviation).join(', ') || 'None';
+                    
+                    let storageUsed = 'Unknown';
+                    if (navigator.storage && navigator.storage.estimate) {
+                        const estimate = await navigator.storage.estimate();
+                        if (estimate.usage !== undefined) {
+                            storageUsed = `${(estimate.usage / (1024 * 1024)).toFixed(2)} MB`;
+                        }
+                    }
+
+                    const isTauri = !!(window as any).__TAURI__;
+                    const platformName = isTauri 
+                        ? 'Tauri Desktop App' 
+                        : `Web Browser (${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Firefox') ? 'Firefox' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown Browser'} / ${navigator.platform})`;
+
+                    setDiagnosticData({
+                        appVersion: APP_VERSION,
+                        platform: platformName,
+                        database: {
+                            notes: noteCount,
+                            folders: folderCount,
+                            installedBibles: `${bibleCount} (${bibleList})`
+                        },
+                        storage: {
+                            estimatedUsage: storageUsed
+                        },
+                        settings: {
+                            theme: settings.theme,
+                            density: settings.density,
+                            preferredBible: mainVersion,
+                            aiFeaturesEnabled: isAIFeaturesEnabled,
+                            isGenerativeModelDownloaded,
+                            highAccuracyTranscription: settings.highAccuracyTranscription
+                        }
+                    });
+                } catch (error) {
+                    console.error('Failed to gather diagnostics:', error);
+                }
+            };
+            getStats();
+        }
+    }, [activeTab, installedVersions.length, mainVersion, isAIFeaturesEnabled, isGenerativeModelDownloaded, settings.theme, settings.density, settings.highAccuracyTranscription]);
+
+    const handleSendEmail = () => {
+        if (!feedbackMessage.trim()) {
+            settings.showToast('Please type a message first.', 'info');
+            return;
+        }
+
+        const email = 'patrickudo2004@gmail.com';
+        const subject = `Parchments Feedback [${feedbackType.toUpperCase()}]`;
+        
+        let body = `### User Message\n\n${feedbackMessage}\n\n`;
+        
+        if (includeDiagnostics && diagnosticData) {
+            body += `### Diagnostic Information\n\n`;
+            body += `*   **App Version:** ${diagnosticData.appVersion}\n`;
+            body += `*   **Platform:** ${diagnosticData.platform}\n`;
+            body += `*   **Preferred Bible:** ${diagnosticData.settings.preferredBible}\n`;
+            body += `*   **UI Settings:** Theme: ${diagnosticData.settings.theme}, Density: ${diagnosticData.settings.density}\n`;
+            body += `*   **Database Stats:** Notes: ${diagnosticData.database.notes}, Folders: ${diagnosticData.database.folders}\n`;
+            body += `*   **Installed Bibles:** ${diagnosticData.database.installedBibles}\n`;
+            body += `*   **Storage Estimated:** ${diagnosticData.storage.estimatedUsage}\n`;
+            body += `*   **Local AI Status:** AI Enabled: ${diagnosticData.settings.aiFeaturesEnabled ? 'Yes' : 'No'}, Model Downloaded: ${diagnosticData.settings.isGenerativeModelDownloaded ? 'Yes' : 'No'}, High Accuracy: ${diagnosticData.settings.highAccuracyTranscription ? 'Yes' : 'No'}\n`;
+        }
+        
+        body += `\n*Submitted via Parchments Diagnostic Feedback Center*`;
+
+        const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoUrl;
+        
+        settings.showToast('Opening your default mail client...', 'success');
+    };
+
+    const handleCopyReport = async () => {
+        if (!feedbackMessage.trim()) {
+            settings.showToast('Please type a message first.', 'info');
+            return;
+        }
+
+        let report = `# Parchments Feedback Report [${feedbackType.toUpperCase()}]\n\n`;
+        report += `## User Message\n${feedbackMessage}\n\n`;
+        
+        if (includeDiagnostics && diagnosticData) {
+            report += `## Diagnostic Details\n`;
+            report += `\`\`\`json\n${JSON.stringify(diagnosticData, null, 2)}\n\`\`\`\n`;
+        }
+        
+        report += `\n*Copied from Parchments Feedback Center*`;
+
+        try {
+            setIsCopying(true);
+            await navigator.clipboard.writeText(report);
+            settings.showToast('Diagnostic report copied to clipboard!', 'success');
+            setTimeout(() => setIsCopying(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy report:', err);
+            settings.showToast('Failed to copy report to clipboard.', 'error');
+            setIsCopying(false);
+        }
+    };
 
     // Modal State
     const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, type: 'info' | 'error' | 'success' }>({
@@ -795,64 +915,172 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     {activeTab === 'support' && (
                                         <>
                                             <section className="space-y-6">
-                                                <div className="flex items-start gap-4 p-6 bg-primary/5 border border-primary/20 rounded-2xl">
-                                                    <div className="p-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
-                                                        <Info size={24} />
+                                                {/* Header Banner */}
+                                                <div className="flex items-start gap-4 p-5 bg-primary/5 border border-primary/20 rounded-2xl">
+                                                    <div className="p-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 shrink-0">
+                                                        <Info size={22} />
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">Parchments Beta</h4>
-                                                        <p className="text-sm text-light-text-secondary mt-1 leading-relaxed">
-                                                            Thank you for participating in the Parchments Beta! Your feedback is essential for making this the best workspace for scriptural research and sermon composition.
+                                                        <h4 className="text-md font-bold text-light-text-primary dark:text-dark-text-primary">Diagnostic Feedback Center</h4>
+                                                        <p className="text-xs text-light-text-secondary mt-1 leading-relaxed">
+                                                            Your feedback shapes Parchments. Use this secure, local-first console to submit bug reports, share suggestions, or copy complete system diagnostics for troubleshooting.
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <a
-                                                        href="https://github.com/patrickudo2004/parchments/issues"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl group hover:border-primary/50 transition-all"
-                                                    >
-                                                        <Search size={24} className="text-primary mb-3" />
-                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Report a Bug</h5>
-                                                        <p className="text-xs text-light-text-secondary mt-1">Found a glitch? Let us know on GitHub.</p>
-                                                        <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            Open GitHub Issues →
-                                                        </div>
-                                                    </a>
-
-                                                    <a
-                                                        href="mailto:patrickudo2004@gmail.com?subject=Parchments%20Beta%20Feedback"
-                                                        className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl group hover:border-primary/50 transition-all"
-                                                    >
-                                                        <Edit3 size={24} className="text-primary mb-3" />
-                                                        <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Send Feedback</h5>
-                                                        <p className="text-xs text-light-text-secondary mt-1">Have a suggestion? Send an email directly to the developer.</p>
-                                                        <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            Compose Email →
-                                                        </div>
-                                                    </a>
+                                                {/* Category Pills */}
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                        Select Feedback Type
+                                                    </label>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {[
+                                                            { id: 'bug', label: 'Bug Report', icon: AlertTriangle, color: 'text-red-500 bg-red-500/10 border-red-500/30 ring-red-500/20' },
+                                                            { id: 'suggestion', label: 'Feature Idea', icon: Cpu, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30 ring-amber-500/20' },
+                                                            { id: 'question', label: 'Question', icon: Search, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30 ring-blue-500/20' },
+                                                            { id: 'praise', label: 'Praise', icon: Zap, color: 'text-rose-500 bg-rose-500/10 border-rose-500/30 ring-rose-500/20' }
+                                                        ].map((cat) => {
+                                                            const Icon = cat.icon;
+                                                            const isSelected = feedbackType === cat.id;
+                                                            return (
+                                                                <button
+                                                                    key={cat.id}
+                                                                    onClick={() => setFeedbackType(cat.id as any)}
+                                                                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer ${
+                                                                        isSelected
+                                                                            ? `${cat.color} border-current ring-2`
+                                                                            : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background hover:text-light-text-primary dark:hover:text-dark-text-primary'
+                                                                    }`}
+                                                                >
+                                                                    <Icon size={14} />
+                                                                    <span>{cat.label}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
 
-                                                <div className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
-                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Project Links</h4>
+                                                {/* Textarea Message */}
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                        Your Message
+                                                    </label>
+                                                    <textarea
+                                                        value={feedbackMessage}
+                                                        onChange={(e) => setFeedbackMessage(e.target.value)}
+                                                        rows={4}
+                                                        placeholder={
+                                                            feedbackType === 'bug'
+                                                                ? 'What went wrong? Please share step-by-step how to trigger the issue...'
+                                                                : feedbackType === 'suggestion'
+                                                                ? 'What awesome feature or improvement are you dreaming of? Let us know...'
+                                                                : feedbackType === 'question'
+                                                                ? 'What are you stuck on or curious about? We are happy to help...'
+                                                                : 'We love hearing from you! What has been your favorite part of Parchments?'
+                                                        }
+                                                        className="w-full p-4 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-2xl text-sm placeholder-light-text-disabled dark:placeholder-dark-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary resize-y min-h-[100px] transition-all"
+                                                    />
+                                                </div>
+
+                                                {/* Toggle & Collapsible Drawer */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background/20 border border-light-border dark:border-dark-border rounded-2xl">
+                                                        <div className="flex items-start gap-2.5">
+                                                            <Shield size={18} className="text-primary mt-0.5 shrink-0" />
+                                                            <div>
+                                                                <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary">Attach Local Diagnostics</p>
+                                                                <p className="text-[10px] text-light-text-secondary mt-0.5 leading-relaxed">
+                                                                    Includes anonymized app version, OS platform, and database sizes to help debug the issue.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setIncludeDiagnostics(!includeDiagnostics)}
+                                                            className={`w-10 h-6 rounded-full p-0.5 transition-all flex items-center shrink-0 cursor-pointer ${
+                                                                includeDiagnostics ? 'bg-primary shadow-sm shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'
+                                                            }`}
+                                                        >
+                                                            <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all ${includeDiagnostics ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                        </button>
+                                                    </div>
+
+                                                    {includeDiagnostics && diagnosticData && (
+                                                        <div className="border border-light-border dark:border-dark-border rounded-2xl overflow-hidden bg-light-background/5 dark:bg-dark-background/5">
+                                                            <button
+                                                                onClick={() => setShowDiagnosticPreview(!showDiagnosticPreview)}
+                                                                className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background/20 dark:hover:bg-dark-background/20 transition-colors cursor-pointer"
+                                                            >
+                                                                <span className="flex items-center gap-1.5 uppercase tracking-wider text-[9px] font-black">
+                                                                    <Database size={12} /> Preview Diagnostic Details
+                                                                </span>
+                                                                <span className="text-[9px] uppercase font-black text-primary">
+                                                                    {showDiagnosticPreview ? 'Hide Details ▲' : 'Show Details ▼'}
+                                                                </span>
+                                                            </button>
+                                                            {showDiagnosticPreview && (
+                                                                <div className="border-t border-light-border dark:border-dark-border p-4 text-[10px] font-mono leading-relaxed bg-light-background dark:bg-black/25 text-light-text-secondary dark:text-dark-text-secondary overflow-x-auto max-h-[160px] custom-scrollbar">
+                                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 min-w-[300px]">
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">App Version</span> {diagnosticData.appVersion}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Platform</span> {diagnosticData.platform}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Active Theme</span> {diagnosticData.settings.theme}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Preferred Bible</span> {diagnosticData.settings.preferredBible}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Notes</span> {diagnosticData.database.notes}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Folders</span> {diagnosticData.database.folders}</div>
+                                                                        <div className="col-span-2"><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Installed Bibles</span> {diagnosticData.database.installedBibles}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Storage Used</span> {diagnosticData.storage.estimatedUsage}</div>
+                                                                        <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">AI Features Active</span> {diagnosticData.settings.aiFeaturesEnabled ? 'Yes' : 'No'}</div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Submit Buttons */}
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={handleSendEmail}
+                                                        className="flex-1 py-3 px-4 bg-primary text-white text-xs font-bold rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                                    >
+                                                        <Edit3 size={14} /> Send Email
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCopyReport}
+                                                        className="py-3 px-4 bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary text-xs font-bold rounded-xl hover:bg-light-surface dark:hover:bg-dark-surface active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                                    >
+                                                        {isCopying ? (
+                                                            <>
+                                                                <Check size={14} className="text-green-500" />
+                                                                <span className="text-green-500">Copied!</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy size={14} />
+                                                                <span>Copy Markdown Report</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+
+                                                {/* Links footer */}
+                                                <div className="space-y-3 pt-5 border-t border-light-border dark:border-dark-border">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Project Links</h4>
                                                     <div className="flex gap-3">
                                                         <a
                                                             href="https://github.com/patrickudo2004/parchments/releases"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
+                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-xl text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
                                                         >
-                                                            <Zap size={14} /> Release Notes
+                                                            <Zap size={12} /> Release Notes
                                                         </a>
                                                         <a
                                                             href="https://github.com/patrickudo2004/parchments"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
+                                                            className="px-4 py-2 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-xl text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all flex items-center gap-2"
                                                         >
-                                                            <Share2 size={14} /> Source Code
+                                                            <Share2 size={12} /> Source Code
                                                         </a>
                                                     </div>
                                                 </div>

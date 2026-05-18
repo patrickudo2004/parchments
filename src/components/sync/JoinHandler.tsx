@@ -90,7 +90,7 @@ export const JoinHandler: React.FC = () => {
 
             // Small delay to ensure state propagates before navigation
             setTimeout(() => {
-                navigate('/', { replace: true });
+                navigate('/app', { replace: true });
             }, 500);
         };
 

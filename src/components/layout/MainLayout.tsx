@@ -12,6 +12,7 @@ import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
+import { PairingModal } from '@/components/sync/PairingModal';
 import {
     Search as SearchIcon
 } from 'lucide-react';
@@ -390,23 +391,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </div>
                 </div>
 
-                {/* Global Settings Modal */}
-                <SettingsModal
-                    isOpen={isSettingsModalOpen}
-                    onClose={toggleSettingsModal}
-                />
-
-                <ShortcutModal
-                    isOpen={isShortcutModalOpen}
-                    onClose={toggleShortcutModal}
-                />
-
-                <CommandPalette
-                    isOpen={isSearchModalOpen}
-                    initialQuery={searchQuery}
-                    onClose={toggleSearchModal}
-                />
-
+            {/* Global Modals */}
+            <PairingModal />
+            <CommandPalette
+                isOpen={isSearchModalOpen}
+                initialQuery={searchQuery}
+                onClose={toggleSearchModal}
+            />
+            <BibleModal isOpen={isBibleModalOpen} />
+            <SettingsModal isOpen={isSettingsModalOpen} onClose={toggleSettingsModal} />
+            <ShortcutModal isOpen={isShortcutModalOpen} onClose={toggleShortcutModal} />
+            <TemplatePickerModal isOpen={isTemplateModalOpen} />
                 {/* Toast System */}
                 <AnimatePresence>
                     {toast && (

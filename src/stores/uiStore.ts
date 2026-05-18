@@ -44,6 +44,8 @@ interface UIStore {
     isExportModalOpen: boolean;
     exportFormat: 'pdf' | 'docx' | 'md' | 'html' | 'txt' | null;
     isNoFolderModalOpen: boolean;
+    isPairingModalOpen: boolean;
+    pairingMode: 'host' | 'client' | null;
 
     // Versioning
     versionStatus: 'up-to-date' | 'outdated' | 'obsolete';
@@ -72,6 +74,7 @@ interface UIStore {
     openExportModal: (format: 'pdf' | 'docx' | 'md' | 'html' | 'txt') => void;
     closeExportModal: () => void;
     toggleNoFolderModal: (isOpen?: boolean) => void;
+    togglePairingModal: (mode?: 'host' | 'client' | null) => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
     toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
     toggleLeftSidebarFloating: () => void;
@@ -133,6 +136,8 @@ export const useUIStore = create<UIStore>()(
             isExportModalOpen: false,
             exportFormat: null,
             isNoFolderModalOpen: false,
+            isPairingModalOpen: false,
+            pairingMode: null,
 
             wordCount: 0,
             characterCount: 0,
@@ -170,6 +175,12 @@ export const useUIStore = create<UIStore>()(
                 searchQuery: query || ''
             })),
             toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
+            togglePairingModal: (mode) => set((state) => {
+                if (mode !== undefined) {
+                    return { isPairingModalOpen: !!mode, pairingMode: mode };
+                }
+                return { isPairingModalOpen: !state.isPairingModalOpen };
+            }),
             toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode })),
             togglePulpitMode: () => set((state) => ({ pulpitMode: !state.pulpitMode })),
             setFocusedHeadingPos: (pos) => set({ focusedHeadingPos: pos }),

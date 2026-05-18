@@ -1371,18 +1371,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         </section>
 
                                                         {/* Device Pairing */}
-                                                        <section className="grid grid-cols-2 gap-4">
-                                                            <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">
+                                                        <section className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl flex flex-col gap-4">
+                                                            <div className="flex items-center gap-3">
                                                                 <Smartphone size={24} className="text-primary" />
-                                                                <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Add Device</h5>
-                                                                <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes.</p>
+                                                                <div>
+                                                                    <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Device Pairing</h5>
+                                                                    <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes using a secure 6-digit code.</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-3 mt-2">
                                                                 <button
-                                                                    onClick={() => settings.showToast('Device pairing coming soon in next update', 'info')}
+                                                                    onClick={() => {
+                                                                        settings.toggleSettingsModal();
+                                                                        settings.togglePairingModal('host');
+                                                                    }}
                                                                     className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all"
                                                                 >
                                                                     Generate Pairing Code
                                                                 </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        settings.toggleSettingsModal();
+                                                                        settings.togglePairingModal('client');
+                                                                    }}
+                                                                    className="w-full py-2 bg-light-surface dark:bg-dark-surface border border-primary/20 text-primary rounded-lg text-xs font-bold shadow-sm hover:bg-primary/5 transition-all"
+                                                                >
+                                                                    Pair with Code
+                                                                </button>
                                                             </div>
+                                                        </section>
+
+                                                        <section className="grid grid-cols-1 gap-4">
                                                             <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">
                                                                 <Key size={24} className="text-primary" />
                                                                 <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Recovery Phrase</h5>

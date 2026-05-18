@@ -144,7 +144,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     // Privacy-safe HTML structural tag redactor
     const redactHTML = (html: string) => {
-        return html.replace(/(>)([^<]+)(<)/g, (match, p1, p2, p3) => {
+        return html.replace(/(>)([^<]+)(<)/g, (_match, p1, p2, p3) => {
             const redacted = p2.replace(/[a-zA-Z0-9]/g, 'x');
             return p1 + redacted + p3;
         });

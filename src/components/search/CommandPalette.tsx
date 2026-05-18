@@ -18,6 +18,7 @@ interface SearchResult {
 }
 
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; initialQuery?: string }> = ({ isOpen, onClose, initialQuery = '' }) => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const [query, setQuery] = useState(initialQuery);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -219,7 +220,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4">
+                <div className={`fixed inset-0 z-[100] flex justify-center ${isMobile ? 'items-end p-0' : 'items-start pt-[15vh] px-4'}`}>
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -231,11 +232,19 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
 
                     {/* Palette */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                        className="w-full max-w-2xl bg-white dark:bg-dark-surface rounded-2xl shadow-2xl overflow-hidden border border-light-border dark:border-dark-border relative flex flex-col"
+                        initial={isMobile ? { y: '100%', opacity: 1 } : { opacity: 0, scale: 0.95, y: -20 }}
+                        animate={isMobile ? { y: 0, opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+                        exit={isMobile ? { y: '100%', opacity: 1 } : { opacity: 0, scale: 0.95, y: -20 }}
+                        transition={isMobile ? { type: 'spring', damping: 25, stiffness: 200 } : {}}
+                        className={`w-full bg-white dark:bg-dark-surface overflow-hidden border border-light-border dark:border-dark-border relative flex flex-col shadow-2xl ${
+                            isMobile ? 'h-[85vh] rounded-t-3xl' : 'max-w-2xl rounded-2xl'
+                        }`}
                     >
+                        {isMobile && (
+                            <div className="w-full flex justify-center py-3 shrink-0 cursor-pointer" onClick={onClose}>
+                                <div className="w-12 h-1 rounded-full bg-light-border dark:bg-dark-border" />
+                            </div>
+                        )}
                         {/* Input Area */}
                         <div className="flex items-center gap-4 px-6 py-4 border-b border-light-border dark:border-dark-border">
                             <Search className="text-light-text-secondary dark:text-dark-text-secondary" size={20} />

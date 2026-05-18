@@ -527,40 +527,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         });
     };
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
     if (!isOpen) return null;
 
     return (
         <AnimatePresence>
-            <div key="settings-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+            <div
+                key="settings-backdrop"
+                className={`fixed inset-0 z-[100] flex bg-black/50 backdrop-blur-sm ${isMobile ? 'items-end justify-center p-0' : 'items-center justify-center p-4'}`}
+                onClick={onClose}
+            >
                 <motion.div
                     key="settings-content"
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    initial={isMobile ? { y: '100%', opacity: 1 } : { opacity: 0, scale: 0.95, y: 20 }}
+                    animate={isMobile ? { y: 0, opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+                    exit={isMobile ? { y: '100%', opacity: 1 } : { opacity: 0, scale: 0.95, y: 20 }}
+                    transition={isMobile ? { type: 'spring', damping: 25, stiffness: 200 } : { duration: 0.2 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full max-w-4xl max-h-[80vh] bg-light-surface dark:bg-dark-surface rounded-xl shadow-2xl flex overflow-hidden border border-light-border dark:border-dark-border"
+                    className={`w-full bg-light-surface dark:bg-dark-surface flex flex-col md:flex-row overflow-hidden border border-light-border dark:border-dark-border shadow-2xl ${
+                        isMobile ? 'h-[85vh] rounded-t-3xl' : 'max-w-4xl max-h-[80vh] rounded-xl'
+                    }`}
                 >
+                    {isMobile && (
+                        <div className="w-full flex justify-center py-3 shrink-0 cursor-pointer" onClick={onClose}>
+                            <div className="w-12 h-1 rounded-full bg-light-border dark:bg-dark-border" />
+                        </div>
+                    )}
+
                     {/* Sidebar Tabs */}
-                    <div className="w-64 bg-light-sidebar dark:bg-dark-sidebar border-r border-light-border dark:border-dark-border p-4 flex flex-col shrink-0">
-                        <h2 className="text-xl font-bold mb-6 px-2 text-light-text-primary dark:text-dark-text-primary">Settings</h2>
-                        <nav className="space-y-1">
+                    <div className={`bg-light-sidebar dark:bg-dark-sidebar p-4 flex shrink-0 ${
+                        isMobile 
+                            ? 'w-full flex-row items-center border-b border-light-border dark:border-dark-border gap-4 overflow-x-auto custom-scrollbar-hide shrink-0' 
+                            : 'w-64 flex-col border-r border-light-border dark:border-dark-border'
+                    }`}>
+                        {!isMobile && <h2 className="text-xl font-bold mb-6 px-2 text-light-text-primary dark:text-dark-text-primary">Settings</h2>}
+                        <nav className={`flex gap-1.5 shrink-0 ${isMobile ? 'flex-row overflow-x-auto w-full' : 'flex-col space-y-1'}`}>
                             {TABS.map((tab) => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
+                                    className={`flex items-center gap-2 px-3 rounded-lg text-sm font-medium transition-all shrink-0 ${
+                                        isMobile ? 'py-1.5' : 'w-full py-2.5'
+                                    } ${activeTab === tab.id
                                         ? 'bg-primary text-white shadow-md'
                                         : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
-                                        }`}
+                                    }`}
                                 >
                                     <tab.icon size={18} />
                                     {tab.label}
                                 </button>
                             ))}
                         </nav>
-                        <div className="mt-auto pt-4 border-t border-light-border dark:border-dark-border opacity-50">
-                            <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v{APP_VERSION}</p>
-                        </div>
+                        {!isMobile && (
+                            <div className="mt-auto pt-4 border-t border-light-border dark:border-dark-border opacity-50">
+                                <p className="text-xs text-center text-light-text-secondary dark:text-dark-text-secondary">Parchments v{APP_VERSION}</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Content Area */}

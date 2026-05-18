@@ -37,6 +37,7 @@ interface UIStore {
     searchQuery: string;
     isShortcutModalOpen: boolean;
     isFocusMode: boolean;
+    pulpitMode: boolean;
     focusedHeadingPos: number | null;
     activeEditor: Editor | null;
     toast: { message: string, type: 'success' | 'error' | 'info' } | null;
@@ -64,6 +65,7 @@ interface UIStore {
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
     toggleFocusMode: () => void;
+    togglePulpitMode: () => void;
     setFocusedHeadingPos: (pos: number | null) => void;
     showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
     setEditor: (editor: Editor | null) => void;
@@ -124,6 +126,7 @@ export const useUIStore = create<UIStore>()(
             searchQuery: '',
             isShortcutModalOpen: false,
             isFocusMode: false,
+            pulpitMode: false,
             focusedHeadingPos: null,
             activeEditor: null,
             toast: null,
@@ -168,6 +171,7 @@ export const useUIStore = create<UIStore>()(
             })),
             toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
             toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode })),
+            togglePulpitMode: () => set((state) => ({ pulpitMode: !state.pulpitMode })),
             setFocusedHeadingPos: (pos) => set({ focusedHeadingPos: pos }),
             showToast: (message, type = 'success') => {
                 set({ toast: { message, type } });
@@ -285,6 +289,7 @@ export const useUIStore = create<UIStore>()(
                 leftSidebarPosition: state.leftSidebarPosition,
                 rightSidebarPosition: state.rightSidebarPosition,
                 focusedHeadingPos: null,
+                pulpitMode: state.pulpitMode,
             }),
             onRehydrateStorage: () => (state) => {
                 if (state && state.theme === 'dark') {

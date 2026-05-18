@@ -9,7 +9,7 @@ import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { Languages } from 'lucide-react';
 import { ParallelVerseRow } from './ParallelVerseRow';
-import { Pin, X } from 'lucide-react';
+import { Pin, X, BookOpen } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoutService } from '@/lib/utils/popoutService';
@@ -183,6 +183,84 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         showToast(`Pinned ${rangeVerses.length} verses!`, 'success');
         setSelectionRange(null);
     };
+
+    if (installedVersions.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-light-surface dark:bg-dark-surface p-8 text-center relative overflow-hidden">
+                {/* Background Shimmer Glow */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-primary/5 dark:from-primary/10 dark:to-transparent pointer-events-none" />
+
+                <div className="max-w-md w-full space-y-6 relative z-10">
+                    {/* Pulsing circular icon wrapper */}
+                    <div className="relative w-24 h-24 mx-auto flex items-center justify-center bg-primary/10 rounded-full border border-primary/20 animate-pulse">
+                        <BookOpen className="text-primary animate-bounce" size={40} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-black tracking-tight text-light-text-primary dark:text-dark-text-primary">
+                            Preparing Your Study Space...
+                        </h2>
+                        <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
+                            Parchments is downloading and preparing the King James Version (KJV 1769) for offline, privacy-first study. This will take only a few moments.
+                        </p>
+                    </div>
+
+                    {/* Progress details */}
+                    <div className="bg-light-background/55 dark:bg-dark-background/40 backdrop-blur-md rounded-2xl p-6 border border-light-border dark:border-dark-border text-left space-y-4 shadow-xl">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-light-text-disabled">Ingestion Progress</h3>
+                        
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="font-bold flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                                    Downloading KJV Scripture Database
+                                </span>
+                                <span className="text-[10px] font-black uppercase text-primary">In Progress</span>
+                            </div>
+                            <div className="w-full bg-light-border dark:bg-dark-border h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-primary h-full w-2/3 rounded-full animate-pulse" />
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs text-light-text-disabled">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-light-border dark:bg-dark-border" />
+                                    Indexing 31,102 Verses for Deep Querying
+                                </span>
+                                <span className="text-[10px] uppercase font-bold">Waiting</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs text-light-text-disabled">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-light-border dark:bg-dark-border" />
+                                    Caching Hebrew & Greek Strong's Concordance
+                                </span>
+                                <span className="text-[10px] uppercase font-bold">Waiting</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 flex flex-col gap-3">
+                        <button
+                            onClick={async () => {
+                                showToast('Re-triggering Bible Ingestion...', 'info');
+                                const { seedBibleData } = await import('@/lib/db/bibleSeed');
+                                seedBibleData().catch(err => {
+                                    console.error('Manual seed failed:', err);
+                                    showToast('Ingestion failed. Please check network connection.', 'error');
+                                });
+                            }}
+                            className="w-full py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/45 transition-all text-sm shrink-0 active:scale-98"
+                        >
+                            Retry Ingestion
+                        </button>
+                        <span className="text-[10px] text-light-text-disabled uppercase font-black tracking-widest">
+                            Privacy first • 100% Offline Studying
+                        </span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">

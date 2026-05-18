@@ -14,6 +14,7 @@ import { useSpaceSync } from '@/hooks/useSpaceSync';
 import { useVersionCheck } from '@/hooks/useVersionCheck';
 import { LandingPage } from '@/components/marketing/LandingPage';
 import { UserGuide } from '@/components/marketing/UserGuide';
+import { useNoteStore } from '@/stores/noteStore';
 
 const App: React.FC = () => {
     useSpaceSync();
@@ -21,6 +22,11 @@ const App: React.FC = () => {
 
     useEffect(() => {
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));
+        
+        // Load initial DB notes and folders for database mode / mobile sandbox
+        const { loadNotes, loadFolders } = useNoteStore.getState();
+        loadNotes().catch(err => console.error('Failed to load notes:', err));
+        loadFolders().catch(err => console.error('Failed to load folders:', err));
     }, []);
 
     const isDesktop = !!(window as any).__TAURI__;

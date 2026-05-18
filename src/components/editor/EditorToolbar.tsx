@@ -20,7 +20,8 @@ import {
     RotateCcw,
     Heading1,
     Heading2,
-    CaseSensitive
+    CaseSensitive,
+    Play
 } from 'lucide-react';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { useUIStore } from '@/stores/uiStore';
@@ -31,7 +32,7 @@ interface EditorToolbarProps {
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
-    const { showToast } = useUIStore();
+    const { showToast, pulpitMode, togglePulpitMode } = useUIStore();
     const { saveLocalAsset } = useNoteStore();
     const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
     const [previousUrl, setPreviousUrl] = useState('');
@@ -316,6 +317,14 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                     />
                 )}
 
+                <button
+                    onClick={togglePulpitMode}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
+                    title="Pulpit Presentation Mode"
+                >
+                    <Play size={12} fill="currentColor" />
+                    <span>Pulpit Mode</span>
+                </button>
                 <Button
                     onClick={handleScan}
                     icon={Sparkles}

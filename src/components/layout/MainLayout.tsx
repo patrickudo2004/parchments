@@ -188,11 +188,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {!isMobile && <TopBar />}
                 {!isFocusMode && !isMobile && <MenuBar />}
 
-                <div className="flex-1 flex overflow-hidden relative">
+                <div className={`flex-1 flex overflow-hidden relative ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'flex-col' : 'flex-row'}`}>
                     {/* ... rest of the component ... */}
                     {/* Mobile Backdrop */}
                     <AnimatePresence>
-                        {isMobile && (isLeftSidebarOpen || rightSidebarOpen) && !isFocusMode && (
+                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -259,7 +259,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     )}
 
                     {/* Main Content Area - Editor */}
-                    <main className="flex-1 overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0">
+                    <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'h-[55%] w-full order-last' : 'flex-1 h-full'}`}>
                         {children}
                     </main>
 
@@ -275,7 +275,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             )}
 
                             <motion.aside
-                                drag={isRightSidebarFloating}
+                                drag={!isMobile && isRightSidebarFloating}
                                 dragMomentum={false}
                                 dragElastic={0}
                                 dragConstraints={{ left: -(window.innerWidth - rightSidebarWidth), top: 0, right: 0, bottom: window.innerHeight - 100 }}
@@ -290,8 +290,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     x: isRightSidebarFloating ? rightSidebarPosition.x : 0,
                                     y: isRightSidebarFloating ? rightSidebarPosition.y : 0
                                 }}
-                                className={`bg-light-surface dark:bg-dark-surface border-l border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || !isRightSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl' : isRightSidebarFloating ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden' : ''}`}
-                                style={{
+                                className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
+                                    isMobile && rightSidebarContent === 'bible'
+                                        ? 'w-full h-[45%] border-b order-first z-10'
+                                        : isMobile
+                                            ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl border-l'
+                                            : isRightSidebarFloating
+                                                ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden'
+                                                : 'border-l h-full'
+                                }`}
+                                style={isMobile && rightSidebarContent === 'bible' ? {} : {
                                     width: isMobile ? '85vw' : `${Math.max(rightSidebarWidth || 350, 200)}px`,
                                     height: isRightSidebarFloating ? '80vh' : '100%',
                                     marginTop: isRightSidebarFloating ? '64px' : '0'

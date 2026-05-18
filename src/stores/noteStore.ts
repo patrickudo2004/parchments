@@ -146,6 +146,10 @@ interface NoteStore {
     sortLocalItems: (items: LocalItem[]) => LocalItem[];
 }
 
+const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+const autoSandbox = isMobileViewport || !isFileSystemSupported;
+
 export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,
     notes: [],
@@ -153,11 +157,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     isLoading: false,
     selectedFolderId: null,
     setSelectedFolderId: (id) => set({ selectedFolderId: id }),
-    isLocalMode: true, // Default to local mode for Studyspace-First
+    isLocalMode: !autoSandbox,
     localDirectoryHandle: null,
     localFiles: [],
     currentFileHandle: null,
-    hasStudyspace: false,
+    hasStudyspace: autoSandbox,
 
     // Internal Helper: Enforce stable sorting (Folders > Files, then alphabetical)
     sortLocalItems: (items: LocalItem[]) => {

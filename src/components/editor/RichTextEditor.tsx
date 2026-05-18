@@ -52,7 +52,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         updateSettings,
         focusedHeadingPos,
         setFocusedHeadingPos,
-        enableAutoSave
+        enableAutoSave,
+        pulpitMode,
+        togglePulpitMode,
+        theme,
+        toggleTheme
     } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -376,6 +380,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     }, [focusedHeadingPos, editor]); // Removing editor instance as a trigger if possible, or being careful here.
 
+    // Sync Tiptap editability with pulpitMode
+    useEffect(() => {
+        if (editor) {
+            editor.setEditable(!pulpitMode);
+        }
+    }, [editor, pulpitMode]);
+
     // Zoom Keyboard Shortcuts
     useEffect(() => {
         const handleZoom = (e: KeyboardEvent) => {
@@ -433,7 +444,50 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
 
     return (
         <div className="flex-1 flex flex-col h-full bg-white dark:bg-dark-surface overflow-hidden">
-            <EditorToolbar editor={editor} />
+            {pulpitMode ? (
+                <div className="h-12 border-b border-light-border dark:border-dark-border bg-emerald-500/10 dark:bg-emerald-500/5 flex items-center justify-between px-6 shrink-0 relative z-20">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Pulpit Mode Active</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={() => updateSettings({ editorFontSize: Math.max(12, editorFontSize - 1) })}
+                            className="px-2.5 py-1.5 rounded-lg hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary font-black text-xs shrink-0"
+                            title="Decrease Text Size"
+                        >
+                            A-
+                        </button>
+                        <button
+                            onClick={() => updateSettings({ editorFontSize: Math.min(36, editorFontSize + 1) })}
+                            className="px-2.5 py-1.5 rounded-lg hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary font-black text-xs shrink-0"
+                            title="Increase Text Size"
+                        >
+                            A+
+                        </button>
+
+                        <div className="w-[1px] h-3 bg-light-border dark:bg-dark-border mx-2 shrink-0" />
+
+                        <button
+                            onClick={toggleTheme}
+                            className="p-1.5 rounded-lg hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary shrink-0 text-xs"
+                            title="Toggle Theme"
+                        >
+                            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+                        </button>
+
+                        <button
+                            onClick={togglePulpitMode}
+                            className="ml-3 px-4 py-1.5 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md hover:bg-emerald-600 transition-all shrink-0"
+                        >
+                            Exit Presentation
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <EditorToolbar editor={editor} />
+            )}
 
             {focusedHeadingPos !== null && (
                 <div className="bg-primary/5 border-b border-primary/10 px-6 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
@@ -465,6 +519,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         ref={titleRef}
                         value={title}
                         onChange={handleTitleChange}
+                        readOnly={pulpitMode}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -473,7 +528,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         }}
                         placeholder="Note Title"
                         rows={1}
-                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''}`}
+                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''} ${pulpitMode ? 'cursor-default pointer-events-none select-none' : ''}`}
                         style={{ height: 'auto' }}
                     />
 
@@ -543,10 +598,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         ) : (
                             <ScriptureTooltipProvider>
                                 <div
-                                    className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''}`}
+                                    className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''} ${pulpitMode ? 'pulpit-active select-none' : ''}`}
                                     style={{
-                                        fontSize: `${editorFontSize}px`,
-                                        lineHeight: editorLineSpacing,
+                                        fontSize: pulpitMode ? `${Math.max(editorFontSize * 1.35, 24)}px` : `${editorFontSize}px`,
+                                        lineHeight: pulpitMode ? 1.8 : editorLineSpacing,
                                     }}
                                 >
                                     <EditorContent editor={editor} />

@@ -11,7 +11,7 @@ interface InterlinearWordProps {
 
 export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word }) => {
     const entry = useLiveQuery(() => db.strongsEntries.get(word.number.toUpperCase()), [word.number]);
-    const { openLexicon, toggleBibleModal } = useUIStore();
+    const { openLexicon, toggleBibleModal, isMobile } = useUIStore();
     const { setSearchOpen, setSearchQuery, executeSearch } = useBibleStore();
 
     const handleSearch = (e: React.MouseEvent) => {
@@ -41,7 +41,7 @@ export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word }) => {
                 </button>
                 <button
                     onClick={handleSearch}
-                    className="p-1 hover:bg-primary/10 text-primary rounded-md opacity-0 group-hover/word:opacity-100 transition-all ml-1"
+                    className={`p-1 hover:bg-primary/10 text-primary rounded-md transition-all ml-1 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover/word:opacity-100'}`}
                     title={`Search all occurrences of ${word.number.toUpperCase()}`}
                 >
                     <Search size={10} />

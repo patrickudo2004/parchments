@@ -51,7 +51,7 @@ export const FilesSidebar: React.FC = () => {
     // console.log('[FilesSidebar] localFiles count:', localFiles.length);
 
     const navigate = useNavigate();
-    const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
+    const { toggleTemplateModal, toggleNoFolderModal, isMobile } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
     const { joinedRooms, activeRoom, removeJoinedRoom, updateRoomTitle, sharedFolders, shareFolder, unshareFolder } = useSyncStore();
     const [showRecorder, setShowRecorder] = useState(false);
@@ -145,6 +145,10 @@ export const FilesSidebar: React.FC = () => {
         setIsDragging(true);
     };
 
+    const handleResizeTouchStart = () => {
+        setIsDragging(true);
+    };
+
     React.useEffect(() => {
         if (!isDragging) return;
 
@@ -158,16 +162,31 @@ export const FilesSidebar: React.FC = () => {
             localStorage.setItem('sharedSpacesHeight', newHeight.toString());
         };
 
-        const handleMouseUp = () => {
+        const handleTouchMove = (e: TouchEvent) => {
+            const sidebar = document.querySelector('[data-sidebar]');
+            if (!sidebar) return;
+
+            const sidebarRect = sidebar.getBoundingClientRect();
+            const clientY = e.touches[0].clientY;
+            const newHeight = Math.max(100, Math.min(600, sidebarRect.bottom - clientY));
+            setSharedSpacesHeight(newHeight);
+            localStorage.setItem('sharedSpacesHeight', newHeight.toString());
+        };
+
+        const handleDragEnd = () => {
             setIsDragging(false);
         };
 
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseup', handleDragEnd);
+        document.addEventListener('touchmove', handleTouchMove, { passive: true });
+        document.addEventListener('touchend', handleDragEnd);
 
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('mouseup', handleDragEnd);
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleDragEnd);
         };
     }, [isDragging]);
 
@@ -401,7 +420,7 @@ export const FilesSidebar: React.FC = () => {
                         <span className="truncate">{item.name}</span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className={`flex items-center ${isMobile ? 'gap-2.5 mr-1' : 'gap-1'}`}>
                         {!hasChildren && (
                             <button
                                 onClick={(e) => {
@@ -420,7 +439,7 @@ export const FilesSidebar: React.FC = () => {
                                         });
                                     }
                                 }}
-                                className={`p-1 opacity-0 group-hover:opacity-100 transition-all ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
+                                className={`p-1 transition-all ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'} ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
                                 title="Pin to Research"
                             >
                                 <Pin size={12} />
@@ -428,7 +447,7 @@ export const FilesSidebar: React.FC = () => {
                         )}
                         <button
                             onClick={(e) => handleRenameClick(e, item)}
-                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
+                            className={`p-1 hover:text-primary transition-all ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
                             title="Rename"
                         >
                             <Edit2 size={14} />
@@ -436,7 +455,7 @@ export const FilesSidebar: React.FC = () => {
                         {isFolder && (
                             <button
                                 onClick={(e) => handleShareFolder(e, item)}
-                                className={`p-1 opacity-0 group-hover:opacity-100 transition-all ${isShared ? 'text-primary' : 'hover:text-primary'}`}
+                                className={`p-1 transition-all ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'} ${isShared ? 'text-primary' : 'hover:text-primary'}`}
                                 title={isShared ? "Copy Share Link" : "Share Folder"}
                             >
                                 <Users size={14} />
@@ -444,7 +463,7 @@ export const FilesSidebar: React.FC = () => {
                         )}
                         <button
                             onClick={(e) => handleDeleteClick(e, item)}
-                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                            className={`p-1 hover:text-red-500 transition-all ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
                             title="Delete"
                         >
                             <Trash2 size={14} />
@@ -598,6 +617,7 @@ export const FilesSidebar: React.FC = () => {
                 {!sharedSpacesCollapsed && (
                     <div
                         onMouseDown={handleResizeMouseDown}
+                        onTouchStart={handleResizeTouchStart}
                         className={`h-1 cursor-row-resize hover:bg-primary/20 transition-colors relative group shrink-0 ${isDragging ? 'bg-primary/30' : ''
                             }`}
                         title="Drag to resize"
@@ -674,15 +694,15 @@ export const FilesSidebar: React.FC = () => {
                                                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold">JOINED</span>
                                                         </div>
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                removeJoinedRoom(room.hash);
-                                                            }}
-                                                            className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10"
-                                                            title="Leave Space"
-                                                        >
-                                                            <LogOut size={12} />
-                                                        </button>
+                                                             onClick={(e) => {
+                                                                 e.stopPropagation();
+                                                                 removeJoinedRoom(room.hash);
+                                                             }}
+                                                             className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                             title="Leave Space"
+                                                         >
+                                                             <LogOut size={12} />
+                                                         </button>
                                                     </div>
 
                                                     {/* Folder Children */}
@@ -743,15 +763,15 @@ export const FilesSidebar: React.FC = () => {
                                                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold">HOSTING</span>
                                                     </div>
                                                     <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            unshareFolder(folderId);
-                                                        }}
-                                                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10"
-                                                        title="Stop Sharing"
-                                                    >
-                                                        <LogOut size={12} />
-                                                    </button>
+                                                         onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             unshareFolder(folderId);
+                                                         }}
+                                                         className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                         title="Stop Sharing"
+                                                     >
+                                                         <LogOut size={12} />
+                                                     </button>
                                                 </div>
 
                                                 {/* Folder Children */}

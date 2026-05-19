@@ -53,8 +53,9 @@ export const FilesSidebar: React.FC = () => {
     const navigate = useNavigate();
     const { toggleTemplateModal, toggleNoFolderModal, isMobile } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
-    const { joinedRooms, activeRoom, removeJoinedRoom, updateRoomTitle, sharedFolders, shareFolder, unshareFolder } = useSyncStore();
+    const { joinedRooms, activeRoom, removeJoinedRoom, updateRoomTitle, sharedFolders, shareFolder, unshareFolder, pairedDeviceName } = useSyncStore();
     const [showRecorder, setShowRecorder] = useState(false);
+    const [recordingFolderId, setRecordingFolderId] = useState<string | null>(null);
     // ... rest same ...
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     // const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null); // MOVED TO GLOBAL STORE
@@ -62,6 +63,37 @@ export const FilesSidebar: React.FC = () => {
         const saved = localStorage.getItem('sharedSpacesCollapsed');
         return saved === 'true';
     });
+
+    const handleCreateNoteInFolder = async (folderId: string | null) => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+            return;
+        }
+
+        if (isLocalMode) {
+            setPromptConfig({
+                isOpen: true,
+                title: 'New Note',
+                label: 'Note Name',
+                defaultValue: UNTITLED_NOTE,
+                onConfirm: async (name) => {
+                    await createNote(folderId, name);
+                    setPromptConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            });
+        } else {
+            await createNote(folderId);
+        }
+    };
+
+    const handleStartRecordingInFolder = (folderId: string | null) => {
+        if (!hasStudyspace) {
+            toggleNoFolderModal(true);
+        } else {
+            setRecordingFolderId(folderId);
+            setShowRecorder(true);
+        }
+    };
     const [sharedSpacesHeight, setSharedSpacesHeight] = useState(() => {
         const saved = localStorage.getItem('sharedSpacesHeight');
         return saved ? parseInt(saved) : 250; // Default 250px
@@ -530,13 +562,7 @@ export const FilesSidebar: React.FC = () => {
                         <PenTool size={16} />
                     </button>
                     <button
-                        onClick={() => {
-                            if (!hasStudyspace) {
-                                toggleNoFolderModal(true);
-                            } else {
-                                setShowRecorder(true);
-                            }
-                        }}
+                        onClick={() => handleStartRecordingInFolder(selectedFolderId)}
                         className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
                         title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}
                     >
@@ -566,10 +592,14 @@ export const FilesSidebar: React.FC = () => {
                 <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
                         onSave={async (blob, duration, transcript) => {
-                            await createVoiceNote(selectedFolderId, blob, duration, transcript);
+                            await createVoiceNote(recordingFolderId, blob, duration, transcript);
                             setShowRecorder(false);
+                            setRecordingFolderId(null);
                         }}
-                        onCancel={() => setShowRecorder(false)}
+                        onCancel={() => {
+                            setShowRecorder(false);
+                            setRecordingFolderId(null);
+                        }}
                     />
                 </div>
             )}
@@ -639,9 +669,16 @@ export const FilesSidebar: React.FC = () => {
                         ) : (
                             <ChevronDown size={12} className="text-light-text-secondary" />
                         )}
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-70">
-                            Shared Spaces
-                        </h4>
+                        <div>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-70">
+                                Shared Spaces
+                            </h4>
+                            {pairedDeviceName && (
+                                <p className="text-[9px] text-primary italic lowercase tracking-normal font-normal opacity-85 mt-0.5">
+                                    sync: {pairedDeviceName}
+                                </p>
+                            )}
+                        </div>
                     </div>
                     <Globe size={12} className="text-light-text-disabled" />
                 </div>
@@ -693,16 +730,49 @@ export const FilesSidebar: React.FC = () => {
                                                             <span className="truncate font-medium">{room.title || 'Shared Space'}</span>
                                                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold">JOINED</span>
                                                         </div>
-                                                        <button
-                                                             onClick={(e) => {
-                                                                 e.stopPropagation();
-                                                                 removeJoinedRoom(room.hash);
-                                                             }}
-                                                             className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
-                                                             title="Leave Space"
-                                                         >
-                                                             <LogOut size={12} />
-                                                         </button>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCreateNoteInFolder(folderId);
+                                                                }}
+                                                                className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                title="New Note"
+                                                            >
+                                                                <FilePlus size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleStartRecordingInFolder(folderId);
+                                                                }}
+                                                                className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                title="Record Voice Note"
+                                                            >
+                                                                <Mic size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const fakeFolderItem = { id: folderId, name: room.title || 'Shared Space', type: 'folder' };
+                                                                    handleRenameClick(e, fakeFolderItem);
+                                                                }}
+                                                                className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                title="Rename Folder"
+                                                            >
+                                                                <Edit2 size={12} />
+                                                            </button>
+                                                            <button
+                                                                 onClick={(e) => {
+                                                                     e.stopPropagation();
+                                                                     removeJoinedRoom(room.hash);
+                                                                 }}
+                                                                 className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                 title="Leave Space"
+                                                             >
+                                                                 <LogOut size={12} />
+                                                             </button>
+                                                        </div>
                                                     </div>
 
                                                     {/* Folder Children */}
@@ -712,10 +782,36 @@ export const FilesSidebar: React.FC = () => {
                                                                 <div
                                                                     key={note.id}
                                                                     onClick={() => setCurrentNote(note)}
-                                                                    className="group flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
+                                                                    className="group flex items-center justify-between p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
                                                                 >
-                                                                    <FileText size={13} className="text-light-text-secondary shrink-0" />
-                                                                    <span className="truncate">{note.title}</span>
+                                                                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                                                                        <FileText size={13} className="text-light-text-secondary shrink-0" />
+                                                                        <span className="truncate">{note.title}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-0.5 shrink-0">
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const fakeNoteItem = { id: note.id, title: note.title, type: 'file' };
+                                                                                handleRenameClick(e, fakeNoteItem);
+                                                                            }}
+                                                                            className={`p-0.5 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                            title="Rename Note"
+                                                                        >
+                                                                            <Edit2 size={11} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const fakeNoteItem = { id: note.id, title: note.title, type: 'file' };
+                                                                                handleDeleteClick(e, fakeNoteItem);
+                                                                            }}
+                                                                            className={`p-0.5 hover:text-red-500 transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                            title="Delete Note"
+                                                                        >
+                                                                            <Trash2 size={11} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -762,37 +858,99 @@ export const FilesSidebar: React.FC = () => {
                                                         <span className="truncate font-medium">{folderName}</span>
                                                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold">HOSTING</span>
                                                     </div>
-                                                    <button
-                                                         onClick={(e) => {
-                                                             e.stopPropagation();
-                                                             unshareFolder(folderId);
-                                                         }}
-                                                         className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
-                                                         title="Stop Sharing"
-                                                     >
-                                                         <LogOut size={12} />
-                                                     </button>
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCreateNoteInFolder(folderId);
+                                                            }}
+                                                            className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                            title="New Note"
+                                                        >
+                                                            <FilePlus size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleStartRecordingInFolder(folderId);
+                                                            }}
+                                                            className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                            title="Record Voice Note"
+                                                        >
+                                                            <Mic size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const fakeFolderItem = { id: folderId, name: folderName, type: 'folder' };
+                                                                handleRenameClick(e, fakeFolderItem);
+                                                            }}
+                                                            className={`p-1 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                            title="Rename Folder"
+                                                        >
+                                                            <Edit2 size={12} />
+                                                        </button>
+                                                        <button
+                                                             onClick={(e) => {
+                                                                 e.stopPropagation();
+                                                                 unshareFolder(folderId);
+                                                             }}
+                                                             className={`p-1 hover:text-red-500 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/10 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                             title="Stop Sharing"
+                                                         >
+                                                             <LogOut size={12} />
+                                                         </button>
+                                                    </div>
                                                 </div>
 
                                                 {/* Folder Children */}
                                                 {isExpanded && allNotes.length > 0 && (
                                                     <div className="ml-6 mt-1 space-y-0.5">
-                                                        {allNotes.map(note => (
-                                                            <div
-                                                                key={note.id}
-                                                                onClick={() => {
-                                                                    if ('title' in note) {
-                                                                        setCurrentNote(note);
-                                                                    } else {
-                                                                        openLocalFile(note);
-                                                                    }
-                                                                }}
-                                                                className="group flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
-                                                            >
-                                                                <FileText size={13} className="text-light-text-secondary shrink-0" />
-                                                                <span className="truncate">{('title' in note) ? note.title : note.name}</span>
-                                                            </div>
-                                                        ))}
+                                                        {allNotes.map(note => {
+                                                            const noteTitle = ('title' in note) ? note.title : note.name;
+                                                            return (
+                                                                <div
+                                                                    key={note.id}
+                                                                    onClick={() => {
+                                                                        if ('title' in note) {
+                                                                            setCurrentNote(note);
+                                                                        } else {
+                                                                            openLocalFile(note);
+                                                                        }
+                                                                    }}
+                                                                    className="group flex items-center justify-between p-1.5 rounded cursor-pointer text-xs hover:bg-light-background dark:hover:bg-dark-background transition-all"
+                                                                >
+                                                                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                                                                        <FileText size={13} className="text-light-text-secondary shrink-0" />
+                                                                        <span className="truncate">{noteTitle}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-0.5 shrink-0">
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const fakeNoteItem = { id: note.id, title: noteTitle, type: 'file' };
+                                                                                handleRenameClick(e, fakeNoteItem);
+                                                                            }}
+                                                                            className={`p-0.5 hover:text-primary transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                            title="Rename Note"
+                                                                        >
+                                                                            <Edit2 size={11} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const fakeNoteItem = { id: note.id, title: noteTitle, type: 'file' };
+                                                                                handleDeleteClick(e, fakeNoteItem);
+                                                                            }}
+                                                                            className={`p-0.5 hover:text-red-500 transition-all rounded-md hover:bg-light-background/60 dark:hover:bg-dark-background/60 ${isMobile ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'}`}
+                                                                            title="Delete Note"
+                                                                        >
+                                                                            <Trash2 size={11} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>

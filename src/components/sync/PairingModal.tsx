@@ -9,7 +9,7 @@ import { roomHashToId } from '@/lib/sync/YjsService';
 
 export const PairingModal: React.FC = () => {
     const { isPairingModalOpen, pairingMode, togglePairingModal, showToast } = useUIStore();
-    const { joinedRooms, sharedFolders, joinRoom, addJoinedRoom } = useSyncStore();
+    const { joinedRooms, sharedFolders, joinRoom, addJoinedRoom, deviceName, setPairedDeviceName } = useSyncStore();
     
     const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [clientInput, setClientInput] = useState('');
@@ -33,13 +33,26 @@ export const PairingModal: React.FC = () => {
             const initHost = async () => {
                 setStatusText('Generating secure tunnel...');
                 try {
-                    // Gather all active room hashes
-                    const hashes: string[] = [];
-                    joinedRooms.forEach(r => hashes.push(r.hash));
-                    sharedFolders.forEach(id => hashes.push(`space-${id}`)); // Simplified space hash
+                    // Gather all active room hashes, always including the virtual global-root space
+                    const hashes: string[] = ['space-global-root'];
+                    joinedRooms.forEach(r => {
+                        if (!hashes.includes(r.hash)) hashes.push(r.hash);
+                    });
+                    sharedFolders.forEach(id => {
+                        const hash = `space-${id}`;
+                        if (!hashes.includes(hash)) hashes.push(hash);
+                    });
 
-                    const { code } = await PairingService.startHostSession(hashes, () => {
-                        showToast('Device connected successfully!', 'success');
+                    // Automatically include all database folders to mirror the entire workspace
+                    const { folders } = useNoteStore.getState();
+                    folders.forEach(f => {
+                        const hash = `space-${f.id}`;
+                        if (!hashes.includes(hash)) hashes.push(hash);
+                    });
+
+                    const { code } = await PairingService.startHostSession(hashes, deviceName, (clientName) => {
+                        setPairedDeviceName(clientName);
+                        showToast(`Connected to ${clientName}!`, 'success');
                         setTimeout(() => togglePairingModal(null), 1500);
                     });
                     
@@ -62,7 +75,8 @@ export const PairingModal: React.FC = () => {
                 setStatusText('Negotiating secure tunnel...');
                 
                 try {
-                    const hashes = await PairingService.joinClientSession(clientInput);
+                    const { hashes, hostDeviceName } = await PairingService.joinClientSession(clientInput, deviceName);
+                    setPairedDeviceName(hostDeviceName);
                     setStatusText(`Received ${hashes.length} secure workspaces...`);
                     
                     // Join all received rooms
@@ -70,7 +84,7 @@ export const PairingModal: React.FC = () => {
                     for (const hash of hashes) {
                         if (hash.startsWith('space-')) {
                             const folderId = roomHashToId(hash);
-                            if (folderId) {
+                            if (folderId && folderId !== 'global-root') {
                                 const { folders, createFolder } = useNoteStore.getState();
                                 const existingFolder = folders.find(f => f.id === folderId);
                                 if (!existingFolder) {
@@ -82,13 +96,13 @@ export const PairingModal: React.FC = () => {
                                     }
                                 }
                             }
-                            addJoinedRoom(hash, 'Shared Space', 'folder');
+                            addJoinedRoom(hash, folderId === 'global-root' ? 'Global Root' : 'Shared Space', 'folder');
                             joinRoom(hash, 'folder');
                             joinedCount++;
                         }
                     }
                     
-                    showToast(`Successfully paired ${joinedCount} spaces`, 'success');
+                    showToast(`Synced with ${hostDeviceName}!`, 'success');
                     setTimeout(() => togglePairingModal(null), 1500);
                 } catch (error: any) {
                     showToast(error.message || 'Failed to connect to device', 'error');

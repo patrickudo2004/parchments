@@ -127,8 +127,8 @@ interface NoteStore {
     setSelectedFolderId: (id: string | null) => void;
 
     // Sync Actions
-    broadcastFolderChange: (folderId: string) => Promise<void>;
-    broadcastNoteDeletion: (folderId: string, noteId: string) => Promise<void>;
+    broadcastFolderChange: (folderId: string | null) => Promise<void>;
+    broadcastNoteDeletion: (folderId: string | null, noteId: string) => Promise<void>;
 
     // Local Actions
 
@@ -174,27 +174,24 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         });
     },
 
-    broadcastFolderChange: async (folderId: string) => {
-        if (!folderId) {
-            console.log('[Space Sync BROADCAST] No folderId provided, skipping');
-            return;
-        }
+    broadcastFolderChange: async (folderId: string | null) => {
+        const actualFolderId = folderId || 'global-root';
 
-        const { joinedRooms, sharedFolders } = useSyncStore.getState();
-        const isJoined = joinedRooms.some(r => r.type === 'folder' && r.hash.includes(encodeURIComponent(folderId)));
-        const isHosted = sharedFolders.includes(folderId);
+        const { joinedRooms, sharedFolders, pairedDeviceName } = useSyncStore.getState();
+        const isJoined = joinedRooms.some(r => r.type === 'folder' && r.hash.includes(encodeURIComponent(actualFolderId)));
+        const isHosted = sharedFolders.includes(actualFolderId) || (actualFolderId === 'global-root' && pairedDeviceName !== null);
 
-        console.log(`[Space Sync BROADCAST] Folder: ${folderId}, isJoined: ${isJoined}, isHosted: ${isHosted}`);
+        console.log(`[Space Sync BROADCAST] Folder: ${actualFolderId}, isJoined: ${isJoined}, isHosted: ${isHosted}`);
         console.log(`[Space Sync BROADCAST] joinedRooms:`, joinedRooms);
         console.log(`[Space Sync BROADCAST] sharedFolders:`, sharedFolders);
 
         if (!isJoined && !isHosted) {
-            console.log(`[Space Sync BROADCAST] Folder ${folderId} is not shared, skipping broadcast`);
+            console.log(`[Space Sync BROADCAST] Folder ${actualFolderId} is not shared, skipping broadcast`);
             return;
         }
 
-        console.log(`[Space Sync BROADCAST] Broadcasting change for folder: ${folderId}`);
-        const doc = YjsService.getDoc(folderId, 'folder');
+        console.log(`[Space Sync BROADCAST] Broadcasting change for folder: ${actualFolderId}`);
+        const doc = YjsService.getDoc(actualFolderId, 'folder');
         const manifest = doc.getMap('manifest');
 
         const { notes, localFiles, isLocalMode } = get();
@@ -204,12 +201,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         if (isLocalMode && localFiles.length > 0) {
             // Get notes from local file system
-            folderNotes = localFiles.filter(f => f.kind === 'file' && f.parentId === folderId);
-            console.log(`[Space Sync BROADCAST] Local mode: Found ${folderNotes.length} local files in folder ${folderId}`);
+            folderNotes = localFiles.filter(f => f.kind === 'file' && (f.parentId === actualFolderId || (!f.parentId && actualFolderId === 'global-root')));
+            console.log(`[Space Sync BROADCAST] Local mode: Found ${folderNotes.length} local files in folder ${actualFolderId}`);
         } else {
             // Get notes from database
-            folderNotes = notes.filter(n => n.folderId === folderId);
-            console.log(`[Space Sync BROADCAST] Database mode: Found ${folderNotes.length} notes in folder ${folderId}`);
+            folderNotes = notes.filter(n => n.folderId === actualFolderId || (!n.folderId && actualFolderId === 'global-root'));
+            console.log(`[Space Sync BROADCAST] Database mode: Found ${folderNotes.length} notes in folder ${actualFolderId}`);
         }
 
         console.log(`[Space Sync BROADCAST] Notes:`, folderNotes.map(n => ({ id: n.id, title: n.title || n.name, type: n.type })));
@@ -238,19 +235,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         manifest.set('lastUpdated', Date.now());
 
-        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${folderId}`);
+        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${actualFolderId}`);
     },
 
-    broadcastNoteDeletion: async (folderId, noteId) => {
-        const { joinedRooms, sharedFolders } = useSyncStore.getState();
+    broadcastNoteDeletion: async (folderId: string | null, noteId: string) => {
+        const actualFolderId = folderId || 'global-root';
+        const { joinedRooms, sharedFolders, pairedDeviceName } = useSyncStore.getState();
 
-        const isJoined = joinedRooms.some(r => r.type === 'folder' && roomHashToId(r.hash) === folderId);
-        const isHosted = sharedFolders.includes(folderId);
+        const isJoined = joinedRooms.some(r => r.type === 'folder' && roomHashToId(r.hash) === actualFolderId);
+        const isHosted = sharedFolders.includes(actualFolderId) || (actualFolderId === 'global-root' && pairedDeviceName !== null);
 
         if (!isJoined && !isHosted) return;
 
-        console.log(`[Space Sync BROADCAST] Broadcasting deletion for note ${noteId} in folder ${folderId}`);
-        const doc = YjsService.getDoc(folderId, 'folder');
+        console.log(`[Space Sync BROADCAST] Broadcasting deletion for note ${noteId} in folder ${actualFolderId}`);
+        const doc = YjsService.getDoc(actualFolderId, 'folder');
         const manifest = doc.getMap('manifest');
 
         manifest.delete(noteId);
@@ -278,10 +276,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Re-fetch from currentNote because createLocalNote sets it
             const currentNote = get().currentNote;
             // BROADCAST: Notify collaborators of the new note
-            if (folderId) {
-                console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${folderId}`);
-                get().broadcastFolderChange(folderId);
-            }
+            console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${folderId}`);
+            get().broadcastFolderChange(folderId);
             return currentNote as Note;
         }
 
@@ -294,7 +290,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }, forceId);
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        if (folderId) broadcastFolderChange(folderId);
+        broadcastFolderChange(folderId);
         return note;
     },
 
@@ -320,7 +316,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         });
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        if (folderId) broadcastFolderChange(folderId);
+        broadcastFolderChange(folderId);
         return note;
     },
 
@@ -343,7 +339,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         });
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        if (folderId) broadcastFolderChange(folderId);
+        broadcastFolderChange(folderId);
         return note;
     },
 
@@ -390,22 +386,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     });
 
                     // SYNC: Broadcast the change to collaborators if this folder is shared
-                    if (item.parentId) {
-                        get().broadcastFolderChange(item.parentId);
-                    }
+                    get().broadcastFolderChange(item.parentId);
                 } catch (error) {
                     console.error('Failed to delete local file:', error);
                 }
             }
         } else {
             const noteToDelete = notes.find(n => n.id === id);
-            const folderId = noteToDelete?.folderId;
+            const folderId = noteToDelete?.folderId || null;
             await db.notes.delete(id);
             set({
                 notes: notes.filter((n) => n.id !== id),
                 currentNote: currentNote?.id === id ? null : currentNote,
             });
-            if (folderId) get().broadcastNoteDeletion(folderId, id);
+            get().broadcastNoteDeletion(folderId, id);
         }
     },
 
@@ -493,8 +487,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 notes: notes.map(n => n.id === id ? { ...n, title: newName, updatedAt: Date.now() } : n),
                 currentNote: currentNote?.id === id ? { ...currentNote, title: newName } : currentNote
             });
-            const folderId = notes.find(n => n.id === id)?.folderId;
-            if (folderId) get().broadcastFolderChange(folderId);
+            const folderId = notes.find(n => n.id === id)?.folderId || null;
+            get().broadcastFolderChange(folderId);
         }
     },
 

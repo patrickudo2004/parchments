@@ -17,7 +17,11 @@ export class PairingService {
     /**
      * Starts a hosting session. Generates a 6-digit code and waits for a client.
      */
-    static async startHostSession(hashes: string[], onClientAcknowledged: () => void): Promise<{ code: string, destroy: () => void }> {
+    static async startHostSession(
+        hashes: string[], 
+        hostDeviceName: string, 
+        onClientAcknowledged: (clientDeviceName: string) => void
+    ): Promise<{ code: string, destroy: () => void }> {
         this.destroySession();
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -30,13 +34,15 @@ export class PairingService {
 
         const pairingMap = this.doc.getMap('pairing');
         
-        // Write the host's hashes to the room
+        // Write the host's hashes and device name to the room
         pairingMap.set('host_hashes', hashes);
+        pairingMap.set('host_device_name', hostDeviceName);
 
         // Listen for the client to acknowledge receipt
         pairingMap.observe(() => {
             if (pairingMap.get('client_success')) {
-                onClientAcknowledged();
+                const clientName = pairingMap.get('client_device_name') as string || 'Mobile Device';
+                onClientAcknowledged(clientName);
             }
         });
 
@@ -49,7 +55,7 @@ export class PairingService {
     /**
      * Connects to a hosting session using a 6-digit code.
      */
-    static async joinClientSession(code: string): Promise<string[]> {
+    static async joinClientSession(code: string, clientDeviceName: string): Promise<{ hashes: string[], hostDeviceName: string }> {
         this.destroySession();
         
         const roomName = `parchments-pairing-${code}`;
@@ -68,28 +74,31 @@ export class PairingService {
                 reject(new Error('Pairing timeout. Please check the code and try again.'));
             }, 30000);
 
-            const handleSuccess = (hashes: string[]) => {
+            const handleSuccess = (hashes: string[], hostName: string) => {
                 clearTimeout(timeout);
                 // Ping the host that we succeeded
+                pairingMap.set('client_device_name', clientDeviceName);
                 pairingMap.set('client_success', true);
                 
                 // Allow the Yjs WebRTC provider time to flush the map update before destroying
                 setTimeout(() => this.destroySession(), 1500); 
-                resolve(hashes);
+                resolve({ hashes, hostDeviceName: hostName });
             };
 
             // Check immediately in case it's already there
             const initialHashes = pairingMap.get('host_hashes') as string[] | undefined;
-            if (initialHashes && initialHashes.length > 0) {
-                handleSuccess(initialHashes);
+            const initialHostName = pairingMap.get('host_device_name') as string | undefined;
+            if (initialHashes && initialHashes.length > 0 && initialHostName) {
+                handleSuccess(initialHashes, initialHostName);
                 return;
             }
 
             // Observe for changes
             pairingMap.observe(() => {
                 const hashes = pairingMap.get('host_hashes') as string[] | undefined;
-                if (hashes && hashes.length > 0) {
-                    handleSuccess(hashes);
+                const hostName = pairingMap.get('host_device_name') as string | undefined;
+                if (hashes && hashes.length > 0 && hostName) {
+                    handleSuccess(hashes, hostName);
                 }
             });
         });

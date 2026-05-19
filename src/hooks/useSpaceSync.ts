@@ -3,10 +3,11 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { YjsService, roomHashToId } from '@/lib/sync/YjsService';
 import { db } from '@/lib/db';
+import { fileSystem } from '@/lib/filesystem/FileSystemService';
 
 /**
  * useSpaceSync is a global observer hook that keeps the local database
- * in sync with the Shared Space manifests.
+ * and physical files on disk in sync with the Shared Space manifests.
  *
  * TRUE MULTI-MASTER CRDT ARCHITECTURE:
  * -  Both Host and Client are equal peers. Neither is the "source of truth".
@@ -14,11 +15,47 @@ import { db } from '@/lib/db';
  * -  When ANY device creates a note, it adds its noteId to the Y.Map.
  * -  When ANY device deletes a note, it removes its noteId from the Y.Map.
  * -  Both devices observe the Y.Map keys and react to additions/deletions.
- * -  This eliminates the Single Writer problem where Mobile notes didn't reflect on Desktop.
+ * -  For the Desktop host (local mode), changes are physically written to and deleted from disk.
  */
 export const useSpaceSync = () => {
-    const { joinedRooms, sharedFolders } = useSyncStore();
+    const { joinedRooms, sharedFolders, pairedDeviceName } = useSyncStore();
     const observedRooms = useRef<Set<string>>(new Set());
+    const activeObservers = useRef<Map<string, () => void>>(new Map());
+    const writeTimeouts = useRef<Record<string, any>>({});
+
+    const debounceDiskWrite = (fileId: string, handle: any, content: string) => {
+        if (writeTimeouts.current[fileId]) {
+            clearTimeout(writeTimeouts.current[fileId]);
+        }
+        writeTimeouts.current[fileId] = setTimeout(async () => {
+            try {
+                console.log(`[Space Sync FLUSHER] 💾 Flushing Yjs updates for ${fileId} directly to disk...`);
+                await fileSystem.writeFile(handle, content);
+                delete writeTimeouts.current[fileId];
+            } catch (e) {
+                console.error(`[Space Sync FLUSHER] Failed to flush to disk for ${fileId}:`, e);
+            }
+        }, 1500);
+    };
+
+    const deleteLocalFile = async (fileId: string) => {
+        const { localFiles, localDirectoryHandle, refreshLocalFiles } = useNoteStore.getState();
+        const item = localFiles.find(lf => lf.id === fileId && lf.kind === 'file');
+        if (item && localDirectoryHandle) {
+            try {
+                let parentHandle = localDirectoryHandle;
+                if (item.parentId && item.parentId !== 'global-root') {
+                    const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                    if (parent) parentHandle = parent.handle as any;
+                }
+                console.log(`[Space Sync OBSERVER] 🗑️ Physically deleting file from disk: ${item.name}`);
+                await fileSystem.deleteEntry(parentHandle, item.name);
+                await refreshLocalFiles();
+            } catch (e) {
+                console.error('[Space Sync OBSERVER] Failed to delete local file from disk:', e);
+            }
+        }
+    };
 
     useEffect(() => {
         console.log('[Space Sync INIT] useSpaceSync running (Multi-Master mode)');
@@ -28,6 +65,11 @@ export const useSpaceSync = () => {
             ...joinedRooms.filter(r => r.type === 'folder').map(r => ({ id: roomHashToId(r.hash), hash: r.hash, isHosted: false })),
             ...sharedFolders.map(id => ({ id, hash: `space-${id}`, isHosted: true }))
         ].filter(f => f.id); // Remove any null IDs
+
+        // Automatically register the virtual global-root room if device is paired
+        if (pairedDeviceName && !activeFolders.some(f => f.id === 'global-root')) {
+            activeFolders.push({ id: 'global-root', hash: 'space-global-root', isHosted: true });
+        }
 
         console.log('[Space Sync INIT] Active folders to observe:', activeFolders);
 
@@ -43,20 +85,16 @@ export const useSpaceSync = () => {
             const manifest = ydoc.getMap('manifest');
 
             // ALL peers broadcast their current notes on startup to populate the shared map.
-            // Hosts publish their local notes; Clients publish any notes they've created.
             console.log(`[Space Sync] 📢 Initial broadcast for folder: ${folder.id}`);
-            useNoteStore.getState().broadcastFolderChange(folder.id);
+            useNoteStore.getState().broadcastFolderChange(folder.id === 'global-root' ? null : folder.id);
 
             const handleManifestChange = async () => {
-                const currentNotes = useNoteStore.getState().notes; // Use real-time state to avoid stale closure
+                const { notes, isLocalMode, localFiles, createLocalNote, refreshLocalFiles } = useNoteStore.getState();
                 console.log(`[Space Sync OBSERVER] Manifest change detected for folder: ${folder.id}`);
 
                 let dbChanged = false;
 
-                // Build the set of all noteIds present in the shared manifest.
-                // The manifest now stores individual noteId keys directly.
-                // We skip the 'lastUpdated' metadata key.
-                const reservedKeys = new Set(['lastUpdated', 'files']); // 'files' is the legacy key
+                const reservedKeys = new Set(['lastUpdated', 'files']);
                 const remoteNoteIds = new Set<string>();
                 const remoteFiles: Record<string, any> = {};
 
@@ -67,56 +105,94 @@ export const useSpaceSync = () => {
                 });
 
                 // ── 1. ADDITION / RENAME SYNC ─────────────────────────────────────
-                // For every noteId in the remote manifest, check if it exists locally.
                 for (const fileId of remoteNoteIds) {
                     const remoteFile = remoteFiles[fileId];
                     if (!remoteFile) continue;
 
-                    const localNote = currentNotes.find(n => n.id === fileId);
+                    const localNote = notes.find(n => n.id === fileId);
+                    const localDiskFile = localFiles.find(f => f.id === fileId);
 
-                    if (!localNote) {
-                        // GHOST HYDRATION: Note exists on a peer but not locally. Create a placeholder.
-                        console.log(`[Space Sync OBSERVER] 🆕 Creating placeholder for remote note: "${remoteFile.title}" (${fileId})`);
+                    // Check both DB and physical disk depending on mode
+                    const existsLocally = isLocalMode ? !!localDiskFile : !!localNote;
+
+                    if (!existsLocally) {
+                        // GHOST HYDRATION
+                        console.log(`[Space Sync OBSERVER] 🆕 Creating remote note locally: "${remoteFile.title}" (${fileId})`);
                         try {
-                            await db.notes.put({
-                                id: fileId,
-                                title: remoteFile.title || 'Untitled',
-                                content: '',
-                                folderId: folder.id,
-                                tags: [],
-                                type: remoteFile.type || 'text',
-                                transcript: remoteFile.transcript || undefined,
-                                duration: remoteFile.duration || undefined,
-                                createdAt: Date.now(),
-                                updatedAt: remoteFile.updatedAt || Date.now()
-                            });
-                            dbChanged = true;
+                            if (isLocalMode) {
+                                // Physically create file on local hard disk
+                                const parentId = folder.id === 'global-root' ? null : folder.id;
+                                await createLocalNote(remoteFile.title || 'Untitled', parentId, '', fileId);
+                                await refreshLocalFiles();
+                            } else {
+                                // Create placeholder inside IndexedDB
+                                await db.notes.put({
+                                    id: fileId,
+                                    title: remoteFile.title || 'Untitled',
+                                    content: '',
+                                    folderId: folder.id === 'global-root' ? null : folder.id,
+                                    tags: [],
+                                    type: remoteFile.type || 'text',
+                                    transcript: remoteFile.transcript || undefined,
+                                    duration: remoteFile.duration || undefined,
+                                    createdAt: Date.now(),
+                                    updatedAt: remoteFile.updatedAt || Date.now()
+                                });
+                                dbChanged = true;
+                            }
                         } catch (error) {
-                            console.error(`[Space Sync OBSERVER] ❌ Failed to create placeholder for ${fileId}:`, error);
+                            console.error(`[Space Sync OBSERVER] ❌ Failed to create local placeholder for ${fileId}:`, error);
                         }
-                    } else if (localNote.title !== remoteFile.title && remoteFile.title) {
+                    } else if (localNote && localNote.title !== remoteFile.title && remoteFile.title) {
                         // RENAME SYNC: Update local title if it changed on another peer
                         console.log(`[Space Sync OBSERVER] 📝 Syncing title for ${fileId}: "${localNote.title}" -> "${remoteFile.title}"`);
                         await db.notes.update(fileId, { title: remoteFile.title, updatedAt: remoteFile.updatedAt || Date.now() });
                         dbChanged = true;
                     }
+
+                    // ── BACKGROUND REAL-TIME FILE FLUSHER ──────────────────────────────
+                    // For local filesystem users, keep physical disk files updated with keystroke changes
+                    if (isLocalMode && !activeObservers.current.has(fileId)) {
+                        const noteDoc = YjsService.getDoc(fileId, 'note');
+                        const contentText = noteDoc.getText('content');
+
+                        const textObserver = () => {
+                            const { localFiles: currentLocalFiles } = useNoteStore.getState();
+                            const fileItem = currentLocalFiles.find(lf => lf.id === fileId);
+                            if (fileItem && fileItem.handle) {
+                                debounceDiskWrite(fileId, fileItem.handle, contentText.toString());
+                            }
+                        };
+
+                        contentText.observe(textObserver);
+                        activeObservers.current.set(fileId, () => {
+                            contentText.unobserve(textObserver);
+                        });
+                    }
                 }
 
                 // ── 2. DELETION SYNC ──────────────────────────────────────────────
-                // If a local note in this folder is NOT in the remote manifest, it was deleted on a peer.
-                // We only delete ghost notes (content === '') to avoid destroying locally-authored content
-                // in edge cases where the manifest hasn't fully synced yet.
-                const localNotesInFolder = currentNotes.filter(n => n.folderId === folder.id);
-
-                for (const note of localNotesInFolder) {
-                    // Only delete if:
-                    // 1. Note is not in the remote manifest
-                    // 2. The manifest is non-empty (if it's empty, we might just not have synced yet)
-                    // 3. The note has no content (it's a ghost/placeholder, not authored locally)
-                    if (!remoteNoteIds.has(note.id) && remoteNoteIds.size > 0 && note.content === '') {
-                        console.log(`[Space Sync OBSERVER] 🗑️ Remote deletion detected: "${note.title}" (${note.id})`);
-                        await db.notes.delete(note.id);
-                        dbChanged = true;
+                if (isLocalMode) {
+                    // Check for deletion on disk
+                    const localDiskNotes = localFiles.filter(f => f.kind === 'file' && (f.parentId === folder.id || (!f.parentId && folder.id === 'global-root')));
+                    for (const diskFile of localDiskNotes) {
+                        // Only delete if note was removed from peer manifest, the manifest is active, and it is a ghost note
+                        const matchingNote = notes.find(n => n.id === diskFile.id);
+                        const isGhost = !matchingNote || matchingNote.content === '';
+                        if (!remoteNoteIds.has(diskFile.id) && remoteNoteIds.size > 0 && isGhost) {
+                            console.log(`[Space Sync OBSERVER] 🗑️ Remote deletion detected, deleting from disk: "${diskFile.name}"`);
+                            await deleteLocalFile(diskFile.id);
+                        }
+                    }
+                } else {
+                    // Check for deletion in IndexedDB
+                    const localNotesInFolder = notes.filter(n => n.folderId === folder.id || (!n.folderId && folder.id === 'global-root'));
+                    for (const note of localNotesInFolder) {
+                        if (!remoteNoteIds.has(note.id) && remoteNoteIds.size > 0 && note.content === '') {
+                            console.log(`[Space Sync OBSERVER] 🗑️ Remote deletion detected: "${note.title}" (${note.id})`);
+                            await db.notes.delete(note.id);
+                            dbChanged = true;
+                        }
                     }
                 }
 
@@ -127,7 +203,6 @@ export const useSpaceSync = () => {
             };
 
             manifest.observe(handleManifestChange);
-            // Run once immediately to hydrate from any existing shared state
             handleManifestChange();
 
             cleanupFns.push(() => {
@@ -138,6 +213,9 @@ export const useSpaceSync = () => {
 
         return () => {
             cleanupFns.forEach(fn => fn());
+            // Unsubscribe all active text observers to prevent leaks
+            activeObservers.current.forEach(unsubscribe => unsubscribe());
+            activeObservers.current.clear();
         };
-    }, [joinedRooms, sharedFolders]);
+    }, [joinedRooms, sharedFolders, pairedDeviceName]);
 };

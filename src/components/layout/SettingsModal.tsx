@@ -75,7 +75,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         isInitialized: isSyncInitialized,
         syncStatus,
         initializeIdentity,
-        clearIdentity
+        clearIdentity,
+        deviceName,
+        updateDeviceName,
+        pairedDeviceName,
+        setPairedDeviceName
     } = useSyncStore();
     const { updateSettings, setTheme, settingsTab } = settings;
     const [activeTab, setActiveTab] = useState<string>(settingsTab || 'appearance');
@@ -1376,36 +1380,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                             </div>
                                                         </section>
 
-                                                        {/* Device Pairing */}
-                                                        <section className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl flex flex-col gap-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <Smartphone size={24} className="text-primary" />
-                                                                <div>
-                                                                    <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Device Pairing</h5>
-                                                                    <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes using a secure 6-digit code.</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-3 mt-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        settings.toggleSettingsModal();
-                                                                        settings.togglePairingModal('host');
-                                                                    }}
-                                                                    className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all"
-                                                                >
-                                                                    Generate Pairing Code
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        settings.toggleSettingsModal();
-                                                                        settings.togglePairingModal('client');
-                                                                    }}
-                                                                    className="w-full py-2 bg-light-surface dark:bg-dark-surface border border-primary/20 text-primary rounded-lg text-xs font-bold shadow-sm hover:bg-primary/5 transition-all"
-                                                                >
-                                                                    Pair with Code
-                                                                </button>
-                                                            </div>
-                                                        </section>
+                                                        {/* Local Device Name Setup */}
+                                                         <section className="space-y-4">
+                                                             <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Device Configuration</h4>
+                                                             <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl space-y-3">
+                                                                 <label className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary">Local Device Name</label>
+                                                                 <input
+                                                                     type="text"
+                                                                     value={deviceName}
+                                                                     onChange={(e) => updateDeviceName(e.target.value)}
+                                                                     placeholder="e.g., Patrick's Laptop"
+                                                                     className="w-full px-4 py-2.5 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary font-bold"
+                                                                 />
+                                                                 <p className="text-[10px] text-light-text-disabled uppercase font-black">This name will be visible to paired devices during connection handshakes.</p>
+                                                             </div>
+                                                         </section>
+
+                                                         {/* Device Pairing / Paired Device Info Card */}
+                                                         {pairedDeviceName ? (
+                                                             <section className="p-6 bg-green-500/5 dark:bg-green-500/10 border border-green-500/20 rounded-2xl flex flex-col gap-4">
+                                                                 <div className="flex items-center justify-between">
+                                                                     <div className="flex items-center gap-3">
+                                                                         <Smartphone size={24} className="text-green-600 dark:text-green-400" />
+                                                                         <div>
+                                                                             <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Paired Device</h5>
+                                                                             <p className="text-xs text-green-600 dark:text-green-400 font-bold mt-0.5">Currently Connected to {pairedDeviceName}</p>
+                                                                         </div>
+                                                                     </div>
+                                                                     <button
+                                                                         onClick={() => {
+                                                                             setConfirmConfig({
+                                                                                 isOpen: true,
+                                                                                 title: 'Unpair Device',
+                                                                                 message: `Are you sure you want to unpair from ${pairedDeviceName}? This will stop synchronizing workspace folders immediately.`,
+                                                                                 isDanger: true,
+                                                                                 onConfirm: () => {
+                                                                                     setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                                                                                     setPairedDeviceName(null);
+                                                                                     settings.showToast('Device unpaired successfully', 'success');
+                                                                                 }
+                                                                             });
+                                                                         }}
+                                                                         className="text-xs font-bold text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/5 transition-all cursor-pointer"
+                                                                     >
+                                                                         Unpair Device
+                                                                     </button>
+                                                                 </div>
+                                                             </section>
+                                                         ) : (
+                                                             <section className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl flex flex-col gap-4">
+                                                                 <div className="flex items-center gap-3">
+                                                                     <Smartphone size={24} className="text-primary" />
+                                                                     <div>
+                                                                         <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Device Pairing</h5>
+                                                                         <p className="text-xs text-light-text-secondary leading-relaxed">Pair your tablet or mobile phone to sync your notes using a secure 6-digit code.</p>
+                                                                     </div>
+                                                                 </div>
+                                                                 <div className="grid grid-cols-2 gap-3 mt-2">
+                                                                     <button
+                                                                         onClick={() => {
+                                                                             settings.toggleSettingsModal();
+                                                                             settings.togglePairingModal('host');
+                                                                         }}
+                                                                         className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary-hover transition-all"
+                                                                     >
+                                                                         Generate Pairing Code
+                                                                     </button>
+                                                                     <button
+                                                                         onClick={() => {
+                                                                             settings.toggleSettingsModal();
+                                                                             settings.togglePairingModal('client');
+                                                                         }}
+                                                                         className="w-full py-2 bg-light-surface dark:bg-dark-surface border border-primary/20 text-primary rounded-lg text-xs font-bold shadow-sm hover:bg-primary/5 transition-all"
+                                                                     >
+                                                                         Pair with Code
+                                                                     </button>
+                                                                 </div>
+                                                             </section>
+                                                         )}
 
                                                         <section className="grid grid-cols-1 gap-4">
                                                             <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">

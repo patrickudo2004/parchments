@@ -15,8 +15,10 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip';
 
 export const TemplatePickerModal: React.FC = () => {
-    const { toggleTemplateModal, toggleNoFolderModal } = useUIStore();
+    const { isTemplateModalOpen, toggleTemplateModal, toggleNoFolderModal } = useUIStore();
     const { createNoteFromTemplate, createNote, hasStudyspace, selectedFolderId } = useNoteStore();
+
+    if (!isTemplateModalOpen) return null;
 
     const handleSelectTemplate = async (templateId: string) => {
         if (!hasStudyspace) {

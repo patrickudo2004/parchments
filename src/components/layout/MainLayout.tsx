@@ -398,10 +398,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 initialQuery={searchQuery}
                 onClose={toggleSearchModal}
             />
-            <BibleModal isOpen={isBibleModalOpen} />
+            <BibleModal />
             <SettingsModal isOpen={isSettingsModalOpen} onClose={toggleSettingsModal} />
             <ShortcutModal isOpen={isShortcutModalOpen} onClose={toggleShortcutModal} />
-            <TemplatePickerModal isOpen={isTemplateModalOpen} />
+            <TemplatePickerModal />
                 {/* Toast System */}
                 <AnimatePresence>
                     {toast && (

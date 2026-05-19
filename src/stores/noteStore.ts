@@ -128,6 +128,7 @@ interface NoteStore {
 
     // Sync Actions
     broadcastFolderChange: (folderId: string) => Promise<void>;
+    broadcastNoteDeletion: (folderId: string, noteId: string) => Promise<void>;
 
     // Local Actions
 
@@ -215,7 +216,6 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         // Update the manifest with the current list of notes
         // We use a simple object structure for each note
-        const manifestData: Record<string, any> = {};
         folderNotes.forEach(n => {
             const baseMetadata = {
                 id: n.id,
@@ -226,21 +226,36 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Add voice note specific metadata
             if (n.type === 'voice') {
-                manifestData[n.id] = {
+                manifest.set(n.id, {
                     ...baseMetadata,
                     transcript: n.transcript || '',
                     duration: n.duration || 0
-                };
+                });
             } else {
-                manifestData[n.id] = baseMetadata;
+                manifest.set(n.id, baseMetadata);
             }
         });
 
-        // Set the entire manifest at once to ensure consistency
-        manifest.set('files', manifestData);
         manifest.set('lastUpdated', Date.now());
 
-        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${folderId}`, manifestData);
+        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${folderId}`);
+    },
+
+    broadcastNoteDeletion: async (folderId, noteId) => {
+        const { isLocalMode } = get();
+        const { identity, joinedRooms, sharedFolders } = useSyncStore.getState();
+
+        const isJoined = joinedRooms.some(r => r.type === 'folder' && roomHashToId(r.hash) === folderId);
+        const isHosted = sharedFolders.includes(folderId);
+
+        if (!isJoined && !isHosted) return;
+
+        console.log(`[Space Sync BROADCAST] Broadcasting deletion for note ${noteId} in folder ${folderId}`);
+        const doc = YjsService.getDoc(folderId, 'folder');
+        const manifest = doc.getMap('manifest');
+
+        manifest.delete(noteId);
+        manifest.set('lastUpdated', Date.now());
     },
 
     loadNotes: async () => {
@@ -391,7 +406,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 notes: notes.filter((n) => n.id !== id),
                 currentNote: currentNote?.id === id ? null : currentNote,
             });
-            if (folderId) get().broadcastFolderChange(folderId);
+            if (folderId) get().broadcastNoteDeletion(folderId, id);
         }
     },
 
@@ -421,9 +436,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     }));
                     set({ localFiles: files });
 
-                    // SYNC: Broadcast if parent folder is shared
+                    // SYNC: Broadcast deletion
                     if (item.parentId) {
-                        get().broadcastFolderChange(item.parentId);
+                        get().broadcastNoteDeletion(item.parentId, item.id);
                     }
                 } catch (error) {
                     console.error('Failed to delete local folder:', error);

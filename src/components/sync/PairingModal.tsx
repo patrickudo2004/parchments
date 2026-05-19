@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Smartphone, Monitor, ShieldCheck, Loader2 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { useNoteStore } from '@/stores/noteStore';
 import { PairingService } from '@/lib/sync/PairingService';
+import { roomHashToId } from '@/lib/sync/YjsService';
 
 export const PairingModal: React.FC = () => {
     const { isPairingModalOpen, pairingMode, togglePairingModal, showToast } = useUIStore();
@@ -67,6 +69,19 @@ export const PairingModal: React.FC = () => {
                     let joinedCount = 0;
                     for (const hash of hashes) {
                         if (hash.startsWith('space-')) {
+                            const folderId = roomHashToId(hash);
+                            if (folderId) {
+                                const { folders, createFolder } = useNoteStore.getState();
+                                const existingFolder = folders.find(f => f.id === folderId);
+                                if (!existingFolder) {
+                                    try {
+                                        const name = folderId.replace(/-/g, ' ');
+                                        await createFolder(name || 'Shared Space', folderId);
+                                    } catch (err) {
+                                        console.error('Failed to create synced folder:', err);
+                                    }
+                                }
+                            }
                             addJoinedRoom(hash, 'Shared Space', 'folder');
                             joinRoom(hash, 'folder');
                             joinedCount++;

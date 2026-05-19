@@ -186,7 +186,7 @@ export const TopBar: React.FC = () => {
 
                 {/* Sync Indicator */}
                 <button
-                    onClick={toggleSettingsModal}
+                    onClick={() => toggleSettingsModal('sync')}
                     className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
                     title={identity ? `Vault Active - ${isConnected ? 'Online' : 'Connecting...'}` : 'Enable Sync'}
                 >

@@ -32,6 +32,7 @@ interface UIStore {
     selectedStrongsId: string | null;
     selectedVerseId: string | null;
     isSettingsModalOpen: boolean;
+    settingsTab: 'general' | 'sync' | 'backup' | 'about';
     isTemplateModalOpen: boolean;
     isSearchModalOpen: boolean;
     searchQuery: string;
@@ -62,7 +63,7 @@ interface UIStore {
     updateSettings: (settings: Partial<UIStore>) => void;
     toggleBibleModal: () => void;
     toggleStrongsModal: (id?: string | null) => void;
-    toggleSettingsModal: () => void;
+    toggleSettingsModal: (tab?: 'general' | 'sync' | 'backup' | 'about') => void;
     toggleTemplateModal: () => void;
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
@@ -124,6 +125,7 @@ export const useUIStore = create<UIStore>()(
             selectedStrongsId: null,
             selectedVerseId: null,
             isSettingsModalOpen: false,
+            settingsTab: 'general',
             isTemplateModalOpen: false,
             isSearchModalOpen: false,
             searchQuery: '',
@@ -168,7 +170,10 @@ export const useUIStore = create<UIStore>()(
                     selectedStrongsId: state.selectedStrongsId
                 };
             }),
-            toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+            toggleSettingsModal: (tab) => set((state) => ({
+                isSettingsModalOpen: !state.isSettingsModalOpen,
+                settingsTab: tab || state.settingsTab
+            })),
             toggleTemplateModal: () => set((state) => ({ isTemplateModalOpen: !state.isTemplateModalOpen })),
             toggleSearchModal: (query) => set((state) => ({
                 isSearchModalOpen: !state.isSearchModalOpen,

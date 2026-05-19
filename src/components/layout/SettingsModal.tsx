@@ -77,8 +77,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         initializeIdentity,
         clearIdentity
     } = useSyncStore();
-    const { updateSettings, setTheme } = settings;
-    const [activeTab, setActiveTab] = useState('appearance');
+    const { updateSettings, setTheme, settingsTab } = settings;
+    const [activeTab, setActiveTab] = useState(settingsTab || 'appearance');
+
+    useEffect(() => {
+        if (settingsTab) {
+            setActiveTab(settingsTab);
+        }
+    }, [settingsTab, isOpen]);
 
     const indexedVersions = useLiveQuery(() => db.bibleVectors.toArray()) || [];
     const indexedSet = new Set(indexedVersions.map(v => v.versionId));

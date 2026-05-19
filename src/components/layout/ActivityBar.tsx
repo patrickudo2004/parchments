@@ -86,7 +86,7 @@ export const ActivityBar: React.FC = () => {
                 </button>
 
                 <button
-                    onClick={toggleSettingsModal}
+                    onClick={() => toggleSettingsModal()}
                     className="group relative flex items-center justify-center w-8 h-8 rounded-lg text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-all"
                     title="Settings"
                 >

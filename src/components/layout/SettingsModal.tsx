@@ -78,7 +78,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         clearIdentity
     } = useSyncStore();
     const { updateSettings, setTheme, settingsTab } = settings;
-    const [activeTab, setActiveTab] = useState(settingsTab || 'appearance');
+    const [activeTab, setActiveTab] = useState<string>(settingsTab || 'appearance');
 
     useEffect(() => {
         if (settingsTab) {

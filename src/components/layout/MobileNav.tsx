@@ -54,7 +54,7 @@ export const MobileNav: React.FC = () => {
             </button>
 
             <button
-                onClick={toggleSettingsModal}
+                onClick={() => toggleSettingsModal()}
                 className="flex flex-col items-center gap-1 p-2 text-light-text-secondary dark:text-dark-text-secondary opacity-60"
             >
                 <Settings size={20} />

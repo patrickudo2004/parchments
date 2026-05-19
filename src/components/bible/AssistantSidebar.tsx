@@ -72,7 +72,7 @@ export const AssistantSidebar: React.FC<{ isIndependent?: boolean }> = ({ isInde
                         </p>
                     </div>
                     <button
-                        onClick={toggleSettingsModal}
+                        onClick={() => toggleSettingsModal('intelligence')}
                         className="px-8 py-3 bg-primary text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                     >
                         Enable in Settings <ArrowRight size={14} />

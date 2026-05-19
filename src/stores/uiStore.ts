@@ -32,7 +32,7 @@ interface UIStore {
     selectedStrongsId: string | null;
     selectedVerseId: string | null;
     isSettingsModalOpen: boolean;
-    settingsTab: 'general' | 'sync' | 'backup' | 'about';
+    settingsTab: 'appearance' | 'bible' | 'editor' | 'intelligence' | 'sync' | 'storage' | 'support';
     isTemplateModalOpen: boolean;
     isSearchModalOpen: boolean;
     searchQuery: string;
@@ -63,7 +63,7 @@ interface UIStore {
     updateSettings: (settings: Partial<UIStore>) => void;
     toggleBibleModal: () => void;
     toggleStrongsModal: (id?: string | null) => void;
-    toggleSettingsModal: (tab?: 'general' | 'sync' | 'backup' | 'about') => void;
+    toggleSettingsModal: (tab?: 'appearance' | 'bible' | 'editor' | 'intelligence' | 'sync' | 'storage' | 'support') => void;
     toggleTemplateModal: () => void;
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
@@ -125,7 +125,7 @@ export const useUIStore = create<UIStore>()(
             selectedStrongsId: null,
             selectedVerseId: null,
             isSettingsModalOpen: false,
-            settingsTab: 'general',
+            settingsTab: 'appearance',
             isTemplateModalOpen: false,
             isSearchModalOpen: false,
             searchQuery: '',

@@ -203,7 +203,7 @@ export const TopBar: React.FC = () => {
                 </button>
 
                 <button
-                    onClick={toggleSettingsModal}
+                    onClick={() => toggleSettingsModal()}
                     className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
                     title="Settings"
                 >

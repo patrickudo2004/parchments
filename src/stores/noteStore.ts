@@ -4,7 +4,7 @@ import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
 import { useSyncStore } from './syncStore';
-import { YjsService } from '@/lib/sync/YjsService';
+import { YjsService, roomHashToId } from '@/lib/sync/YjsService';
 
 export const UNTITLED_NOTE = 'Untitled Note';
 export const UNTITLED_FOLDER = 'Untitled Folder';
@@ -242,8 +242,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     broadcastNoteDeletion: async (folderId, noteId) => {
-        const { isLocalMode } = get();
-        const { identity, joinedRooms, sharedFolders } = useSyncStore.getState();
+        const { joinedRooms, sharedFolders } = useSyncStore.getState();
 
         const isJoined = joinedRooms.some(r => r.type === 'folder' && roomHashToId(r.hash) === folderId);
         const isHosted = sharedFolders.includes(folderId);

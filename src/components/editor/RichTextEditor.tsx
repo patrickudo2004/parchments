@@ -136,7 +136,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         // ONLY update title if activeRoom is NOT a folder (i.e., it's a note or unknown)
         // This prevents note titles from overwriting folder titles
         if (!activeFolderRoom) {
-            updateRoomTitle(activeRoom, currentNote.title);
+            const activeNoteRoom = joinedRooms.find(r => r.hash === activeRoom);
+            if (activeNoteRoom && activeNoteRoom.title !== currentNote.title) {
+                updateRoomTitle(activeRoom, currentNote.title);
+            }
         }
     }, [activeRoom, currentNote?.title, updateRoomTitle, joinedRooms]);
 

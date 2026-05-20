@@ -125,6 +125,9 @@ export const useSyncStore = create<SyncState>()(
 
             updateRoomTitle: (hash, title) => {
                 const { joinedRooms } = get();
+                const targetRoom = joinedRooms.find(r => r.hash === hash);
+                if (!targetRoom || targetRoom.title === title) return;
+
                 set({
                     joinedRooms: joinedRooms.map(r =>
                         r.hash === hash ? { ...r, title } : r

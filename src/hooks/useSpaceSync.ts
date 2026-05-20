@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
+import { useUIStore } from '@/stores/uiStore';
 import { YjsService, roomHashToId } from '@/lib/sync/YjsService';
 import { db } from '@/lib/db';
 import { fileSystem } from '@/lib/filesystem/FileSystemService';
@@ -30,7 +31,41 @@ export const useSpaceSync = () => {
         writeTimeouts.current[fileId] = setTimeout(async () => {
             try {
                 console.log(`[Space Sync FLUSHER] 💾 Flushing Yjs updates for ${fileId} directly to disk...`);
-                await fileSystem.writeFile(handle, content);
+                
+                // Read existing content to preserve metadata comment if present
+                let rawContent = '';
+                try {
+                    rawContent = await fileSystem.readFile(handle) as string;
+                } catch (readError) {
+                    console.log(`[Space Sync FLUSHER] Could not read existing file for metadata preservation:`, readError);
+                }
+
+                let meta: any = { id: fileId, createdAt: Date.now() };
+                const metaMatch = rawContent.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
+                if (metaMatch && metaMatch[1]) {
+                    try {
+                        meta = JSON.parse(metaMatch[1]);
+                    } catch (e) {
+                        console.warn('[Space Sync FLUSHER] Failed to parse existing metadata:', e);
+                    }
+                }
+
+                // Supplement with notes list metadata if available
+                const storeNote = useNoteStore.getState().notes.find(n => n.id === fileId);
+                if (storeNote) {
+                    if (storeNote.createdAt) meta.createdAt = storeNote.createdAt;
+                    if (storeNote.type === 'voice' && storeNote.transcript) meta.transcript = storeNote.transcript;
+                }
+
+                let portableContent = useNoteStore.getState().dehydrateAssets(content);
+                const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
+                if (portableContent.includes('parchments-meta:')) {
+                    portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, `<!-- parchments-meta: ${JSON.stringify(meta)} -->`);
+                } else {
+                    portableContent += metaTag;
+                }
+
+                await fileSystem.writeFile(handle, portableContent);
                 delete writeTimeouts.current[fileId];
             } catch (e) {
                 console.error(`[Space Sync FLUSHER] Failed to flush to disk for ${fileId}:`, e);
@@ -92,9 +127,34 @@ export const useSpaceSync = () => {
                 const { notes, isLocalMode, localFiles, createLocalNote, refreshLocalFiles } = useNoteStore.getState();
                 console.log(`[Space Sync OBSERVER] Manifest change detected for folder: ${folder.id}`);
 
+                // ── 0. UNPAIR EVENT PROPAGATION ────────────────────────────────────
+                if (folder.id === 'global-root') {
+                    const unpairEvent = manifest.get('unpaired_event') as any;
+                    if (unpairEvent && unpairEvent.timestamp && Date.now() - unpairEvent.timestamp < 10000) {
+                        const { pairedDeviceName, setPairedDeviceName } = useSyncStore.getState();
+                        if (pairedDeviceName) {
+                            console.log(`[Space Sync OBSERVER] 🚨 Received remote unpaired_event from ${unpairEvent.sender}! Cleanly unpairing...`);
+                            try {
+                                YjsService.disconnectAll();
+                            } catch (e) {
+                                console.error('[Space Sync OBSERVER] Error disconnecting providers during remote unpair:', e);
+                            }
+                            setPairedDeviceName(null);
+                            const { joinedRooms, removeJoinedRoom } = useSyncStore.getState();
+                            joinedRooms.forEach(room => {
+                                if (room.hash.startsWith('space-')) {
+                                    removeJoinedRoom(room.hash);
+                                }
+                            });
+                            useUIStore.getState().showToast(`Device unpaired by remote peer ${unpairEvent.sender}`, 'info');
+                            return; // Stop processing further changes
+                        }
+                    }
+                }
+
                 let dbChanged = false;
 
-                const reservedKeys = new Set(['lastUpdated', 'files']);
+                const reservedKeys = new Set(['lastUpdated', 'files', 'unpaired_event']);
                 const remoteNoteIds = new Set<string>();
                 const remoteFiles: Record<string, any> = {};
 
@@ -150,24 +210,83 @@ export const useSpaceSync = () => {
                         dbChanged = true;
                     }
 
-                    // ── BACKGROUND REAL-TIME FILE FLUSHER ──────────────────────────────
-                    // For local filesystem users, keep physical disk files updated with keystroke changes
-                    if (isLocalMode && !activeObservers.current.has(fileId)) {
-                        const noteDoc = YjsService.getDoc(fileId, 'note');
-                        const contentText = noteDoc.getText('content');
+                    // ── 1.5. CONTENT BACKFILL / RECONCILIATION FLOW ─────────────────────
+                    const noteDoc = YjsService.getDoc(fileId, 'note');
+                    const contentText = noteDoc.getText('content');
 
-                        const textObserver = () => {
-                            const { localFiles: currentLocalFiles } = useNoteStore.getState();
-                            const fileItem = currentLocalFiles.find(lf => lf.id === fileId);
-                            if (fileItem && fileItem.handle) {
-                                debounceDiskWrite(fileId, fileItem.handle, contentText.toString());
+                    if (contentText.toString() === '') {
+                        let localContent = '';
+                        if (isLocalMode && localDiskFile) {
+                            try {
+                                const raw = await fileSystem.readFile(localDiskFile.handle as any) as string;
+                                // Strip metadata comments
+                                localContent = raw.replace(/<!--\s*parchments-meta:.*?\s*-->/g, '').trim();
+                            } catch (readErr) {
+                                console.error(`[Space Sync RECONCILER] Failed to read disk file ${fileId} for backfill:`, readErr);
                             }
-                        };
+                        } else if (!isLocalMode && localNote && localNote.content) {
+                            localContent = localNote.content;
+                        }
 
-                        contentText.observe(textObserver);
-                        activeObservers.current.set(fileId, () => {
-                            contentText.unobserve(textObserver);
-                        });
+                        if (localContent) {
+                            console.log(`[Space Sync RECONCILER] 🌱 Backfilling empty YDoc for ${fileId} using local content...`);
+                            noteDoc.transact(() => {
+                                contentText.insert(0, localContent);
+                            }, 'reconciliation-backfill');
+                        }
+                    }
+
+                    // ── 1.8. BACKGROUND REAL-TIME FLUSHERS ──────────────────────────────
+                    if (!activeObservers.current.has(fileId)) {
+                        if (isLocalMode) {
+                            // Desktop Flusher: keep physical disk files updated
+                            const textObserver = () => {
+                                const { localFiles: currentLocalFiles } = useNoteStore.getState();
+                                const fileItem = currentLocalFiles.find(lf => lf.id === fileId);
+                                if (fileItem && fileItem.handle) {
+                                    debounceDiskWrite(fileId, fileItem.handle, contentText.toString());
+                                }
+                            };
+
+                            contentText.observe(textObserver);
+                            activeObservers.current.set(fileId, () => {
+                                contentText.unobserve(textObserver);
+                            });
+                        } else {
+                            // Mobile Flusher: keep IndexedDB and Zustand store updated silently in real-time
+                            const dbObserver = async () => {
+                                const newContent = contentText.toString();
+                                const store = useNoteStore.getState();
+                                
+                                const updatedNotes = store.notes.map(n => {
+                                    if (n.id === fileId) {
+                                        return { ...n, content: newContent, updatedAt: Date.now() };
+                                    }
+                                    return n;
+                                });
+                                
+                                useNoteStore.setState({
+                                    notes: updatedNotes,
+                                    currentNote: store.currentNote?.id === fileId
+                                        ? { ...store.currentNote, content: newContent, updatedAt: Date.now() }
+                                        : store.currentNote
+                                });
+
+                                try {
+                                    await db.notes.update(fileId, {
+                                        content: newContent,
+                                        updatedAt: Date.now()
+                                    });
+                                } catch (e) {
+                                    console.error(`[Space Sync FLUSHER MOBILE] Background DB update failed for ${fileId}:`, e);
+                                }
+                            };
+
+                            contentText.observe(dbObserver);
+                            activeObservers.current.set(fileId, () => {
+                                contentText.unobserve(dbObserver);
+                            });
+                        }
                     }
                 }
 
@@ -176,7 +295,6 @@ export const useSpaceSync = () => {
                     // Check for deletion on disk
                     const localDiskNotes = localFiles.filter(f => f.kind === 'file' && (f.parentId === folder.id || (!f.parentId && folder.id === 'global-root')));
                     for (const diskFile of localDiskNotes) {
-                        // Only delete if note was removed from peer manifest, the manifest is active, and it is a ghost note
                         const matchingNote = notes.find(n => n.id === diskFile.id);
                         const isGhost = !matchingNote || matchingNote.content === '';
                         if (!remoteNoteIds.has(diskFile.id) && remoteNoteIds.size > 0 && isGhost) {

@@ -217,4 +217,13 @@ export class YjsService {
             this.docs.delete(id);
         }
     }
+
+    static disconnectAll() {
+        console.log('[YjsService] Disconnecting all collaborative documents and providers...');
+        const docIds = Array.from(this.docs.keys());
+        for (const id of docIds) {
+            this.destroyDoc(id);
+        }
+    }
 }
+

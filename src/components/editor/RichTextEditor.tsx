@@ -322,7 +322,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         // Only set content when in local-only mode
         ...(shouldSync ? {} : { content: currentNote?.content || '' }),
         onUpdate: ({ editor }) => {
-            debouncedSave(title, editor.getHTML());
+            const html = editor.getHTML();
+            debouncedSave(title, html);
+            if (shouldSync && ydoc) {
+                const text = ydoc.getText('content');
+                if (text.toString() !== html) {
+                    ydoc.transact(() => {
+                        text.delete(0, text.length);
+                        text.insert(0, html);
+                    }, 'rich-text-editor-sync');
+                }
+            }
         },
     }, [currentNote?.id, ydoc, provider, shouldSync, activeRoom, identity]);
 

@@ -39,6 +39,8 @@ import { useAIStore } from '@/stores/aiStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { APP_VERSION } from '@/lib/version';
+import { YjsService } from '@/lib/sync/YjsService';
+
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -1416,8 +1418,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                                  isDanger: true,
                                                                                  onConfirm: () => {
                                                                                      setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-                                                                                     setPairedDeviceName(null);
-                                                                                     settings.showToast('Device unpaired successfully', 'success');
+                                                                                     try {
+                                                                                         const folderDoc = YjsService.getDoc('global-root', 'folder');
+                                                                                         const manifest = folderDoc.getMap('manifest');
+                                                                                         manifest.set('unpaired_event', {
+                                                                                             sender: useSyncStore.getState().deviceName,
+                                                                                             timestamp: Date.now()
+                                                                                         });
+                                                                                     } catch (e) {
+                                                                                         console.error('[Unpair] Failed to broadcast unpair event:', e);
+                                                                                     }
+                                                                                     setTimeout(() => {
+                                                                                         try {
+                                                                                             YjsService.disconnectAll();
+                                                                                         } catch (e) {
+                                                                                             console.error('[Unpair] Error disconnecting providers:', e);
+                                                                                         }
+                                                                                         setPairedDeviceName(null);
+                                                                                         const { joinedRooms, removeJoinedRoom } = useSyncStore.getState();
+                                                                                         joinedRooms.forEach(room => {
+                                                                                             if (room.hash.startsWith('space-')) {
+                                                                                                 removeJoinedRoom(room.hash);
+                                                                                             }
+                                                                                         });
+                                                                                         settings.showToast('Device unpaired successfully', 'success');
+                                                                                     }, 800);
                                                                                  }
                                                                              });
                                                                          }}

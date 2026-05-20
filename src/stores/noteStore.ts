@@ -560,14 +560,79 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         try {
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
 
-            // 1. Map to LocalItem structure
-            const mappedFiles: LocalItem[] = rawFiles.map(f => ({
-                id: f.id,
-                name: f.name,
-                kind: f.kind,
-                handle: f.handle,
-                parentId: f.parentId
-            }));
+            // 1. Map to LocalItem structure while parsing/injecting canonical UUIDs
+            const mappedFiles: LocalItem[] = [];
+            for (const f of rawFiles) {
+                if (f.kind === 'file' && f.name.endsWith('.html')) {
+                    try {
+                        const fileHandle = f.handle as FileSystemFileHandle;
+                        const rawContent = await fileSystem.readFile(fileHandle) as string;
+                        
+                        // Parse id from parchments-meta
+                        const metaMatch = rawContent.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
+                        let fileId = f.id;
+                        let hasMetaId = false;
+                        let meta: any = {};
+                        
+                        if (metaMatch && metaMatch[1]) {
+                            try {
+                                meta = JSON.parse(metaMatch[1]);
+                                if (meta.id) {
+                                    fileId = meta.id;
+                                    hasMetaId = true;
+                                }
+                            } catch (e) {
+                                console.warn('[refreshLocalFiles] Failed to parse metadata:', e);
+                            }
+                        }
+                        
+                        // If no canonical UUID, generate one and write back
+                        if (!hasMetaId) {
+                            fileId = crypto.randomUUID();
+                            meta.id = fileId;
+                            if (!meta.createdAt) {
+                                meta.createdAt = Date.now();
+                            }
+                            
+                            const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
+                            let newContent = rawContent;
+                            if (metaMatch) {
+                                newContent = rawContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, `<!-- parchments-meta: ${JSON.stringify(meta)} -->`);
+                            } else {
+                                newContent = rawContent + metaTag;
+                            }
+                            
+                            console.log(`[refreshLocalFiles] 🆕 Generated and injected canonical UUID for ${f.name}: ${fileId}`);
+                            await fileSystem.writeFile(fileHandle, newContent);
+                        }
+                        
+                        mappedFiles.push({
+                            id: fileId,
+                            name: f.name,
+                            kind: f.kind,
+                            handle: f.handle,
+                            parentId: f.parentId
+                        });
+                    } catch (e) {
+                        console.error('[refreshLocalFiles] Failed to read/write metadata for:', f.name, e);
+                        mappedFiles.push({
+                            id: f.id,
+                            name: f.name,
+                            kind: f.kind,
+                            handle: f.handle,
+                            parentId: f.parentId
+                        });
+                    }
+                } else {
+                    mappedFiles.push({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    });
+                }
+            }
 
             // 2. STABLE SORTING using helper
             const newFiles = get().sortLocalItems(mappedFiles);
@@ -747,7 +812,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    createLocalNote: async (fileName, targetFolderId, content = '', _forceId?: string) => {
+    createLocalNote: async (fileName, targetFolderId, content = '', forceId?: string) => {
         const { localDirectoryHandle, localFiles, openLocalFile } = get();
         if (!localDirectoryHandle) return;
 
@@ -761,32 +826,28 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
 
+            const fileId = forceId || crypto.randomUUID();
+            const meta = {
+                id: fileId,
+                createdAt: Date.now()
+            };
+            const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
+            const finalContent = content + metaTag;
+
             const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
-            const handle = await fileSystem.createFile(parentHandle, name, content);
-
-            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files = rawFiles.map(f => ({
-                id: f.id,
-                name: f.name,
-                kind: f.kind,
-                handle: f.handle,
-                parentId: f.parentId
-            }));
-
-            set({ localFiles: get().sortLocalItems(files) });
+            const handle = await fileSystem.createFile(parentHandle, name, finalContent);
 
             // Open the new file (construct a LocalItem)
-            // We need to reconstruct the ID for the new file
-            // If we have a targetFolderId, the new ID is targetFolderId/name
-            const newId = targetFolderId ? `${targetFolderId}/${name}` : name;
-
             await openLocalFile({
-                id: newId,
+                id: fileId,
                 name: name,
                 kind: 'file',
                 handle: handle,
                 parentId: targetFolderId
             });
+
+            // Refresh file list asynchronously so it gets mapped correctly in localFiles
+            await get().refreshLocalFiles();
         } catch (error) {
             console.error('Failed to create local note:', error);
             throw error;
@@ -848,33 +909,24 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             await fileSystem.createFile(parentHandle, audioName, audioBlob);
 
             // Save the transcript as an HTML note with hidden audio link metadata and creation date
+            const fileId = crypto.randomUUID();
             const createdAt = Date.now();
             // Store transcript in BOTH metadata (for clean parsing) AND content (for fallback display)
-            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
-            // Refresh file list
-            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files = rawFiles.map(f => ({
-                id: f.id,
-                name: f.name,
-                kind: f.kind,
-                handle: f.handle,
-                parentId: f.parentId
-            }));
-
-            set({ localFiles: get().sortLocalItems(files) });
-
             // Automatically open the new transcript note
-            const newId = targetFolderId ? `${targetFolderId}/${noteName}` : noteName;
             const { openLocalFile } = get();
             await openLocalFile({
-                id: newId,
+                id: fileId,
                 name: noteName,
                 kind: 'file',
                 handle: noteHandle,
                 parentId: targetFolderId
             });
+
+            // Refresh file list asynchronously so it gets mapped correctly in localFiles
+            await get().refreshLocalFiles();
 
             // BROADCAST: Notify collaborators of the new voice note
             if (targetFolderId) {
@@ -912,7 +964,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 let portableContent = get().dehydrateAssets(content);
 
                 // Ensure metadata is preserved or injected
-                const metaTag = `<!-- parchments-meta: {"createdAt": ${currentNote.createdAt}} -->`;
+                const meta = {
+                    id: currentNote.id,
+                    createdAt: currentNote.createdAt,
+                    ...(currentNote.type === 'voice' ? { transcript: currentNote.transcript } : {})
+                };
+                const metaTag = `<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
                 if (!portableContent.includes('parchments-meta:')) {
                     portableContent += `\n${metaTag}`;
                 } else {

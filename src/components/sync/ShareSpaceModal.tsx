@@ -16,7 +16,7 @@ export const ShareSpaceModal: React.FC<ShareSpaceModalProps> = ({ isOpen, onClos
     const [copiedHash, setCopiedHash] = useState(false);
 
     const roomHash = identity ? `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(folderId)}` : `space-local-${encodeURIComponent(folderId)}`;
-    const shareUrl = `${window.location.origin}/join/${roomHash}`;
+    const shareUrl = `${window.location.origin}/join/${roomHash}?title=${encodeURIComponent(folderName)}`;
 
     // Automatically join the room as the host when opening the share UI
     React.useEffect(() => {

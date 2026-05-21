@@ -130,9 +130,11 @@ export const useSpaceSync = () => {
                 // ── 0. UNPAIR EVENT PROPAGATION ────────────────────────────────────
                 if (folder.id === 'global-root') {
                     const unpairEvent = manifest.get('unpaired_event') as any;
-                    if (unpairEvent && unpairEvent.timestamp && Date.now() - unpairEvent.timestamp < 10000) {
+                    // Clock-independent unpair check: verify the event came from our paired device
+                    if (unpairEvent && unpairEvent.sender) {
                         const { pairedDeviceName, setPairedDeviceName } = useSyncStore.getState();
-                        if (pairedDeviceName) {
+                        // Only process if we're currently paired AND the sender is the device we're paired with
+                        if (pairedDeviceName && unpairEvent.sender === pairedDeviceName) {
                             console.log(`[Space Sync OBSERVER] 🚨 Received remote unpaired_event from ${unpairEvent.sender}! Cleanly unpairing...`);
                             try {
                                 YjsService.disconnectAll();

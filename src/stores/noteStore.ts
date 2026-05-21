@@ -114,7 +114,7 @@ interface NoteStore {
     createNote: (folderId: string | null, title?: string, forceId?: string) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
-    createFolder: (name: string, parentId?: string | null) => Promise<Folder>;
+    createFolder: (name: string, parentId?: string | null, forceId?: string) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
     renameNote: (id: string, newName: string) => Promise<void>;
@@ -343,12 +343,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         return note;
     },
 
-    createFolder: async (name, parentId = null) => {
+    createFolder: async (name, parentId = null, forceId) => {
         const folder = await dbHelpers.createFolder({
             name,
             parentId,
             order: 0,
-        });
+        }, forceId);
         const { folders } = get();
         set({ folders: [...folders, folder] });
         return folder;

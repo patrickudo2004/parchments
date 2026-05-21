@@ -168,6 +168,17 @@ export class YjsService {
     }
 
     /**
+     * Returns the IndexeddbPersistence instance for a specific note.
+     * Use this to wait for the 'synced' event before seeding content,
+     * preventing the double-seed race condition where the editor seeds
+     * content before IndexedDB has finished loading the existing doc.
+     */
+    static getPersistence(id: string) {
+        const providers = this.providers.get(id);
+        return providers?.find((p: any) => p instanceof IndexeddbPersistence) as IndexeddbPersistence | undefined;
+    }
+
+    /**
      * Returns the awareness instance for a specific note.
      */
     static getAwareness(id: string) {

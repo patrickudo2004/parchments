@@ -15,6 +15,9 @@ export const JoinHandler: React.FC = () => {
     const pathParts = window.location.pathname.split('/join/');
     const roomHash = pathParts.length > 1 ? pathParts[1] : null;
 
+    // Parse the ?title= search parameter for display name
+    const urlTitle = new URLSearchParams(window.location.search).get('title') || undefined;
+
     const isJoining = React.useRef(false);
 
     useEffect(() => {
@@ -27,9 +30,9 @@ export const JoinHandler: React.FC = () => {
 
             showToast(`Connecting to ${roomType} study room...`, 'info');
 
-            // Try to extract an initial title from the hash
+            // Prefer the URL-decoded title from query params, fall back to hash-derived title
             const titleMatch = roomHash.match(/-([^-]+)$/);
-            const initialTitle = titleMatch ? decodeURIComponent(titleMatch[1]) : undefined;
+            const initialTitle = urlTitle || (titleMatch ? decodeURIComponent(titleMatch[1]) : undefined);
 
             // Pin the room to the sidebar
             addJoinedRoom(roomHash, initialTitle, roomType);
@@ -45,8 +48,10 @@ export const JoinHandler: React.FC = () => {
 
                     if (!existingFolder) {
                         try {
-                            const name = remoteFolderId.replace(/-/g, ' ');
-                            await createFolder(name || 'Shared Space', remoteFolderId);
+                            // Use URL title if available, otherwise derive from ID
+                            const name = urlTitle || remoteFolderId.replace(/-/g, ' ');
+                            // FIXED: null = no parent, remoteFolderId = force canonical ID
+                            await createFolder(name || 'Shared Space', null, remoteFolderId);
                             showToast('Joined shared space', 'success');
                         } catch (err) {
                             console.error('Failed to create room folder:', err);
@@ -55,8 +60,10 @@ export const JoinHandler: React.FC = () => {
                 }
             } else {
                 // Note sync logic
+                // Format: 'local-[encodedId]' or 'p-[vault]-[encodedId]'
                 const parts = roomHash.split('-');
-                const encodedNoteId = parts.slice(2).join('-'); // p-[vault]-noteId
+                const startIndex = roomHash.startsWith('local-') ? 1 : 2;
+                const encodedNoteId = parts.slice(startIndex).join('-');
                 const remoteNoteId = decodeURIComponent(encodedNoteId);
 
                 if (remoteNoteId) {
@@ -71,10 +78,14 @@ export const JoinHandler: React.FC = () => {
                     if (existingNote) {
                         setCurrentNote(existingNote);
                     } else {
-                        const noteTitle = remoteNoteId.replace(/\.html$/, '').replace(/-/g, ' ');
-                        const displayTitle = noteTitle.split(' ').map(word =>
-                            word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ');
+                        // Use URL title if available, otherwise derive from note ID
+                        let displayTitle = urlTitle;
+                        if (!displayTitle) {
+                            const noteTitle = remoteNoteId.replace(/\.html$/, '').replace(/-/g, ' ');
+                            displayTitle = noteTitle.split(' ').map(word =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ');
+                        }
 
                         try {
                             const newNote = await createNote(null, displayTitle || 'Shared Note', remoteNoteId);

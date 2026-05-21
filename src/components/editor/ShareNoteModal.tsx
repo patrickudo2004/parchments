@@ -19,7 +19,7 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
 
     const encodedNoteId = encodeURIComponent(noteId);
     const roomHash = identity ? `p-${identity.vaultHash.slice(0, 8)}-${encodedNoteId}` : `local-${encodedNoteId}`;
-    const shareUrl = `${window.location.origin}/join/${roomHash}`;
+    const shareUrl = `${window.location.origin}/join/${roomHash}${note?.title ? `?title=${encodeURIComponent(note.title)}` : ''}`;
 
     // Automatically join the room as the host when opening the share UI
     React.useEffect(() => {

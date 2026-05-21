@@ -18,7 +18,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { ScriptureExtension } from './extensions/ScriptureExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, LogOut } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { FocusExtension } from './extensions/FocusExtension';
 import { EnterKeyExtension } from './extensions/EnterKeyExtension';
@@ -61,6 +61,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
     const [suggestedNoteId, setSuggestedNoteId] = useState<string | null>(null);
+    // Guards against double-seeding race: ensures IndexedDB has finished loading
+    // before we seed Yjs with local content.
+    const [isPersistenceSynced, setIsPersistenceSynced] = useState(false);
 
     const { search } = useAIStore();
 
@@ -72,6 +75,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             provider: YjsService.getProvider(currentNote.id)
         };
     }, [currentNote?.id, shouldSync, activeRoom, identity]);
+
+    // Wait for IndexedDB persistence to fully load before allowing content seeding.
+    // This prevents the double-seed race: without this guard the editor seeds empty content,
+    // then IndexedDB finishes loading and Yjs merges — resulting in duplicated text.
+    useEffect(() => {
+        if (!shouldSync || !currentNote?.id || !ydoc) {
+            setIsPersistenceSynced(true); // Non-sync mode: immediately allow seeding
+            return;
+        }
+
+        setIsPersistenceSynced(false);
+
+        const persistence = YjsService.getPersistence(currentNote.id);
+        if (!persistence) {
+            setIsPersistenceSynced(true);
+            return;
+        }
+
+        // whenSynced resolves immediately if already synced, otherwise waits for load
+        persistence.whenSynced.then(() => {
+            setIsPersistenceSynced(true);
+        });
+    }, [shouldSync, currentNote?.id, ydoc]);
 
     // Auto-resize title textarea
     useEffect(() => {
@@ -123,7 +149,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         return () => metadata.unobserve(observer);
     }, [shouldSync, ydoc, currentNote?.id, currentNote?.content, saveCurrentNote, title]);
 
-    const { updateRoomTitle, joinedRooms } = useSyncStore();
+    const { updateRoomTitle, joinedRooms, isConnected, leaveRoom } = useSyncStore();
 
     // Title Discovery for Shared Rooms: Update sidebar title once data is synced
     // BUT: Only update if the activeRoom is a NOTE room, not a FOLDER room
@@ -339,8 +365,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         },
     }, [currentNote?.id, ydoc, provider, shouldSync, activeRoom, identity]);
 
-    // Seed Yjs with local content if it's empty and we're starting a sync session
+    // Seed Yjs with local content if it's empty and we're starting a sync session.
+    // IMPORTANT: We guard behind isPersistenceSynced to prevent double-seeding.
+    // Without this guard the editor sees an empty YDoc (IndexedDB still loading),
+    // seeds local content, then IndexedDB merges — causing duplicated text.
     useEffect(() => {
+        if (!isPersistenceSynced) return; // Wait for IndexedDB to finish loading first
+
         if (editor && shouldSync && currentNote?.content && ydoc) {
             const fragment = ydoc.getXmlFragment('default');
 
@@ -348,7 +379,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             const editorHTML = editor.getHTML();
             const isEditorEmpty = editorHTML === '<p></p>' || editorHTML === '';
 
-            console.log('[RichTextEditor] Seeding check:', {
+            console.log('[RichTextEditor] Seeding check (post-persistence-sync):', {
                 fragmentLength: fragment.length,
                 fragmentToString: fragment.toString().substring(0, 100),
                 editorHTML: editorHTML.substring(0, 100),
@@ -357,14 +388,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                 noteId: currentNote?.id
             });
 
-            // Seed if the fragment is empty OR if the editor is showing empty content
-            // but we have local content to seed from
+            // Seed only if the fragment is genuinely empty after IndexedDB has loaded
             if ((fragment.length === 0 || isEditorEmpty) && currentNote?.content) {
-                console.log('[RichTextEditor] Seeding Yjs doc with local content');
+                console.log('[RichTextEditor] Seeding Yjs doc with local content (post-persistence sync)');
                 editor.commands.setContent(currentNote.content);
             }
         }
-    }, [editor, shouldSync, currentNote?.id, currentNote?.content, ydoc]);
+    }, [editor, isPersistenceSynced, shouldSync, currentNote?.id, currentNote?.content, ydoc]);
 
     // Clear Yjs cleanup on unmount
     useEffect(() => {
@@ -553,19 +583,50 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             <span className={isSaving ? 'text-primary animate-pulse' : ''}>
                                 {isSaving ? 'Saving...' : 'All Saved'}
                             </span>
+                            {/* Real-time Sync Connection Badge */}
+                            {shouldSync && (
+                                <span
+                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${
+                                        isConnected
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                            : 'bg-amber-400/10 text-amber-500 animate-pulse'
+                                    }`}
+                                >
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                        isConnected ? 'bg-emerald-500' : 'bg-amber-400'
+                                    }`} />
+                                    {isConnected ? 'Sync Connected' : 'Connecting...'}
+                                </span>
+                            )}
                         </div>
 
-                        {/* Manual Save Button for Local Mode */}
-                        {!shouldSync && (
-                            <button
-                                onClick={() => saveToDB(title, editor?.getHTML() || '')}
-                                disabled={isSaving || !editor}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
-                                <span>Save Now</span>
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {/* Leave Room Button — only shown in collaborative mode */}
+                            {shouldSync && activeRoom && (
+                                <button
+                                    onClick={() => {
+                                        leaveRoom();
+                                        useUIStore.getState().showToast('Left the collaborative room', 'info');
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                                    title="Leave collaborative room"
+                                >
+                                    <LogOut size={12} />
+                                    <span>Leave Room</span>
+                                </button>
+                            )}
+                            {/* Manual Save Button for Local Mode */}
+                            {!shouldSync && (
+                                <button
+                                    onClick={() => saveToDB(title, editor?.getHTML() || '')}
+                                    disabled={isSaving || !editor}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
+                                    <span>Save Now</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Voice Note Player (Inline) */}

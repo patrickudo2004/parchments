@@ -97,11 +97,11 @@ export const dbHelpers = {
     },
 
     // Folders
-    createFolder: async (folder: Omit<Folder, 'id' | 'createdAt' | 'updatedAt'>) => {
+    createFolder: async (folder: Omit<Folder, 'id' | 'createdAt' | 'updatedAt'>, id?: string) => {
         const timestamp = Date.now();
         const newFolder: Folder = {
             ...folder,
-            id: uuidv4(),
+            id: id || uuidv4(),
             createdAt: timestamp,
             updatedAt: timestamp,
         };

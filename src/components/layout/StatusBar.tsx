@@ -6,7 +6,7 @@ import { Brain, Sparkles, Loader2 } from 'lucide-react';
 export const StatusBar: React.FC = () => {
     const { wordCount, characterCount } = useUIStore();
     const { statusMessage, isIndexing, indexingProgress, isModelLoaded, isInitializing } = useAIStore();
-    const { pairedDeviceName } = useSyncStore();
+    const { deviceName } = useSyncStore();
 
     return (
         <div className="h-8 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-between px-4 text-[10px] text-light-text-secondary dark:text-dark-text-secondary shrink-0 font-bold uppercase tracking-widest">
@@ -33,17 +33,10 @@ export const StatusBar: React.FC = () => {
                 )}
             </div>
             <div className="flex items-center gap-3">
-                {pairedDeviceName ? (
-                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span>Synced: {pairedDeviceName}</span>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-1 opacity-40">
-                        <div className="w-1.5 h-1.5 rounded-full bg-light-text-disabled" />
-                        <span>Not Paired</span>
-                    </div>
-                )}
+                <div className="flex items-center gap-1 opacity-40">
+                    <div className="w-1.5 h-1.5 rounded-full bg-light-text-disabled" />
+                    <span>{deviceName}</span>
+                </div>
                 <span className="opacity-30">•</span>
                 <span>UTF-8</span>
                 <span className="opacity-30">•</span>

@@ -2,8 +2,6 @@ import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { WebrtcProvider } from 'y-webrtc';
 import { useSyncStore } from '@/stores/syncStore';
-import { useNoteStore } from '@/stores/noteStore';
-import type { Note } from '@/types/database';
 
 /**
  * YjsService provides the engine for real-time collaboration and conflict-free
@@ -13,18 +11,12 @@ import type { Note } from '@/types/database';
  * sync and history.
  */
 export const roomHashToId = (hash: string) => {
-    if (hash.startsWith('space-')) {
-        // Space hash format: space-[vault]-[folderId] OR space-[folderId]
-        const parts = hash.split('-');
-        if (parts.length >= 3) {
-            // It's a full space hash with vault ID
-            return decodeURIComponent(parts.slice(2).join('-'));
-        }
-        return decodeURIComponent(hash.replace('space-', ''));
-    }
     if (hash.startsWith('p-')) {
         const parts = hash.split('-');
         return decodeURIComponent(parts.slice(2).join('-'));
+    }
+    if (hash.startsWith('local-')) {
+        return decodeURIComponent(hash.replace('local-', ''));
     }
     return hash;
 };
@@ -33,84 +25,26 @@ export class YjsService {
     private static docs: Map<string, Y.Doc> = new Map();
     public static providers: Map<string, any[]> = new Map();
 
-    static getDoc(id: string, type: 'note' | 'folder' = 'note'): Y.Doc {
-        const { identity, activeRoom, joinedRooms, sharedFolders } = useSyncStore.getState();
-        const { notes } = useNoteStore.getState();
+    static getDoc(id: string): Y.Doc {
+        const { identity, activeRoom, joinedRooms } = useSyncStore.getState();
 
         let expectedRoomName = '';
 
-        // 1. FOLDER LOGIC: Determine room name for a Space
-        if (type === 'folder') {
-            // Special case: global-root is the device-pairing broadcast room.
-            // It MUST use a fixed room name so all paired devices join the same room,
-            // regardless of each device's own vault hash.
-            if (id === 'global-root') {
-                expectedRoomName = 'space-global-root';
-            } else {
-                // Check if this ID belongs to a known joined room
-                // We must find a room where roomHashToId(room.hash) === id
-                const joinedSpace = joinedRooms.find(r => r.type === 'folder' && roomHashToId(r.hash) === id);
+        // Determine room name for single note collaboration
+        const joinedNoteRoom = joinedRooms.find(r => r.type === 'note' && roomHashToId(r.hash) === id);
 
-                if (joinedSpace) {
-                    expectedRoomName = joinedSpace.hash;
-                } else if (sharedFolders.includes(id)) {
-                    // It's a local folder we are sharing
-                    if (identity) {
-                        expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
-                    } else {
-                        expectedRoomName = `space-local-${encodeURIComponent(id)}`;
-                    }
-                } else {
-                    if (identity) {
-                        expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
-                    } else {
-                        expectedRoomName = `space-local-${encodeURIComponent(id)}`;
-                    }
-                }
-            }
-        }
-
-        // 2. NOTE LOGIC
-        else {
-            const note = notes.find((n: Note) => n.id === id);
-            const parentFolderId = note?.folderId;
-
-            // 2a. Check if the note belongs to a SHARED FOLDER (Recursive Collaboration)
-            // This must take precedence to ensure notes in shared folders ALWAYS open in shared mode
-            const sharedFolder = joinedRooms.find(r => r.type === 'folder' && roomHashToId(r.hash) === parentFolderId);
-            const isHostedFolder = parentFolderId && sharedFolders.includes(parentFolderId);
-
-            if (sharedFolder) {
-                // IT IS A JOINED SHARED FOLDER
-                // The room name MUST be derived from the folder's hash to match the host
-                // sharedFolder.hash is roughly: space-[vault]-[folderId]
-                // We want: space-note-[vault]-[noteId]
-
-                // If the hash is just space-[folderId] (legacy or local), handle gracefully
-
-                expectedRoomName = `space-note-${sharedFolder.hash.replace('space-', '')}-${encodeURIComponent(id)}`;
-            }
-            else if (isHostedFolder && identity) {
-                // IT IS A HOSTED SHARED FOLDER
-                const spaceHash = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(parentFolderId!)}`;
-                expectedRoomName = `space-note-${spaceHash.replace('space-', '')}-${encodeURIComponent(id)}`;
-            }
-
-            // 2b. Manual Join / Active Room Override
-            else if (activeRoom) {
-                expectedRoomName = activeRoom;
-                // If the active room is a SPACE, and we are opening a NOTE, derive a note-room
-                if (activeRoom.startsWith('space-') && type === 'note') {
-                    expectedRoomName = `space-note-${activeRoom.replace('space-', '')}-${encodeURIComponent(id)}`;
-                }
-            }
-
-            // 2c. Fallback: Personal Cloud or Local
-            else if (identity) {
-                expectedRoomName = `p-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
-            } else {
-                expectedRoomName = `local-${encodeURIComponent(id)}`;
-            }
+        if (joinedNoteRoom) {
+            // It is an explicitly joined note room
+            expectedRoomName = joinedNoteRoom.hash;
+        } else if (activeRoom && roomHashToId(activeRoom) === id) {
+            // The currently active manually joined room matches this note
+            expectedRoomName = activeRoom;
+        } else if (identity) {
+            // Owner's secure room hash
+            expectedRoomName = `p-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
+        } else {
+            // Fallback local room hash
+            expectedRoomName = `local-${encodeURIComponent(id)}`;
         }
 
         expectedRoomName = `parchment-v1-${expectedRoomName}`;

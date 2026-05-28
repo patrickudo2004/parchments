@@ -4,7 +4,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Loader2 } from 'lucide-react';
-import { roomHashToId } from '@/lib/sync/YjsService';
+import { YjsService } from '@/lib/sync/YjsService';
 
 export const JoinHandler: React.FC = () => {
     const navigate = useNavigate();
@@ -25,84 +25,137 @@ export const JoinHandler: React.FC = () => {
             if (!roomHash || isJoining.current) return;
             isJoining.current = true;
 
-            const isFolderSpace = roomHash.startsWith('space-');
-            const roomType = isFolderSpace ? 'folder' : 'note';
+            showToast('Connecting to collaborative session...', 'info');
 
-            showToast(`Connecting to ${roomType} study room...`, 'info');
+            // Format of roomHash: 'local-[encodedId]' or 'p-[vault]-[encodedId]'
+            const parts = roomHash.split('-');
+            const startIndex = roomHash.startsWith('local-') ? 1 : 2;
+            const encodedNoteId = parts.slice(startIndex).join('-');
+            const remoteNoteId = decodeURIComponent(encodedNoteId);
 
-            // Prefer the URL-decoded title from query params, fall back to hash-derived title
-            const titleMatch = roomHash.match(/-([^-]+)$/);
-            const initialTitle = urlTitle || (titleMatch ? decodeURIComponent(titleMatch[1]) : undefined);
+            if (!remoteNoteId) {
+                showToast('Invalid room link', 'error');
+                navigate('/app', { replace: true });
+                return;
+            }
 
-            // Pin the room to the sidebar
-            addJoinedRoom(roomHash, initialTitle, roomType);
-            joinRoom(roomHash, roomType);
+            // 1. Join WebRTC Room via Store
+            addJoinedRoom(roomHash, urlTitle || 'Shared Note', 'note');
+            joinRoom(roomHash, 'note');
 
-            if (isFolderSpace) {
-                // For folders, we extract the folderId
-                const remoteFolderId = roomHashToId(roomHash);
-
-                if (remoteFolderId) {
-                    const { folders, createFolder } = useNoteStore.getState();
-                    const existingFolder = folders.find(f => f.id === remoteFolderId);
-
-                    if (!existingFolder) {
-                        try {
-                            // Use URL title if available, otherwise derive from ID
-                            const name = urlTitle || remoteFolderId.replace(/-/g, ' ');
-                            // FIXED: null = no parent, remoteFolderId = force canonical ID
-                            await createFolder(name || 'Shared Space', null, remoteFolderId);
-                            showToast('Joined shared space', 'success');
-                        } catch (err) {
-                            console.error('Failed to create room folder:', err);
+            // 2. SAFE SYNC HANDSHAKE
+            // Initiate Yjs Doc to trigger WebRTC signaling connection
+            const doc = YjsService.getDoc(remoteNoteId);
+            
+            // Wait for WebRTC Provider to fully sync remote edits
+            const waitForSync = () => {
+                return new Promise<void>((resolve) => {
+                    const provider = YjsService.getProvider(remoteNoteId);
+                    
+                    // If already synced and connected, resolve immediately
+                    if (provider && provider.connected && provider.synced) {
+                        resolve();
+                        return;
+                    }
+                    
+                    let resolved = false;
+                    const handleSynced = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve();
                         }
-                    }
-                }
-            } else {
-                // Note sync logic
-                // Format: 'local-[encodedId]' or 'p-[vault]-[encodedId]'
-                const parts = roomHash.split('-');
-                const startIndex = roomHash.startsWith('local-') ? 1 : 2;
-                const encodedNoteId = parts.slice(startIndex).join('-');
-                const remoteNoteId = decodeURIComponent(encodedNoteId);
-
-                if (remoteNoteId) {
-                    const { notes, setCurrentNote, createNote } = useNoteStore.getState();
-                    let existingNote = notes.find((n: any) => n.id === remoteNoteId);
-
-                    if (!existingNote) {
-                        const { db } = await import('@/lib/db');
-                        existingNote = await db.notes.get(remoteNoteId);
-                    }
-
-                    if (existingNote) {
-                        setCurrentNote(existingNote);
+                    };
+                    
+                    if (provider) {
+                        provider.on('synced', handleSynced);
+                        // Fallback timeout after 3.5 seconds to proceed anyway
+                        setTimeout(() => {
+                            if (!resolved) {
+                                resolved = true;
+                                provider.off('synced', handleSynced);
+                                resolve();
+                            }
+                        }, 3500);
                     } else {
-                        // Use URL title if available, otherwise derive from note ID
-                        let displayTitle = urlTitle;
-                        if (!displayTitle) {
-                            const noteTitle = remoteNoteId.replace(/\.html$/, '').replace(/-/g, ' ');
-                            displayTitle = noteTitle.split(' ').map(word =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ');
-                        }
-
-                        try {
-                            const newNote = await createNote(null, displayTitle || 'Shared Note', remoteNoteId);
-                            if (newNote) setCurrentNote(newNote);
-                            showToast('Joined collaborative session', 'success');
-                        } catch (err) {
-                            console.error('Failed to create room note:', err);
-                            showToast('Failed to join room', 'error');
+                        // Let IndexedDB persistence finish loading
+                        const persistence = YjsService.getPersistence(remoteNoteId);
+                        if (persistence) {
+                            persistence.whenSynced.then(() => resolve());
+                        } else {
+                            resolve();
                         }
                     }
+                });
+            };
+
+            await waitForSync();
+
+            // 3. Extract Synced Content (Strictly preventing blank overwrites)
+            const contentText = doc.getText('content').toString();
+            const metadata = YjsService.getMetadata(remoteNoteId);
+            const syncedTitle = metadata ? metadata.get('title') as string : null;
+            const displayTitle = syncedTitle || urlTitle || 'Shared Note';
+
+            const { notes, setCurrentNote, isLocalMode, createLocalNote, refreshLocalFiles } = useNoteStore.getState();
+            let existingNote = notes.find((n: any) => n.id === remoteNoteId);
+
+            if (!existingNote) {
+                const { db } = await import('@/lib/db');
+                existingNote = await db.notes.get(remoteNoteId);
+            }
+
+            if (existingNote) {
+                // If it already exists in the library, open it immediately
+                setCurrentNote(existingNote);
+                showToast('Opened collaborative note', 'success');
+            } else {
+                if (isLocalMode) {
+                    // Desktop local mode: Save directly to disk, using full synced content
+                    try {
+                        const name = displayTitle.endsWith('.html') ? displayTitle : `${displayTitle}.html`;
+                        // Create physical disk file with the remote text, avoiding empty files
+                        await createLocalNote(name, null, contentText, remoteNoteId);
+                        await refreshLocalFiles();
+                        showToast('Note synced and saved to Studyspace', 'success');
+                    } catch (err) {
+                        console.error('Failed to create local disk note:', err);
+                        // Fallback to in-memory preview
+                        const tempNote = {
+                            id: remoteNoteId,
+                            title: displayTitle,
+                            content: contentText,
+                            folderId: null,
+                            tags: [],
+                            type: 'text' as const,
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                            isSharedPlaceholder: true
+                        };
+                        setCurrentNote(tempNote);
+                    }
+                } else {
+                    // Mobile view: Load as an in-memory collaborative preview.
+                    // The mobile user is prompted to tap "Save to Folder" to save it permanently.
+                    const tempNote = {
+                        id: remoteNoteId,
+                        title: displayTitle,
+                        content: contentText,
+                        folderId: null,
+                        tags: [],
+                        type: 'text' as const,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                        isSharedPlaceholder: true
+                    };
+                    setCurrentNote(tempNote);
+                    showToast('Joined collaboration session', 'success');
                 }
             }
 
-            // Small delay to ensure state propagates before navigation
+            // Small delay to ensure state propagates before navigating to the app workspace
             setTimeout(() => {
                 navigate('/app', { replace: true });
-            }, 500);
+            }, 300);
         };
 
         handleJoin();

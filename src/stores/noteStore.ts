@@ -3,8 +3,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
-import { useSyncStore } from './syncStore';
-import { YjsService, roomHashToId } from '@/lib/sync/YjsService';
+
 
 export const UNTITLED_NOTE = 'Untitled Note';
 export const UNTITLED_FOLDER = 'Untitled Folder';
@@ -174,85 +173,15 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         });
     },
 
-    broadcastFolderChange: async (folderId: string | null) => {
-        const actualFolderId = folderId || 'global-root';
-
-        const { joinedRooms, sharedFolders, pairedDeviceName } = useSyncStore.getState();
-        const isJoined = joinedRooms.some(r => r.type === 'folder' && r.hash.includes(encodeURIComponent(actualFolderId)));
-        const isHosted = sharedFolders.includes(actualFolderId) || (actualFolderId === 'global-root' && pairedDeviceName !== null);
-
-        console.log(`[Space Sync BROADCAST] Folder: ${actualFolderId}, isJoined: ${isJoined}, isHosted: ${isHosted}`);
-        console.log(`[Space Sync BROADCAST] joinedRooms:`, joinedRooms);
-        console.log(`[Space Sync BROADCAST] sharedFolders:`, sharedFolders);
-
-        if (!isJoined && !isHosted) {
-            console.log(`[Space Sync BROADCAST] Folder ${actualFolderId} is not shared, skipping broadcast`);
-            return;
-        }
-
-        console.log(`[Space Sync BROADCAST] Broadcasting change for folder: ${actualFolderId}`);
-        const doc = YjsService.getDoc(actualFolderId, 'folder');
-        const manifest = doc.getMap('manifest');
-
-        const { notes, localFiles, isLocalMode } = get();
-
-        // In local mode, notes are stored in localFiles, not in the notes array
-        let folderNotes: any[] = [];
-
-        if (isLocalMode && localFiles.length > 0) {
-            // Get notes from local file system
-            folderNotes = localFiles.filter(f => f.kind === 'file' && (f.parentId === actualFolderId || (!f.parentId && actualFolderId === 'global-root')));
-            console.log(`[Space Sync BROADCAST] Local mode: Found ${folderNotes.length} local files in folder ${actualFolderId}`);
-        } else {
-            // Get notes from database
-            folderNotes = notes.filter(n => n.folderId === actualFolderId || (!n.folderId && actualFolderId === 'global-root'));
-            console.log(`[Space Sync BROADCAST] Database mode: Found ${folderNotes.length} notes in folder ${actualFolderId}`);
-        }
-
-        console.log(`[Space Sync BROADCAST] Notes:`, folderNotes.map(n => ({ id: n.id, title: n.title || n.name, type: n.type })));
-
-        // Update the manifest with the current list of notes
-        // We use a simple object structure for each note
-        folderNotes.forEach(n => {
-            const baseMetadata = {
-                id: n.id,
-                title: n.title || n.name, // localFiles use 'name', notes use 'title'
-                type: n.type || 'text',
-                updatedAt: n.updatedAt || Date.now()
-            };
-
-            // Add voice note specific metadata
-            if (n.type === 'voice') {
-                manifest.set(n.id, {
-                    ...baseMetadata,
-                    transcript: n.transcript || '',
-                    duration: n.duration || 0
-                });
-            } else {
-                manifest.set(n.id, baseMetadata);
-            }
-        });
-
-        manifest.set('lastUpdated', Date.now());
-
-        console.log(`[Space Sync BROADCAST] ✅ Manifest updated for folder ${actualFolderId}`);
+    broadcastFolderChange: async (_folderId: string | null) => {
+        // Folder-level sharing has been removed. This is now a no-op.
+        // Single-note sharing via JoinHandler replaces this functionality.
+        return;
     },
 
-    broadcastNoteDeletion: async (folderId: string | null, noteId: string) => {
-        const actualFolderId = folderId || 'global-root';
-        const { joinedRooms, sharedFolders, pairedDeviceName } = useSyncStore.getState();
-
-        const isJoined = joinedRooms.some(r => r.type === 'folder' && roomHashToId(r.hash) === actualFolderId);
-        const isHosted = sharedFolders.includes(actualFolderId) || (actualFolderId === 'global-root' && pairedDeviceName !== null);
-
-        if (!isJoined && !isHosted) return;
-
-        console.log(`[Space Sync BROADCAST] Broadcasting deletion for note ${noteId} in folder ${actualFolderId}`);
-        const doc = YjsService.getDoc(actualFolderId, 'folder');
-        const manifest = doc.getMap('manifest');
-
-        manifest.delete(noteId);
-        manifest.set('lastUpdated', Date.now());
+    broadcastNoteDeletion: async (_folderId: string | null, _noteId: string) => {
+        // Folder-level sharing has been removed. This is now a no-op.
+        return;
     },
 
     loadNotes: async () => {
@@ -263,7 +192,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     loadFolders: async () => {
         const folders = await db.folders.toArray();
-        set({ folders });
+        set({
+            folders,
+            hasStudyspace: autoSandbox ? folders.length > 0 : get().hasStudyspace
+        });
     },
 
     createNote: async (folderId, title, forceId) => {

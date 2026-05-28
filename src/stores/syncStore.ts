@@ -17,9 +17,7 @@ interface SyncState {
     isConnected: boolean;
     activeRoom: string | null;
     joinedRooms: JoinedRoom[];
-    sharedFolders: string[]; // IDs of local folders being shared
     deviceName: string;
-    pairedDeviceName: string | null;
 
     // Actions
     initializeIdentity: () => Promise<void>;
@@ -31,10 +29,7 @@ interface SyncState {
     addJoinedRoom: (hash: string, title?: string, type?: 'note' | 'folder') => void;
     updateRoomTitle: (hash: string, title: string) => void;
     removeJoinedRoom: (hash: string) => void;
-    shareFolder: (folderId: string) => void;
-    unshareFolder: (folderId: string) => void;
     updateDeviceName: (name: string) => void;
-    setPairedDeviceName: (name: string | null) => void;
 }
 
 const getFriendlyDeviceName = () => {
@@ -58,9 +53,7 @@ export const useSyncStore = create<SyncState>()(
             activeRoom: null,
             isConnected: false,
             joinedRooms: [],
-            sharedFolders: [],
             deviceName: getFriendlyDeviceName(),
-            pairedDeviceName: null,
 
             initializeIdentity: async () => {
                 if (get().identity) {
@@ -143,30 +136,16 @@ export const useSyncStore = create<SyncState>()(
                 });
             },
 
-            shareFolder: (folderId) => {
-                const { sharedFolders } = get();
-                if (sharedFolders.includes(folderId)) return;
-                set({ sharedFolders: [...sharedFolders, folderId] });
-            },
-
-            unshareFolder: (folderId) => {
-                const { sharedFolders } = get();
-                set({ sharedFolders: sharedFolders.filter(id => id !== folderId) });
-            },
-
             updateDeviceName: (name) => set({ deviceName: name }),
-            setPairedDeviceName: (name) => set({ pairedDeviceName: name })
         }),
         {
             name: 'parchments-sync',
-            // Only persist identity, joined rooms, shared folders and device names
+            // Only persist identity, joined rooms, and device names
             partialize: (state) => ({
                 identity: state.identity,
                 isInitialized: state.isInitialized,
                 joinedRooms: state.joinedRooms,
-                sharedFolders: state.sharedFolders,
                 deviceName: state.deviceName,
-                pairedDeviceName: state.pairedDeviceName
             }),
         }
     )

@@ -18,7 +18,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { ScriptureExtension } from './extensions/ScriptureExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
-import { RotateCcw, LogOut } from 'lucide-react';
+import { RotateCcw, LogOut, Share2, Folder } from 'lucide-react';
 import { EditorToolbar } from './EditorToolbar';
 import { FocusExtension } from './extensions/FocusExtension';
 import { EnterKeyExtension } from './extensions/EnterKeyExtension';
@@ -33,6 +33,7 @@ import Image from '@tiptap/extension-image';
 import { YjsService } from '@/lib/sync/YjsService';
 import { ImageResizer } from './extensions/ImageResizer';
 import { useSyncStore } from '@/stores/syncStore';
+import { ShareNoteModal } from './ShareNoteModal';
 
 interface RichTextEditorProps {
     activeRoom: string | null;
@@ -64,6 +65,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     // Guards against double-seeding race: ensures IndexedDB has finished loading
     // before we seed Yjs with local content.
     const [isPersistenceSynced, setIsPersistenceSynced] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isSaveToFolderDialogOpen, setIsSaveToFolderDialogOpen] = useState(false);
+    const { folders } = useNoteStore();
+    const { showToast } = useUIStore();
 
     const { search } = useAIStore();
 
@@ -557,6 +562,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         fontFamily: editorFontFamily === 'serif' ? '"Source Serif 4", Georgia, serif' : 'Inter, sans-serif',
                     }}
                 >
+                    {/* Collaborative Import Banner */}
+                    {currentNote.isSharedPlaceholder && (
+                        <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between flex-wrap gap-4 shadow-sm animate-in slide-in-from-top duration-300">
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-primary">Collaborative Shared Note</h4>
+                                <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary leading-relaxed font-semibold">
+                                    Save this note to one of your folders to keep it in your local library.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsSaveToFolderDialogOpen(true)}
+                                className="px-4 py-2 bg-primary text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 shrink-0"
+                            >
+                                Save to Folder
+                            </button>
+                        </div>
+                    )}
+
                     {/* Note Header / Title */}
                     <textarea
                         ref={titleRef}
@@ -601,6 +624,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {/* Share Note Button */}
+                            {identity && (
+                                <button
+                                    onClick={() => setIsShareModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                                    title="Share Note"
+                                >
+                                    <Share2 size={12} />
+                                    <span>Share Note</span>
+                                </button>
+                            )}
                             {/* Leave Room Button — only shown in collaborative mode */}
                             {shouldSync && activeRoom && (
                                 <button
@@ -703,6 +737,81 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         setSuggestedNoteId(null);
                     }}
                 />
+            )}
+
+            {/* Share Note Modal */}
+            {isShareModalOpen && currentNote && (
+                <ShareNoteModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => setIsShareModalOpen(false)}
+                    noteId={currentNote.id}
+                />
+            )}
+
+            {/* Save to Folder Dialog Overlay */}
+            {isSaveToFolderDialogOpen && currentNote && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsSaveToFolderDialogOpen(false)}>
+                    <div className="w-full max-w-sm bg-light-surface dark:bg-dark-surface rounded-2xl border border-light-border dark:border-dark-border shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                        <div className="text-center space-y-1">
+                            <h4 className="font-extrabold text-base text-light-text-primary dark:text-dark-text-primary">Select Folder</h4>
+                            <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Choose a folder to save this collaborative note.</p>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-1 p-1">
+                            {folders.length === 0 ? (
+                                <p className="text-xs italic text-light-text-disabled text-center py-4">No folders created yet.</p>
+                            ) : (
+                                folders.map(folder => (
+                                    <button
+                                        key={folder.id}
+                                        onClick={async () => {
+                                            setIsSaveToFolderDialogOpen(false);
+                                            const { db } = await import('@/lib/db');
+                                            
+                                            // Save to DB
+                                            await db.notes.add({
+                                                id: currentNote.id,
+                                                title: title,
+                                                content: editor?.getHTML() || currentNote.content,
+                                                folderId: folder.id,
+                                                tags: [],
+                                                type: currentNote.type || 'text',
+                                                createdAt: currentNote.createdAt || Date.now(),
+                                                updatedAt: Date.now()
+                                            });
+                                            
+                                            // Update local store state
+                                            const store = useNoteStore.getState();
+                                            const newNote = {
+                                                ...currentNote,
+                                                title: title,
+                                                isSharedPlaceholder: false,
+                                                folderId: folder.id
+                                            };
+                                            useNoteStore.setState({
+                                                notes: [...store.notes, newNote],
+                                                currentNote: newNote
+                                            });
+                                            
+                                            showToast('Saved note to folder successfully', 'success');
+                                        }}
+                                        className="w-full p-3 text-left text-xs font-bold rounded-xl hover:bg-light-background dark:hover:bg-dark-background border border-transparent hover:border-primary/20 transition-all flex items-center gap-2"
+                                    >
+                                        <Folder size={16} className="text-primary" />
+                                        <span className="text-light-text-primary dark:text-dark-text-primary">{folder.name}</span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                        <div className="flex justify-end pt-2">
+                            <button
+                                onClick={() => setIsSaveToFolderDialogOpen(false)}
+                                className="px-4 py-2 border border-light-border dark:border-dark-border text-xs font-bold rounded-xl hover:bg-light-background dark:hover:bg-dark-background transition-all text-light-text-secondary dark:text-dark-text-secondary"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
     );

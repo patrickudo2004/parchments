@@ -8,6 +8,7 @@ export interface Note {
     tags: string[];
     isArchived?: boolean;
     isPinned?: boolean;
+    isSharedPlaceholder?: boolean; // True for in-memory collaborative notes not yet saved to a folder
     type: 'text' | 'voice';
     audioUrl?: string; // For voice notes
     audioBlob?: Blob; // Offline storage

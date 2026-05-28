@@ -41,26 +41,31 @@ export class YjsService {
 
         // 1. FOLDER LOGIC: Determine room name for a Space
         if (type === 'folder') {
-            // Check if this ID belongs to a known joined room
-            // We must find a room where roomHashToId(room.hash) === id
-            const joinedSpace = joinedRooms.find(r => r.type === 'folder' && roomHashToId(r.hash) === id);
-
-            if (joinedSpace) {
-                expectedRoomName = joinedSpace.hash;
-            } else if (sharedFolders.includes(id)) {
-                // It's a local folder we are sharing
-                if (identity) {
-                    expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
-                } else {
-                    expectedRoomName = `space-local-${encodeURIComponent(id)}`;
-                }
+            // Special case: global-root is the device-pairing broadcast room.
+            // It MUST use a fixed room name so all paired devices join the same room,
+            // regardless of each device's own vault hash.
+            if (id === 'global-root') {
+                expectedRoomName = 'space-global-root';
             } else {
-                // Fallback for creating a new space from scratch?
-                // Or maybe we just use the ID as is if we can't find context
-                if (identity) {
-                    expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
+                // Check if this ID belongs to a known joined room
+                // We must find a room where roomHashToId(room.hash) === id
+                const joinedSpace = joinedRooms.find(r => r.type === 'folder' && roomHashToId(r.hash) === id);
+
+                if (joinedSpace) {
+                    expectedRoomName = joinedSpace.hash;
+                } else if (sharedFolders.includes(id)) {
+                    // It's a local folder we are sharing
+                    if (identity) {
+                        expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
+                    } else {
+                        expectedRoomName = `space-local-${encodeURIComponent(id)}`;
+                    }
                 } else {
-                    expectedRoomName = `space-local-${encodeURIComponent(id)}`;
+                    if (identity) {
+                        expectedRoomName = `space-${identity.vaultHash.slice(0, 8)}-${encodeURIComponent(id)}`;
+                    } else {
+                        expectedRoomName = `space-local-${encodeURIComponent(id)}`;
+                    }
                 }
             }
         }

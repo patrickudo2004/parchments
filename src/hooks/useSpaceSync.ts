@@ -174,8 +174,22 @@ export const useSpaceSync = () => {
                     const localNote = notes.find(n => n.id === fileId);
                     const localDiskFile = localFiles.find(f => f.id === fileId);
 
-                    // Check both DB and physical disk depending on mode
-                    const existsLocally = isLocalMode ? !!localDiskFile : !!localNote;
+                    // Check both DB and physical disk depending on mode.
+                    // IMPORTANT: Do NOT rely solely on the React store's `notes` array for this
+                    // check because loadNotes() may not have completed yet. If the store hasn't
+                    // loaded a note that already exists in the database, we'd incorrectly treat
+                    // it as missing, call db.notes.put({content:''}), and wipe the real content.
+                    // Always verify against the database directly first.
+                    let existsLocally = isLocalMode ? !!localDiskFile : !!localNote;
+
+                    // Belt-and-suspenders: for cloud mode always confirm against the raw DB
+                    if (!existsLocally && !isLocalMode) {
+                        const dbRecord = await db.notes.get(fileId);
+                        if (dbRecord) {
+                            existsLocally = true;
+                            console.log(`[Space Sync OBSERVER] 🛡️ Note ${fileId} not in store yet but exists in DB — skipping ghost creation to protect content`);
+                        }
+                    }
 
                     if (!existsLocally) {
                         // GHOST HYDRATION
@@ -187,8 +201,8 @@ export const useSpaceSync = () => {
                                 await createLocalNote(remoteFile.title || 'Untitled', parentId, '', fileId);
                                 await refreshLocalFiles();
                             } else {
-                                // Create placeholder inside IndexedDB
-                                await db.notes.put({
+                                // Create placeholder inside IndexedDB only if truly absent
+                                await db.notes.add({
                                     id: fileId,
                                     title: remoteFile.title || 'Untitled',
                                     content: '',
@@ -212,31 +226,16 @@ export const useSpaceSync = () => {
                         dbChanged = true;
                     }
 
-                    // ── 1.5. CONTENT BACKFILL / RECONCILIATION FLOW ─────────────────────
+                    // ── 1.5. CONTENT CHANNEL SETUP ──────────────────────────────────────
+                    // NOTE: We intentionally do NOT backfill getText('content') here.
+                    // Content flows through two complementary paths:
+                    //   a) When a note is open in Tiptap: onUpdate → getText('content') → WebRTC → peer flushers
+                    //   b) When a note is synced but not open: the XmlFragment('default') syncs via
+                    //      the Collaboration extension; content will persist when someone opens the note.
+                    // Backfilling getText here while the editor is also seeding causes a race that
+                    // results in doubled/conflicting content.
                     const noteDoc = YjsService.getDoc(fileId, 'note');
                     const contentText = noteDoc.getText('content');
-
-                    if (contentText.toString() === '') {
-                        let localContent = '';
-                        if (isLocalMode && localDiskFile) {
-                            try {
-                                const raw = await fileSystem.readFile(localDiskFile.handle as any) as string;
-                                // Strip metadata comments
-                                localContent = raw.replace(/<!--\s*parchments-meta:.*?\s*-->/g, '').trim();
-                            } catch (readErr) {
-                                console.error(`[Space Sync RECONCILER] Failed to read disk file ${fileId} for backfill:`, readErr);
-                            }
-                        } else if (!isLocalMode && localNote && localNote.content) {
-                            localContent = localNote.content;
-                        }
-
-                        if (localContent) {
-                            console.log(`[Space Sync RECONCILER] 🌱 Backfilling empty YDoc for ${fileId} using local content...`);
-                            noteDoc.transact(() => {
-                                contentText.insert(0, localContent);
-                            }, 'reconciliation-backfill');
-                        }
-                    }
 
                     // ── 1.8. BACKGROUND REAL-TIME FLUSHERS ──────────────────────────────
                     if (!activeObservers.current.has(fileId)) {

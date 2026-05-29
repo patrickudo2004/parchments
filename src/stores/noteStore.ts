@@ -386,9 +386,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 try {
                     // Local rename
                     const ext = item.name.split('.').pop();
-                    const finalName = (newName.endsWith('.html') || newName.endsWith('.md') || newName.endsWith('.txt'))
-                        ? newName
-                        : `${newName}.${ext}`;
+                    const cleanNewName = newName.replace(/[:/\\*?"<>|]/g, '-');
+                    const finalName = (cleanNewName.endsWith('.html') || cleanNewName.endsWith('.md') || cleanNewName.endsWith('.txt'))
+                        ? cleanNewName
+                        : `${cleanNewName}.${ext}`;
 
                     await fileSystem.renameEntry(item.handle, finalName);
 
@@ -766,7 +767,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
             const finalContent = content + metaTag;
 
-            const name = fileName.endsWith('.html') ? fileName : `${fileName}.html`;
+            // Sanitize filename to ensure Windows and other OS compatibility (remove : / \ * ? " < > |)
+            const sanitizedFileName = fileName.replace(/[:/\\*?"<>|]/g, '-');
+            const name = sanitizedFileName.endsWith('.html') ? sanitizedFileName : `${sanitizedFileName}.html`;
             const handle = await fileSystem.createFile(parentHandle, name, finalContent);
 
             // Open the new file (construct a LocalItem)

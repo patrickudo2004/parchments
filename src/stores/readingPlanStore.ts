@@ -237,7 +237,7 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     const isLocalMode = noteStoreState.isLocalMode;
                     const localDirectoryHandle = noteStoreState.localDirectoryHandle;
 
-                    const title = `Lectio Journal: ${dateString}`;
+                    const title = `Lectio Journal - ${dateString}`;
 
                     if (isLocalMode && localDirectoryHandle) {
                         // Create in local folder physically

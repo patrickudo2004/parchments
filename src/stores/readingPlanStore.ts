@@ -278,23 +278,45 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 const { activeNoteId } = get();
                 if (!activeNoteId) return;
 
-                const note = await db.notes.get(activeNoteId);
-                if (!note) return;
-
                 // Format as a beautiful markdown/HTML blockquote in Tiptap format
                 const pinBlock = `<blockquote><p><strong>${reference}</strong> - ${verseText}</p></blockquote><p></p>`;
-                const newContent = note.content + pinBlock;
 
-                await db.notes.update(activeNoteId, {
-                    content: newContent,
-                    updatedAt: Date.now()
-                });
+                // Dynamically import noteStore to avoid circular dependency
+                const { useNoteStore } = await import('@/stores/noteStore');
+                const noteStoreState = useNoteStore.getState();
+                const isLocalMode = noteStoreState.isLocalMode;
+
+                let newContent = '';
+
+                if (isLocalMode) {
+                    const currentNote = noteStoreState.currentNote;
+                    if (currentNote && currentNote.id === activeNoteId) {
+                        newContent = currentNote.content + pinBlock;
+                        // Save the note using noteStore's saveCurrentNote
+                        await noteStoreState.saveCurrentNote(currentNote.title, newContent);
+                    }
+                } else {
+                    const note = await db.notes.get(activeNoteId);
+                    if (!note) return;
+
+                    newContent = note.content + pinBlock;
+
+                    await db.notes.update(activeNoteId, {
+                        content: newContent,
+                        updatedAt: Date.now()
+                    });
+                }
 
                 // Trigger update in UI if active in editor
                 const uiStore = (window as any).useUIStore || null;
                 const editor = uiStore ? uiStore.getState?.().editor : null;
                 if (editor && editor.getHTML) {
-                    editor.commands.setContent(newContent);
+                    const latestNote = useNoteStore.getState().currentNote;
+                    if (latestNote && latestNote.id === activeNoteId) {
+                        editor.commands.setContent(latestNote.content);
+                    } else if (newContent) {
+                        editor.commands.setContent(newContent);
+                    }
                 }
             },
 

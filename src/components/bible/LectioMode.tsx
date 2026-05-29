@@ -47,7 +47,7 @@ export const LectioMode: React.FC = () => {
         setReaderStyle
     } = useReadingPlanStore();
 
-    const { setCurrentNote, hasStudyspace, openLocalFolder, isLocalMode } = useNoteStore();
+    const { setCurrentNote, hasStudyspace, openLocalFolder, isLocalMode, localFiles, openLocalFile } = useNoteStore();
     const { isMobile, showToast } = useUIStore();
 
     // Local UI states
@@ -88,13 +88,22 @@ export const LectioMode: React.FC = () => {
     // 2. Sync daily session Note into global NoteStore so RichTextEditor loads it
     useEffect(() => {
         if (isLectioModeActive && activeNoteId) {
-            db.notes.get(activeNoteId).then(note => {
-                if (note) {
-                    setCurrentNote(note);
+            if (isLocalMode) {
+                const localFileItem = localFiles.find(f => f.id === activeNoteId && f.kind === 'file');
+                if (localFileItem) {
+                    openLocalFile(localFileItem);
+                } else {
+                    console.log('[LectioMode] Active session note not found in localFiles yet:', activeNoteId);
                 }
-            });
+            } else {
+                db.notes.get(activeNoteId).then(note => {
+                    if (note) {
+                        setCurrentNote(note);
+                    }
+                });
+            }
         }
-    }, [isLectioModeActive, activeNoteId, setCurrentNote]);
+    }, [isLectioModeActive, activeNoteId, isLocalMode, localFiles, openLocalFile, setCurrentNote]);
 
     // 3. Load installed Bible versions
     const installedVersions = useLiveQuery(async () => {

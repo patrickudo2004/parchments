@@ -649,17 +649,15 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                     <span>Leave Room</span>
                                 </button>
                             )}
-                            {/* Manual Save Button for Local Mode */}
-                            {!shouldSync && (
-                                <button
-                                    onClick={() => saveToDB(title, editor?.getHTML() || '')}
-                                    disabled={isSaving || !editor}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-                                >
-                                    <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
-                                    <span>Save Now</span>
-                                </button>
-                            )}
+                            {/* Manual Save Button */}
+                            <button
+                                onClick={() => saveToDB(title, editor?.getHTML() || '')}
+                                disabled={isSaving || !editor}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
+                                <span>Save Now</span>
+                            </button>
                         </div>
                     </div>
 

@@ -14,7 +14,8 @@ import {
     Edit2,
     Users,
     PenTool,
-    Pin
+    Pin,
+    Share2
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
@@ -23,6 +24,7 @@ import { useNoteStore, UNTITLED_NOTE } from '@/stores/noteStore';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
 import { useResearchStore } from '@/stores/researchStore';
+import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 
 
 export const FilesSidebar: React.FC = () => {
@@ -44,6 +46,7 @@ export const FilesSidebar: React.FC = () => {
     const [showRecorder, setShowRecorder] = useState(false);
     const [recordingFolderId, setRecordingFolderId] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    const [shareNoteId, setShareNoteId] = useState<string | null>(null);
 
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
@@ -306,10 +309,22 @@ export const FilesSidebar: React.FC = () => {
                                         });
                                     }
                                 }}
-                                className={`p-1 transition-all opacity-0 group-hover:opacity-100 ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
+                                                                className={`p-1 transition-all opacity-0 group-hover:opacity-100 ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
                                 title="Pin to Research"
                             >
                                 <Pin size={12} />
+                            </button>
+                        )}
+                        {!hasChildren && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShareNoteId(item.id);
+                                }}
+                                className="p-1 hover:text-primary transition-all opacity-0 group-hover:opacity-100 text-light-text-disabled hover:text-primary"
+                                title="Share Note"
+                            >
+                                <Share2 size={12} />
                             </button>
                         )}
                         <button
@@ -340,48 +355,25 @@ export const FilesSidebar: React.FC = () => {
 
     // Responsive Mobile Grid View render path
     if (isMobile) {
-        // 1. MOBILE ONBOARDING: Force folder creation if no folders exist
-        if (folders.length === 0) {
+        // 1. MOBILE ONBOARDING: Force local folder open if no active Studyspace exists
+        if (!hasStudyspace) {
             return (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6 bg-light-surface dark:bg-dark-surface">
-                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg text-primary">
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg text-primary animate-in zoom-in duration-300">
                         <FolderOpen size={40} className="animate-pulse" />
                     </div>
                     <div className="space-y-2 max-w-xs">
-                        <h2 className="text-xl font-extrabold tracking-tight">Create Your Library</h2>
-                        <p className="text-xs text-light-text-secondary leading-relaxed">
-                            Parchments is a local-first workspace. Create a folder to organize your study notes and transcripts.
+                        <h2 className="text-xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">Open Your Library</h2>
+                        <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
+                            Parchments is a local-first workspace. Select or open a folder to organize your study notes and transcripts.
                         </p>
                     </div>
                     <button
-                        onClick={async () => {
-                            setPromptConfig({
-                                isOpen: true,
-                                title: 'Create Study Folder',
-                                label: 'Folder Name',
-                                defaultValue: 'My Studies',
-                                onConfirm: async (name) => {
-                                    if (name) {
-                                        const newFolder = await createFolder(name);
-                                        setSelectedFolderId(newFolder.id);
-                                    }
-                                    setPromptConfig(prev => ({ ...prev, isOpen: false }));
-                                }
-                            });
-                        }}
+                        onClick={openLocalFolder}
                         className="w-full py-3 bg-primary text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 animate-bounce"
                     >
-                        + Create First Folder
+                        Open Local Folder
                     </button>
-                    
-                    <PromptModal
-                        isOpen={promptConfig.isOpen}
-                        title={promptConfig.title}
-                        label={promptConfig.label}
-                        defaultValue={promptConfig.defaultValue}
-                        onConfirm={promptConfig.onConfirm}
-                        onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
-                    />
                 </div>
             );
         }
@@ -768,6 +760,14 @@ export const FilesSidebar: React.FC = () => {
                 onConfirm={promptConfig.onConfirm}
                 onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
             />
+
+            {shareNoteId && (
+                <ShareNoteModal
+                    isOpen={!!shareNoteId}
+                    onClose={() => setShareNoteId(null)}
+                    noteId={shareNoteId}
+                />
+            )}
         </div>
     );
 };

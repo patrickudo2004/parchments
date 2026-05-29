@@ -21,7 +21,10 @@ import {
     Heading1,
     Heading2,
     CaseSensitive,
-    Play
+    Play,
+    Save,
+    MoreHorizontal,
+    ChevronUp
 } from 'lucide-react';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { useUIStore } from '@/stores/uiStore';
@@ -32,11 +35,27 @@ interface EditorToolbarProps {
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
-    const { showToast, pulpitMode, togglePulpitMode } = useUIStore();
-    const { saveLocalAsset } = useNoteStore();
+    const { showToast, pulpitMode, togglePulpitMode, isMobile } = useUIStore();
+    const { saveLocalAsset, currentNote, saveCurrentNote } = useNoteStore();
     const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
     const [previousUrl, setPreviousUrl] = useState('');
     const [isCaseMenuExpanded, setIsCaseMenuExpanded] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (!currentNote || !editor) return;
+        setIsSaving(true);
+        try {
+            await saveCurrentNote(currentNote.title, editor.getHTML());
+            showToast('Note saved successfully', 'success');
+        } catch (e) {
+            console.error('[Toolbar Save] Error saving note:', e);
+            showToast('Failed to save note', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     if (!editor) return null;
 
@@ -149,199 +168,366 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     };
 
     return (
-        <div className="h-12 border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex items-center px-4 gap-1 shrink-0 sticky top-0 z-20 overflow-x-auto no-scrollbar">
-            {/* Undo/Redo */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
-                <Button
-                    onClick={() => editor.chain().focus().undo().run()}
-                    disabled={!editor.can().undo()}
-                    icon={Undo}
-                    title="Undo (Ctrl+Z)"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().redo().run()}
-                    disabled={!editor.can().redo()}
-                    icon={Redo}
-                    title="Redo (Ctrl+Y)"
-                />
+        <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 ${isMobile && showAdvanced ? 'h-24' : 'h-12'}`}>
+            {/* Primary Row */}
+            <div className="h-12 w-full flex items-center px-4 gap-1 overflow-x-auto no-scrollbar">
+                {/* Save button */}
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className={`p-1.5 rounded transition-all flex items-center justify-center ${isSaving ? 'text-primary animate-spin' : 'text-primary hover:bg-primary/10'}`}
+                        title="Save note now"
+                    >
+                        <Save size={18} />
+                    </button>
+                </div>
+
+                {/* Undo/Redo */}
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                    <Button
+                        onClick={() => editor.chain().focus().undo().run()}
+                        disabled={!editor.can().undo()}
+                        icon={Undo}
+                        title="Undo (Ctrl+Z)"
+                    />
+                    <Button
+                        onClick={() => editor.chain().focus().redo().run()}
+                        disabled={!editor.can().redo()}
+                        icon={Redo}
+                        title="Redo (Ctrl+Y)"
+                    />
+                </div>
+
+                {/* Basic Formatting Group */}
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                    <Button
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        isActive={editor.isActive('bold')}
+                        icon={Bold}
+                        title="Bold"
+                    />
+                    <Button
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        isActive={editor.isActive('italic')}
+                        icon={Italic}
+                        title="Italic"
+                    />
+                    <Button
+                        onClick={() => editor.chain().focus().toggleUnderline().run()}
+                        isActive={editor.isActive('underline')}
+                        icon={Underline}
+                        title="Underline"
+                    />
+                    <Button
+                        onClick={() => editor.chain().focus().toggleHighlight().run()}
+                        isActive={editor.isActive('highlight')}
+                        icon={Highlighter}
+                        title="Highlight"
+                    />
+                </div>
+
+                {/* Bullet/Numbered Lists for quick access */}
+                <div className="flex items-center gap-0.5 shrink-0">
+                    <Button
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        isActive={editor.isActive('bulletList')}
+                        icon={List}
+                        title="Bullet List"
+                    />
+                    <Button
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        isActive={editor.isActive('orderedList')}
+                        icon={ListOrdered}
+                        title="Numbered List"
+                    />
+                </div>
+
+                {/* Expand Toggle for Mobile, otherwise render the desktop actions right here */}
+                {isMobile ? (
+                    <button
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        className={`p-1.5 ml-auto rounded transition-all flex items-center justify-center shrink-0 ${showAdvanced ? 'bg-primary/20 text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
+                        title="Advanced formatting tools"
+                    >
+                        {showAdvanced ? <ChevronUp size={18} /> : <MoreHorizontal size={18} />}
+                    </button>
+                ) : (
+                    <>
+                        <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-2 shrink-0" />
+                        
+                        {/* Alignments */}
+                        <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                            <Button
+                                onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                                isActive={editor.isActive({ textAlign: 'left' })}
+                                icon={AlignLeft}
+                                title="Align Left"
+                            />
+                            <Button
+                                onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                                isActive={editor.isActive({ textAlign: 'center' })}
+                                icon={AlignCenter}
+                                title="Align Center"
+                            />
+                            <Button
+                                onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                                isActive={editor.isActive({ textAlign: 'right' })}
+                                icon={AlignRight}
+                                title="Align Right"
+                            />
+                        </div>
+
+                        {/* Strikethrough & Clear Formats */}
+                        <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                            <Button
+                                onClick={() => editor.chain().focus().toggleStrike().run()}
+                                isActive={editor.isActive('strike')}
+                                icon={Strikethrough}
+                                title="Strikethrough"
+                            />
+                            <Button
+                                onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+                                icon={RotateCcw}
+                                title="Clear All Formatting"
+                            />
+                        </div>
+
+                        {/* Headings */}
+                        <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                            <Button
+                                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                                isActive={editor.isActive('heading', { level: 1 })}
+                                icon={Heading1}
+                                title="Heading 1"
+                            />
+                            <Button
+                                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                                isActive={editor.isActive('heading', { level: 2 })}
+                                icon={Heading2}
+                                title="Heading 2"
+                            />
+                        </div>
+
+                        {/* Quote */}
+                        <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                            <Button
+                                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                                isActive={editor.isActive('blockquote')}
+                                icon={Quote}
+                                title="Quote"
+                            />
+                        </div>
+
+                        {/* Right side options */}
+                        <div className="ml-auto flex items-center gap-2 shrink-0">
+                            {/* Text Case Menu */}
+                            {isCaseMenuExpanded ? (
+                                <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-right-2 duration-200">
+                                    <button
+                                        onClick={() => {
+                                            editor.chain().focus().uppercase().run();
+                                            setIsCaseMenuExpanded(false);
+                                        }}
+                                        className="px-2 py-1 text-[10px] font-black uppercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
+                                    >
+                                        UPPER
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            editor.chain().focus().lowercase().run();
+                                            setIsCaseMenuExpanded(false);
+                                        }}
+                                        className="px-2 py-1 text-[10px] font-black lowercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
+                                    >
+                                        lower
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            editor.chain().focus().capitalize().run();
+                                            setIsCaseMenuExpanded(false);
+                                        }}
+                                        className="px-2 py-1 text-[10px] font-black capitalize tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
+                                    >
+                                        Title
+                                    </button>
+                                    <div className="w-[1px] h-3 bg-primary/20 mx-1" />
+                                    <button
+                                        onClick={() => setIsCaseMenuExpanded(false)}
+                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                        title="Close"
+                                    >
+                                        <RotateCcw size={12} className="rotate-45" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <Button
+                                    onClick={() => setIsCaseMenuExpanded(true)}
+                                    icon={CaseSensitive}
+                                    title="Text Case Transformations"
+                                />
+                            )}
+
+                            <button
+                                onClick={togglePulpitMode}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
+                                title="Pulpit Presentation Mode"
+                            >
+                                <Play size={12} fill="currentColor" />
+                                <span>Pulpit Mode</span>
+                            </button>
+                            <Button
+                                onClick={handleScan}
+                                icon={Sparkles}
+                                title="Scan for Scripture References"
+                            />
+                            <Button
+                                onClick={setLink}
+                                isActive={editor.isActive('link')}
+                                icon={LinkIcon}
+                                title="Insert/Edit Link"
+                            />
+                            <Button
+                                onClick={handleImageClick}
+                                icon={ImageIcon}
+                                title="Insert Image"
+                            />
+                        </div>
+                    </>
+                )}
             </div>
 
-            {/* Clear Formatting */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
-                <Button
-                    onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
-                    icon={RotateCcw}
-                    title="Clear All Formatting"
-                />
-            </div>
+            {/* Mobile Secondary Expandable Row */}
+            {isMobile && showAdvanced && (
+                <div className="h-12 w-full flex items-center px-4 gap-2 border-t border-light-border dark:border-dark-border overflow-x-auto no-scrollbar animate-in slide-in-from-top-4 duration-300">
+                    {/* Clear Format & Strikethrough */}
+                    <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border shrink-0">
+                        <Button
+                            onClick={() => editor.chain().focus().toggleStrike().run()}
+                            isActive={editor.isActive('strike')}
+                            icon={Strikethrough}
+                            title="Strikethrough"
+                        />
+                        <Button
+                            onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+                            icon={RotateCcw}
+                            title="Clear All Formatting"
+                        />
+                    </div>
 
-            {/* Headers */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
-                <Button
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    isActive={editor.isActive('heading', { level: 1 })}
-                    icon={Heading1}
-                    title="Heading 1"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    isActive={editor.isActive('heading', { level: 2 })}
-                    icon={Heading2}
-                    title="Heading 2"
-                />
-            </div>
+                    {/* Headings */}
+                    <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border shrink-0">
+                        <Button
+                            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                            isActive={editor.isActive('heading', { level: 1 })}
+                            icon={Heading1}
+                            title="Heading 1"
+                        />
+                        <Button
+                            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                            isActive={editor.isActive('heading', { level: 2 })}
+                            icon={Heading2}
+                            title="Heading 2"
+                        />
+                    </div>
 
-            {/* Basic Formatting */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
-                <Button
-                    onClick={() => editor.chain().focus().toggleBold().run()}
-                    isActive={editor.isActive('bold')}
-                    icon={Bold}
-                    title="Bold"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                    isActive={editor.isActive('italic')}
-                    icon={Italic}
-                    title="Italic"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleUnderline().run()}
-                    isActive={editor.isActive('underline')}
-                    icon={Underline}
-                    title="Underline"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleStrike().run()}
-                    isActive={editor.isActive('strike')}
-                    icon={Strikethrough}
-                    title="Strikethrough"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleHighlight().run()}
-                    isActive={editor.isActive('highlight')}
-                    icon={Highlighter}
-                    title="Highlight"
-                />
-            </div>
+                    {/* Alignment */}
+                    <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border shrink-0">
+                        <Button
+                            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                            isActive={editor.isActive({ textAlign: 'left' })}
+                            icon={AlignLeft}
+                            title="Align Left"
+                        />
+                        <Button
+                            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                            isActive={editor.isActive({ textAlign: 'center' })}
+                            icon={AlignCenter}
+                            title="Align Center"
+                        />
+                        <Button
+                            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                            isActive={editor.isActive({ textAlign: 'right' })}
+                            icon={AlignRight}
+                            title="Align Right"
+                        />
+                    </div>
 
-            {/* Alignment */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2">
-                <Button
-                    onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                    isActive={editor.isActive({ textAlign: 'left' })}
-                    icon={AlignLeft}
-                    title="Align Left"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                    isActive={editor.isActive({ textAlign: 'center' })}
-                    icon={AlignCenter}
-                    title="Align Center"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                    isActive={editor.isActive({ textAlign: 'right' })}
-                    icon={AlignRight}
-                    title="Align Right"
-                />
-            </div>
+                    {/* Quote */}
+                    <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border shrink-0">
+                        <Button
+                            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                            isActive={editor.isActive('blockquote')}
+                            icon={Quote}
+                            title="Quote"
+                        />
+                    </div>
 
-            {/* Lists & Blocks */}
-            <div className="flex items-center gap-0.5">
-                <Button
-                    onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    isActive={editor.isActive('bulletList')}
-                    icon={List}
-                    title="Bullet List"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    isActive={editor.isActive('orderedList')}
-                    icon={ListOrdered}
-                    title="Numbered List"
-                />
-                <Button
-                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    isActive={editor.isActive('blockquote')}
-                    icon={Quote}
-                    title="Quote"
-                />
-            </div>
+                    {/* Media & Advanced options */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                            onClick={setLink}
+                            isActive={editor.isActive('link')}
+                            icon={LinkIcon}
+                            title="Insert/Edit Link"
+                        />
+                        <Button
+                            onClick={handleImageClick}
+                            icon={ImageIcon}
+                            title="Insert Image"
+                        />
+                        <Button
+                            onClick={handleScan}
+                            icon={Sparkles}
+                            title="Scan for Scripture References"
+                        />
+                        
+                        {/* Text Case Menu */}
+                        {isCaseMenuExpanded ? (
+                            <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded border border-primary/20 animate-in fade-in duration-200">
+                                <button
+                                    onClick={() => {
+                                        editor.chain().focus().uppercase().run();
+                                        setIsCaseMenuExpanded(false);
+                                    }}
+                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase text-primary hover:bg-primary/10 rounded"
+                                >
+                                    UP
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        editor.chain().focus().lowercase().run();
+                                        setIsCaseMenuExpanded(false);
+                                    }}
+                                    className="px-1.5 py-0.5 text-[8px] font-black lowercase text-primary hover:bg-primary/10 rounded"
+                                >
+                                    low
+                                </button>
+                                <button
+                                    onClick={() => setIsCaseMenuExpanded(false)}
+                                    className="p-0.5 text-light-text-disabled hover:text-primary"
+                                >
+                                    <RotateCcw size={10} className="rotate-45" />
+                                </button>
+                            </div>
+                        ) : (
+                            <Button
+                                onClick={() => setIsCaseMenuExpanded(true)}
+                                icon={CaseSensitive}
+                                title="Text Case"
+                            />
+                        )}
 
-            <div className="ml-auto flex items-center gap-2">
-                {/* Text Case Menu */}
-                {isCaseMenuExpanded ? (
-                    <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-right-2 duration-200">
                         <button
-                            onClick={() => {
-                                editor.chain().focus().uppercase().run();
-                                setIsCaseMenuExpanded(false);
-                            }}
-                            className="px-2 py-1 text-[10px] font-black uppercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
+                            onClick={togglePulpitMode}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
                         >
-                            UPPER
-                        </button>
-                        <button
-                            onClick={() => {
-                                editor.chain().focus().lowercase().run();
-                                setIsCaseMenuExpanded(false);
-                            }}
-                            className="px-2 py-1 text-[10px] font-black lowercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
-                        >
-                            lower
-                        </button>
-                        <button
-                            onClick={() => {
-                                editor.chain().focus().capitalize().run();
-                                setIsCaseMenuExpanded(false);
-                            }}
-                            className="px-2 py-1 text-[10px] font-black capitalize tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
-                        >
-                            Title
-                        </button>
-                        <div className="w-[1px] h-3 bg-primary/20 mx-1" />
-                        <button
-                            onClick={() => setIsCaseMenuExpanded(false)}
-                            className="p-1 text-light-text-disabled hover:text-primary transition-colors"
-                            title="Close"
-                        >
-                            <RotateCcw size={12} className="rotate-45" />
+                            <Play size={10} fill="currentColor" />
+                            <span>Pulpit</span>
                         </button>
                     </div>
-                ) : (
-                    <Button
-                        onClick={() => setIsCaseMenuExpanded(true)}
-                        icon={CaseSensitive}
-                        title="Text Case Transformations"
-                    />
-                )}
-
-                <button
-                    onClick={togglePulpitMode}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
-                    title="Pulpit Presentation Mode"
-                >
-                    <Play size={12} fill="currentColor" />
-                    <span>Pulpit Mode</span>
-                </button>
-                <Button
-                    onClick={handleScan}
-                    icon={Sparkles}
-                    title="Scan for Scripture References"
-                />
-                <Button
-                    onClick={setLink}
-                    isActive={editor.isActive('link')}
-                    icon={LinkIcon}
-                    title="Insert/Edit Link"
-                />
-                <Button
-                    onClick={handleImageClick}
-                    icon={ImageIcon}
-                    title="Insert Image"
-                />
-            </div>
+                </div>
+            )}
 
             <PromptModal
                 isOpen={isLinkPromptOpen}

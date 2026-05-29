@@ -1,6 +1,24 @@
 import { db } from '../lib/db';
 import type { BibleVerse } from '../types/database';
 
+const USFM_BOOK_MAPPING: Record<string, string> = {
+    'GEN': 'Genesis', 'EXO': 'Exodus', 'LEV': 'Leviticus', 'NUM': 'Numbers', 'DEU': 'Deuteronomy',
+    'JOS': 'Joshua', 'JDG': 'Judges', 'RUT': 'Ruth', '1SA': '1 Samuel', '2SA': '2 Samuel',
+    '1KI': '1 Kings', '2KI': '2 Kings', '1CH': '1 Chronicles', '2CH': '2 Chronicles',
+    'EZR': 'Ezra', 'NEH': 'Nehemiah', 'EST': 'Esther', 'JOB': 'Job', 'PSA': 'Psalms',
+    'PRO': 'Proverbs', 'ECC': 'Ecclesiastes', 'SNG': 'Song of Solomon', 'SOL': 'Song of Solomon',
+    'ISA': 'Isaiah', 'JER': 'Jeremiah', 'LAM': 'Lamentations', 'EZK': 'Ezekiel', 'DAN': 'Daniel',
+    'HOS': 'Hosea', 'JOL': 'Joel', 'AMO': 'Amos', 'OBA': 'Obadiah', 'JON': 'Jonah',
+    'MIC': 'Micah', 'NAM': 'Nahum', 'HAB': 'Habakkuk', 'ZEP': 'Zephaniah', 'HAG': 'Haggai',
+    'ZEC': 'Zechariah', 'MAL': 'Malachi',
+    'MAT': 'Matthew', 'MRK': 'Mark', 'LUK': 'Luke', 'JHN': 'John', 'ACT': 'Acts',
+    'ROM': 'Romans', '1CO': '1 Corinthians', '2CO': '2 Corinthians', 'GAL': 'Galatians',
+    'EPH': 'Ephesians', 'PHP': 'Philippians', 'COL': 'Colossians', '1TH': '1 Thessalonians',
+    '2TH': '2 Thessalonians', '1TI': '1 Timothy', '2TI': '2 Timothy', 'TIT': 'Titus',
+    'PHM': 'Philemon', 'HEB': 'Hebrews', 'JAS': 'James', '1PE': '1 Peter', '2PE': '2 Peter',
+    '1JN': '1 John', '2JN': '2 John', '3JN': '3 John', 'JUD': 'Jude', 'REV': 'Revelation'
+};
+
 console.info('[BibleWorker] Bible import worker script loaded.');
 
 self.addEventListener('message', async (event) => {
@@ -43,11 +61,13 @@ self.addEventListener('message', async (event) => {
 
                         // Hierarchical Object has a "verses" property inside chapter
                         const versesSource = isArray ? chapterData : (chapterData.verses ? Object.entries(chapterData.verses) : []);
-                        const isVerseArray = Array.isArray(versesSource);
+                        
+                        // If it's not a flat array of books/chapters, versesSource is an array of [verse, text] entries
+                        const isEntryFormat = !isArray;
 
                         for (const vEntry of versesSource) {
-                            const verseNum = isVerseArray ? (versesSource.indexOf(vEntry) + 1) : parseInt((vEntry as any)[0]);
-                            const text = isVerseArray ? vEntry : (vEntry as any)[1];
+                            const verseNum = isEntryFormat ? parseInt((vEntry as any)[0]) : (versesSource.indexOf(vEntry) + 1);
+                            const text = isEntryFormat ? (vEntry as any)[1] : vEntry;
 
                             versesToInsert.push({
                                 id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
@@ -123,12 +143,24 @@ self.addEventListener('message', async (event) => {
             const content = data as string;
             const versesToInsert: BibleVerse[] = [];
 
-            // Basic USFM Regex
+            // Extract USFM 3-letter book ID from header (e.g. \id GEN World English Bible)
+            const idMatch = content.match(/\\id\s+([A-Z0-9]{3})\b/i);
+            const bookCode = idMatch ? idMatch[1].toUpperCase() : null;
+            
+            // Map to standard book name or fallback
+            let bookName = versionId.toUpperCase();
+            if (bookCode && USFM_BOOK_MAPPING[bookCode]) {
+                bookName = USFM_BOOK_MAPPING[bookCode];
+            } else if (bookCode) {
+                // Capitalize code if mapping is missing
+                bookName = bookCode.charAt(0) + bookCode.slice(1).toLowerCase();
+            }
+
+            // Basic USFM Regex for verses
             const verseRegex = /\\v\s+(\d+)\s+([^\\\n]+)/g;
 
             // Split into chapters
             const chapters = content.split(/\\c\s+/);
-            const bookName = versionId.toUpperCase(); // Fallback if \id not parsed comfortably
 
             for (let i = 1; i < chapters.length; i++) {
                 const chapterContent = chapters[i];
@@ -137,7 +169,11 @@ self.addEventListener('message', async (event) => {
                 let verseMatch;
                 while ((verseMatch = verseRegex.exec(chapterContent)) !== null) {
                     const verseNum = parseInt(verseMatch[1]);
-                    const text = verseMatch[2].trim();
+                    let text = verseMatch[2].trim();
+
+                    // Clean up common USFM formatting tags (e.g. paragraph \p, \wj ... \wj*, \add ... \add*, etc.)
+                    // Strips tags like \add, \add*, \wj, \wj*, \p, \q, etc., leaving the text inside
+                    text = text.replace(/\\[a-z]+(?:\*|\b)/gi, '').trim();
 
                     versesToInsert.push({
                         id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),

@@ -223,6 +223,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             ListItem.extend({
                 addKeyboardShortcuts() {
                     return {
+                        ...this.parent?.(),
                         Backspace: () => {
                             const { state, commands } = this.editor;
                             const { selection } = state;

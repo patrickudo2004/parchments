@@ -220,7 +220,31 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             OrderedList.configure({
                 HTMLAttributes: { class: 'list-decimal pl-4' },
             }),
-            ListItem,
+            ListItem.extend({
+                addKeyboardShortcuts() {
+                    return {
+                        Backspace: () => {
+                            const { state, commands } = this.editor;
+                            const { selection } = state;
+                            const { $from, empty } = selection;
+
+                            if (!empty) {
+                                return false;
+                            }
+
+                            const parentNode = $from.node(-1);
+                            if (parentNode && parentNode.type.name === 'listItem') {
+                                const isParagraphEmpty = $from.parent.content.size === 0;
+                                if (isParagraphEmpty) {
+                                    return commands.liftListItem('listItem');
+                                }
+                            }
+
+                            return false;
+                        },
+                    };
+                },
+            }),
             Blockquote.configure({
                 HTMLAttributes: { class: 'border-l-4 border-light-border dark:border-dark-border pl-4 italic' },
             }),
@@ -277,6 +301,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             ...(shouldSync && ydoc ? [Collaboration.configure({ document: ydoc })] : []),
         ],
         editorProps: {
+            transformPastedHTML(html) {
+                return html
+                    .replace(/ style="[^"]*"/gi, '')
+                    .replace(/ style='[^']*'/gi, '');
+            },
             handlePaste: (view, event) => {
                 const items = Array.from(event.clipboardData?.items || []);
                 const imageItems = items.filter(item => item.type.startsWith('image'));

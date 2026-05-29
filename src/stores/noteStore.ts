@@ -457,7 +457,48 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    setCurrentNote: (note) => set({ currentNote: note }),
+    setCurrentNote: (note) => {
+        set({ currentNote: note });
+        if (note && note.content) {
+            // Check for plan progress in metadata
+            const metaMatch = note.content.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
+            if (metaMatch && metaMatch[1]) {
+                try {
+                    const meta = JSON.parse(metaMatch[1]);
+                    if (meta.lectioProgress) {
+                        // Dynamically import useReadingPlanStore to parse and ingest progress
+                        import('@/stores/readingPlanStore').then(async ({ useReadingPlanStore }) => {
+                            const planStore = useReadingPlanStore.getState();
+                            const progress = meta.lectioProgress;
+                            
+                            // 1. Ingest/Update plan in DB
+                            const existingPlan = await db.readingPlans.get(progress.planId);
+                            if (!existingPlan) {
+                                console.log('[Sync] Creating synced reading plan:', progress.planName);
+                                await db.readingPlans.put({
+                                    id: progress.planId,
+                                    name: progress.planName,
+                                    status: 'active',
+                                    startDate: progress.startDate,
+                                    endDate: progress.endDate,
+                                    tracks: progress.tracks,
+                                    folderId: note.folderId
+                                });
+                            } else {
+                                console.log('[Sync] Updating track cursors for plan:', progress.planName);
+                                await db.readingPlans.update(progress.planId, {
+                                    tracks: progress.tracks
+                                });
+                            }
+                            await planStore.loadPlans();
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[Sync] Failed to parse/ingest synced plan progress:', e);
+                }
+            }
+        }
+    },
     setNotes: (notes) => set({ notes }),
 
     openLocalFolder: async () => {
@@ -893,29 +934,46 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             }
         }
 
+        // 1. DYNAMICALLY DETECT & EMBED ACTIVE STUDY PLAN PROGRESS IN METADATA
+        const readingPlanStoreState = (window as any).useReadingPlanStore?.getState() || null;
+        let lectioProgress: any = undefined;
+        if (readingPlanStoreState && readingPlanStoreState.isLectioModeActive && readingPlanStoreState.activeNoteId === currentNote.id) {
+            const activePlan = readingPlanStoreState.activePlans.find((p: any) => p.id === readingPlanStoreState.activePlanId);
+            if (activePlan) {
+                lectioProgress = {
+                    planId: activePlan.id,
+                    planName: activePlan.name,
+                    startDate: activePlan.startDate,
+                    endDate: activePlan.endDate,
+                    tracks: activePlan.tracks
+                };
+            }
+        }
+
+        const meta = {
+            id: currentNote.id,
+            createdAt: currentNote.createdAt,
+            ...(currentNote.type === 'voice' ? { transcript: currentNote.transcript } : {}),
+            ...(lectioProgress ? { lectioProgress } : {})
+        };
+        const metaTag = `<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
+
+        // We prepare portableContent which always has the embedded meta tag inside it
+        let portableContent = content;
+        if (!portableContent.includes('parchments-meta:')) {
+            portableContent += `\n${metaTag}`;
+        } else {
+            portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, metaTag);
+        }
+
         if (isLocalMode && currentFileHandle) {
             // File System Mode
             try {
-                let portableContent = get().dehydrateAssets(content);
-
-                // Ensure metadata is preserved or injected
-                const meta = {
-                    id: currentNote.id,
-                    createdAt: currentNote.createdAt,
-                    ...(currentNote.type === 'voice' ? { transcript: currentNote.transcript } : {})
-                };
-                const metaTag = `<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
-                if (!portableContent.includes('parchments-meta:')) {
-                    portableContent += `\n${metaTag}`;
-                } else {
-                    // Update existing
-                    portableContent = portableContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, metaTag);
-                }
-
-                await fileSystem.writeFile(currentFileHandle, portableContent);
+                let fsContent = get().dehydrateAssets(portableContent);
+                await fileSystem.writeFile(currentFileHandle, fsContent);
                 // Update store state to reflect changes
                 set({
-                    currentNote: { ...currentNote, title: finalTitle, content, updatedAt: Date.now() }
+                    currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() }
                 });
             } catch (error) {
                 console.error('Failed to save to file:', error);
@@ -925,16 +983,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             try {
                 await db.notes.update(currentNote.id, {
                     title: finalTitle,
-                    content,
+                    content: portableContent,
                     updatedAt: Date.now(),
                 });
 
                 const updatedNotes = notes.map(n =>
                     n.id === currentNote.id
-                        ? { ...n, title: finalTitle, content, updatedAt: Date.now() }
+                        ? { ...n, title: finalTitle, content: portableContent, updatedAt: Date.now() }
                         : n
                 );
-                set({ notes: updatedNotes, currentNote: { ...currentNote, title: finalTitle, content, updatedAt: Date.now() } });
+                set({ notes: updatedNotes, currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() } });
             } catch (error) {
                 console.error('Failed to save to DB:', error);
             }

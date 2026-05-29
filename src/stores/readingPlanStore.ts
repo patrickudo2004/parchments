@@ -164,19 +164,41 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
             },
 
             createPlan: async (name, startDate, endDate, tracks) => {
-                // Ensure a "Lectio Study Journals" folder exists for saving summary notes
-                let folder = await db.folders.where('name').equals('Lectio Study Journals').first();
-                if (!folder) {
-                    const timestamp = Date.now();
-                    folder = {
-                        id: uuidv4(),
-                        name: 'Lectio Study Journals',
-                        parentId: null,
-                        createdAt: timestamp,
-                        updatedAt: timestamp,
-                        order: 0
-                    };
-                    await db.folders.add(folder);
+                // Dynamically import noteStore to avoid circular dependency
+                const { useNoteStore } = await import('@/stores/noteStore');
+                const noteStoreState = useNoteStore.getState();
+                const isLocalMode = noteStoreState.isLocalMode;
+
+                let targetFolderId: string | null = null;
+
+                if (isLocalMode) {
+                    // Check if local folder "Lectio Study Journals" exists on disk
+                    const localFiles = noteStoreState.localFiles;
+                    let localFolder = localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                    if (!localFolder) {
+                        // Create the physical folder
+                        await noteStoreState.createLocalFolder('Lectio Study Journals', null);
+                        // Refresh/find it from updated localFiles
+                        const refreshedFiles = useNoteStore.getState().localFiles;
+                        localFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                    }
+                    targetFolderId = localFolder ? localFolder.id : null;
+                } else {
+                    // Ensure a "Lectio Study Journals" DB folder exists
+                    let folder = await db.folders.where('name').equals('Lectio Study Journals').first();
+                    if (!folder) {
+                        const timestamp = Date.now();
+                        folder = {
+                            id: uuidv4(),
+                            name: 'Lectio Study Journals',
+                            parentId: null,
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                            order: 0
+                        };
+                        await db.folders.add(folder);
+                    }
+                    targetFolderId = folder.id;
                 }
 
                 const fullTracks: ReadingPlanTrack[] = tracks.map(t => ({
@@ -193,7 +215,7 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     startDate,
                     endDate,
                     tracks: fullTracks,
-                    folderId: folder.id
+                    folderId: targetFolderId
                 };
 
                 await db.readingPlans.add(newPlan);
@@ -240,8 +262,17 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     const title = `Lectio Journal - ${dateString}`;
 
                     if (isLocalMode && localDirectoryHandle) {
+                        // Ensure the physical folder exists
+                        let targetFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                        if (!targetFolder) {
+                            await noteStoreState.createLocalFolder('Lectio Study Journals', null);
+                            const refreshedFiles = useNoteStore.getState().localFiles;
+                            targetFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                        }
+                        const finalFolderId = targetFolder ? targetFolder.id : null;
+
                         // Create in local folder physically
-                        await noteStoreState.createLocalNote(title, plan.folderId, initialContent, noteId);
+                        await noteStoreState.createLocalNote(title, finalFolderId, initialContent, noteId);
                     } else {
                         // Add note directly in IndexedDB inside the "Lectio Study Journals" folder
                         const timestamp = Date.now();
@@ -424,9 +455,6 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
             name: 'parchments-reading-plans',
             partialize: (state) => ({
                 activePlans: state.activePlans,
-                activePlanId: state.activePlanId,
-                activeNoteId: state.activeNoteId,
-                isLectioModeActive: state.isLectioModeActive,
                 readerStyle: state.readerStyle
             })
         }

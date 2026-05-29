@@ -15,7 +15,8 @@ import {
     Users,
     PenTool,
     Pin,
-    Share2
+    Share2,
+    BookOpen
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
@@ -25,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
 import { useResearchStore } from '@/stores/researchStore';
 import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 
 export const FilesSidebar: React.FC = () => {
@@ -636,6 +638,13 @@ export const FilesSidebar: React.FC = () => {
                         title={isLocalMode ? "New Local Note" : "New Note"}
                     >
                         <FilePlus size={16} />
+                    </button>
+                    <button
+                        onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
+                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                        title="Lectio Mode"
+                    >
+                        <BookOpen size={16} />
                     </button>
                     <button
                         onClick={() => {

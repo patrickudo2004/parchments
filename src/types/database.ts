@@ -90,3 +90,30 @@ export interface BibleCrossRef {
     linkType: 'citation' | 'parallel' | 'user' | 'tsk';
     metadata?: any;
 }
+
+// LECTIO MODE & READING PLANS
+export interface ReadingPlanTrack {
+    name: string;
+    startBook: string;
+    chaptersPerDay: number;
+    currentBook: string;
+    currentChapter: number;
+    lastCompletedVerse?: number | null;
+}
+
+export interface ReadingPlan {
+    id: string;
+    name: string;
+    status: 'active' | 'completed' | 'paused';
+    startDate: number;
+    endDate: number;
+    tracks: ReadingPlanTrack[];
+    folderId: string | null;
+}
+
+export interface ReadingPlanHistory {
+    id: string; // planId-dateKey (e.g. planId-2026-05-29)
+    planId: string;
+    completedAt: number;
+    noteId?: string;
+}

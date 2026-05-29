@@ -30,6 +30,7 @@ import { useNoteStore } from '@/stores/noteStore';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { UpdateBanner, VersionLockModal } from './VersioningUI';
+import { LectioMode } from '@/components/bible/LectioMode';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -377,6 +378,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 </div>
 
             {/* Global Modals */}
+            <LectioMode />
             <PairingModal />
             <CommandPalette
                 isOpen={isSearchModalOpen}

@@ -4,11 +4,12 @@ import { useUIStore } from '@/stores/uiStore';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, Share2 } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, Share2, BookOpen } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { useSyncStore } from '@/stores/syncStore';
 import { CollaborationList } from '@/components/editor/CollaborationList';
 import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 export const TopBar: React.FC = () => {
     const { currentNote, hasStudyspace } = useNoteStore();
@@ -89,6 +90,14 @@ export const TopBar: React.FC = () => {
                 >
                     <PenTool size={14} />
                     <span>New Study</span>
+                </button>
+
+                <button
+                    onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95"
+                >
+                    <BookOpen size={14} />
+                    <span>Lectio Mode</span>
                 </button>
             </div>
 

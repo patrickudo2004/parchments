@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry, BibleCrossRef } from '@/types/database';
+import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry, BibleCrossRef, ReadingPlan, ReadingPlanHistory } from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ParchmentsDatabase extends Dexie {
@@ -14,6 +14,8 @@ export class ParchmentsDatabase extends Dexie {
     crossReferences!: Table<BibleCrossRef>;
     vectors!: Table<{ id: string; noteId: string; vector: Float32Array; lastIndexed: number }>;
     bibleVectors!: Table<{ id: string; versionId: string; book: string; chapter: number; verse: number; vector: Float32Array }>;
+    readingPlans!: Table<ReadingPlan>;
+    readingPlanHistory!: Table<ReadingPlanHistory>;
 
     constructor() {
         super('ParchmentsDB');
@@ -33,6 +35,23 @@ export class ParchmentsDatabase extends Dexie {
             crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
             vectors: 'id, noteId, lastIndexed',
             bibleVectors: 'id, versionId, [versionId+book+chapter]'
+        });
+
+        // Version 9: Add readingPlans and readingPlanHistory tables for Lectio Mode
+        this.version(9).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]',
+            strongsEntries: 'id',
+            strongsConcordance: 'verseId',
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
+            vectors: 'id, noteId, lastIndexed',
+            bibleVectors: 'id, versionId, [versionId+book+chapter]',
+            readingPlans: 'id, name, status, startDate, endDate',
+            readingPlanHistory: 'id, planId, completedAt'
         });
     }
 }

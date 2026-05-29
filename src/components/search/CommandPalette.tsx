@@ -4,9 +4,8 @@ import { Search, FileText, Folder, Sparkles, Zap } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { db, dbHelpers } from '@/lib/db';
+import { dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
-import { useAIStore } from '@/stores/aiStore';
 
 interface SearchResult {
     id: string;
@@ -28,7 +27,6 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     const { setCurrentNote, localFiles, openLocalFile } = useNoteStore();
     const { toggleTheme, openRightSidebar } = useUIStore();
     const { setBibleFocus } = useBibleStore();
-    const { search: semanticSearch, searchBible, isModelLoaded } = useAIStore();
 
     // Reset when opening
     useEffect(() => {
@@ -66,73 +64,6 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
             });
         }
 
-        // 2. Semantic Search (Intelligence) - Notes
-        if (isModelLoaded && searchQuery.length > 2) {
-            try {
-                const semanticHits = await semanticSearch(searchQuery);
-                for (const hit of semanticHits) {
-                    // Try DB first
-                    const dbNote = await db.notes.get(hit.noteId);
-                    if (dbNote) {
-                        seenIds.add(dbNote.id);
-                        newResults.push({
-                            id: `ai-${dbNote.id}`,
-                            type: 'semantic',
-                            title: dbNote.title,
-                            subtitle: `Semantic Match (${Math.round(hit.score * 100)}%)`,
-                            icon: <Zap className="text-amber-400" size={16} />,
-                            handler: () => {
-                                setCurrentNote(dbNote);
-                                onClose();
-                            }
-                        });
-                        continue;
-                    }
-
-                    // Try Local Files
-                    const localItem = localFiles.find(f => f.id === hit.noteId);
-                    if (localItem && localItem.kind === 'file') {
-                        seenIds.add(localItem.id);
-                        newResults.push({
-                            id: `ai-${localItem.id}`,
-                            type: 'semantic',
-                            title: localItem.name,
-                            subtitle: `Semantic Match (${Math.round(hit.score * 100)}%)`,
-                            icon: <Zap className="text-amber-400" size={16} />,
-                            handler: () => {
-                                openLocalFile(localItem as any);
-                                onClose();
-                            }
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('Semantic search failed:', err);
-            }
-        }
-
-        // 3. Semantic Search - Bible (Daily Bread)
-        if (isModelLoaded && searchQuery.length > 3 && !scripture) {
-            try {
-                const bibleHits = await searchBible(searchQuery);
-                for (const hit of bibleHits) {
-                    newResults.push({
-                        id: `bible-sem-${hit.book}-${hit.chapter}`,
-                        type: 'scripture',
-                        title: `${hit.book} ${hit.chapter}`,
-                        subtitle: `Scripture Theme Match (${Math.round(hit.score * 100)}%)`,
-                        icon: <Sparkles className="text-primary" size={16} />,
-                        handler: () => {
-                            setBibleFocus({ book: hit.book, chapter: hit.chapter, verse: 1 });
-                            openRightSidebar('bible');
-                            onClose();
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error('Semantic bible search failed:', err);
-            }
-        }
 
         // 3. Keyword Search - Database
         const dbHits = await dbHelpers.searchNotes(searchQuery);
@@ -185,7 +116,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
 
         setResults(newResults);
         setSelectedIndex(0);
-    }, [isModelLoaded, semanticSearch, localFiles, setCurrentNote, setBibleFocus, openRightSidebar, toggleTheme, onClose, openLocalFile]);
+    }, [localFiles, setCurrentNote, setBibleFocus, openRightSidebar, toggleTheme, onClose, openLocalFile]);
 
     useEffect(() => {
         const timeout = setTimeout(() => performSearch(query), 150);

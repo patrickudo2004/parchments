@@ -24,11 +24,8 @@ import { StrongsModal } from '@/components/bible/StrongsModal';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
-import { ConnectionsSidebar } from '@/components/bible/ConnectionsSidebar';
-import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
 import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 import { RightActivityBar } from './RightActivityBar';
-import { useAIStore } from '@/stores/aiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -136,19 +133,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         };
     }, [isResizingLeft, isResizingRight, resize, stopResizing]);
 
-    // AI features will now lazy-load upon first use (e.g., when search or chat is opened)
-    const { isModelLoaded, startIndexing } = useAIStore();
     React.useEffect(() => {
         storagePersistence.requestPersistence();
     }, []);
-
-    // Trigger indexing only when local files change and AI is already loaded
-    const { localFiles } = useNoteStore();
-    React.useEffect(() => {
-        if (isModelLoaded) {
-            startIndexing(localFiles);
-        }
-    }, [isModelLoaded, startIndexing, localFiles]);
 
     // Ensure theme is applied to body on mount
     React.useEffect(() => {
@@ -318,8 +305,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     {rightSidebarContent === 'lexicon' && <LexiconSidebar />}
                                     {rightSidebarContent === 'crossrefs' && <CrossRefSidebar />}
                                     {rightSidebarContent === 'pins' && <ResearchSidebar />}
-                                    {rightSidebarContent === 'connections' && <ConnectionsSidebar />}
-                                    {rightSidebarContent === 'assistant' && <AssistantSidebar />}
 
                                     {!rightSidebarContent && (
                                         <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">

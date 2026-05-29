@@ -117,12 +117,6 @@ export const MenuBar: React.FC = () => {
                     `).run();
                 }
                 break;
-            case 'Knowledge Graph':
-                toggleRightSidebar('connections');
-                break;
-            case 'Exegesis Assistant':
-                toggleRightSidebar('assistant');
-                break;
             default:
                 console.log(`Clicked ${label}`);
         }
@@ -189,9 +183,6 @@ export const MenuBar: React.FC = () => {
                 { label: 'Voice Dictation', shortcut: 'Ctrl+Shift+R' },
                 { type: 'separator' },
                 { label: 'Word Count', shortcut: '' },
-                { type: 'separator' },
-                { label: 'Knowledge Graph', shortcut: 'Ctrl+G' },
-                { label: 'Exegesis Assistant', shortcut: 'Ctrl+Q' },
             ]
         },
         {

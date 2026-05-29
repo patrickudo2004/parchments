@@ -110,9 +110,13 @@ export const useBibleStore = create<BibleStore>()(
                         const rawResults = await db.bibleVerses.bulkGet(verseIds);
                         results = rawResults.filter(v => v && v.versionId === mainVersion);
                     } else {
-                        // 2. Lexical Keyword Search - DELEGATED TO WORKER
-                        const { keywordSearchBible } = (await import('./aiStore')).useAIStore.getState();
-                        results = await keywordSearchBible(querySnippet, mainVersion, 100);
+                        // 2. Lexical Keyword Search - Direct Dexie Query
+                        results = await db.bibleVerses
+                            .where('versionId')
+                            .equals(mainVersion)
+                            .filter(v => v.text.toLowerCase().includes(querySnippet))
+                            .limit(100)
+                            .toArray();
                     }
 
                     // Abort if a newer search has started

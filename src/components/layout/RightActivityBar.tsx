@@ -5,8 +5,6 @@ import {
     Search,
     GitBranch,
     Pin,
-    Link as LinkIcon,
-    Brain,
     ChevronLeft,
     ChevronRight,
     Maximize2,
@@ -28,8 +26,6 @@ export const RightActivityBar: React.FC = () => {
         { id: 'lexicon', icon: Search, label: 'Lexicon' },
         { id: 'crossrefs', icon: GitBranch, label: 'References' },
         { id: 'pins', icon: Pin, label: 'Pins' },
-        { id: 'connections', icon: LinkIcon, label: 'Connections' },
-        { id: 'assistant', icon: Brain, label: 'Assistant' },
     ];
 
     return (

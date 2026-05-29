@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useBibleStore } from '@/stores/bibleStore';
-import { useAIStore } from '@/stores/aiStore';
 import { Search, X, Loader2, Book } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,11 +14,6 @@ export const BibleSearchOverlay: React.FC = () => {
         setBibleFocus
     } = useBibleStore();
 
-    const {
-        isInitializing: isAIInitializing,
-        statusMessage: aiStatus,
-        isModelLoaded
-    } = useAIStore();
 
     // Local state for immediate input feedback
     const [localQuery, setLocalQuery] = useState(searchQuery);
@@ -59,7 +53,7 @@ export const BibleSearchOverlay: React.FC = () => {
                 <input
                     autoFocus
                     type="text"
-                    placeholder="Search keywords, Strong's (G26), or semantic concept..."
+                    placeholder="Search keywords or Strong's (G26)..."
                     className="flex-1 bg-transparent border-none outline-none text-sm font-bold placeholder:text-light-text-disabled"
                     value={localQuery}
                     onChange={(e) => setLocalQuery(e.target.value)}
@@ -83,17 +77,6 @@ export const BibleSearchOverlay: React.FC = () => {
 
             {/* Results Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {isAIInitializing && !isModelLoaded && (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-3">
-                        <Loader2 size={24} className="animate-spin text-primary" />
-                        <div>
-                            <p className="text-sm font-black uppercase tracking-widest text-primary">Initializing Search Engine</p>
-                            <p className="text-[10px] text-light-text-secondary opacity-70 mt-1 max-w-[200px]">
-                                {aiStatus || "One moment while we prepare your scholarly tools..."}
-                            </p>
-                        </div>
-                    </div>
-                )}
 
                 {isSearching ? (
                     <div className="flex items-center justify-center h-full">

@@ -20,11 +20,10 @@ import {
     Lock,
     Share2,
     Key,
-    Brain,
-    Cpu,
     Info,
     Copy,
-    Check
+    Check,
+    Cpu
 } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
@@ -34,7 +33,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { BibleVersion } from '@/types/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
-import { useAIStore } from '@/stores/aiStore';
+
 import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { APP_VERSION } from '@/lib/version';
@@ -50,7 +49,6 @@ const TABS = [
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'bible', label: 'Bible Versions', icon: BookOpen },
     { id: 'editor', label: 'Editor', icon: Edit3 },
-    { id: 'intelligence', label: 'Intelligence', icon: Brain },
     { id: 'sync', label: 'Sync & Collaboration', icon: Cloud },
     { id: 'storage', label: 'Data & Storage', icon: Database },
     { id: 'support', label: 'Support & About', icon: Info },
@@ -59,18 +57,7 @@ const TABS = [
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const settings = useUIStore();
     const { mainVersion, setMainVersion, verseHoverPreviews, toggleVerseHoverPreviews } = useBibleStore();
-    const {
-        isAIFeaturesEnabled,
-        toggleAIFeatures,
-        indexBible,
-        isBibleIndexing,
-        bibleIndexingProgress,
-        downloadGenerativeModel,
-        isGenerativeModelDownloaded,
-        isGenerativeModelLoading,
-        downloadProgress,
-        statusMessage
-    } = useAIStore();
+
     const {
         identity,
         isInitialized: isSyncInitialized,
@@ -89,8 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
     }, [settingsTab, isOpen]);
 
-    const indexedVersions = useLiveQuery(() => db.bibleVectors.toArray()) || [];
-    const indexedSet = new Set(indexedVersions.map(v => v.versionId));
+
 
     // Bible State
     const [importingState, setImportingState] = useState<{ status: string, progress: number } | null>(null);
@@ -202,8 +188,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             theme: settings.theme,
                             density: settings.density,
                             preferredBible: mainVersion,
-                            aiFeaturesEnabled: isAIFeaturesEnabled,
-                            isGenerativeModelDownloaded,
                             highAccuracyTranscription: settings.highAccuracyTranscription
                         },
                         activeNoteStructure: currentNote ? redactHTML(currentNote.content) : undefined,
@@ -215,7 +199,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             };
             getStats();
         }
-    }, [activeTab, installedVersions.length, mainVersion, isAIFeaturesEnabled, isGenerativeModelDownloaded, settings.theme, settings.density, settings.highAccuracyTranscription, userName, userEmail, bugSeverity, bugFrequency, capturedErrors.length, currentNote]);
+    }, [activeTab, installedVersions.length, mainVersion, settings.theme, settings.density, settings.highAccuracyTranscription, userName, userEmail, bugSeverity, bugFrequency, capturedErrors.length, currentNote]);
 
     const handleSendEmail = () => {
         if (!feedbackMessage.trim()) {
@@ -247,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             body += `*   **Database Stats:** Notes: ${diagnosticData.database.notes}, Folders: ${diagnosticData.database.folders}\n`;
             body += `*   **Installed Bibles:** ${diagnosticData.database.installedBibles}\n`;
             body += `*   **Storage Estimated:** ${diagnosticData.storage.estimatedUsage}\n`;
-            body += `*   **Local AI Status:** AI Enabled: ${diagnosticData.settings.aiFeaturesEnabled ? 'Yes' : 'No'}, Model Downloaded: ${diagnosticData.settings.isGenerativeModelDownloaded ? 'Yes' : 'No'}, High Accuracy: ${diagnosticData.settings.highAccuracyTranscription ? 'Yes' : 'No'}\n`;
+            body += `*   **Voice Transcription Accuracy: ${diagnosticData.settings.highAccuracyTranscription ? 'High' : 'Standard'}\n`;
             
             if (diagnosticData.activeNoteStructure) {
                 body += `\n### Active Note Structure (Privacy-Redacted)\n`;
@@ -925,113 +909,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </>
                                     )}
 
-                                    {activeTab === 'intelligence' && (
-                                        <>
-                                            <section className="space-y-4">
-                                                <div className="flex items-center justify-between p-4 bg-light-background dark:bg-dark-background/40 rounded-xl border border-light-border dark:border-dark-border group">
-                                                    <div>
-                                                        <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
-                                                            Enable Deep Intelligence
-                                                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Local-First</span>
-                                                        </p>
-                                                        <p className="text-xs text-light-text-secondary group-hover:text-light-text-primary transition-colors">Activate conversational research and advanced theological analysis.</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => toggleAIFeatures(!isAIFeaturesEnabled)}
-                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${isAIFeaturesEnabled ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
-                                                    >
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${isAIFeaturesEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            </section>
-
-                                            <section className="space-y-6">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">AI Asset Manager</h4>
-
-                                                <div className="p-6 bg-light-background dark:bg-dark-background/20 border border-light-border dark:border-dark-border rounded-2xl space-y-4">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="p-3 bg-primary/10 text-primary rounded-xl">
-                                                            <Cpu size={24} />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <h5 className="font-bold text-light-text-primary dark:text-dark-text-primary">Advanced Logic Engine (Qwen 2.5)</h5>
-                                                                <span className="text-[10px] font-black text-light-text-disabled uppercase tracking-widest">~500 MB</span>
-                                                            </div>
-                                                            <p className="text-xs text-light-text-secondary leading-relaxed">
-                                                                Downloading this engine enables offline chat, sermon outlining, and topic summarization. It runs entirely on your hardware.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {isGenerativeModelLoading ? (
-                                                        <div className="space-y-3 pt-2">
-                                                            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-primary">
-                                                                <span>{statusMessage}</span>
-                                                                <span>{Math.round(downloadProgress * 100)}%</span>
-                                                            </div>
-                                                            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                                <motion.div
-                                                                    className="h-full bg-primary"
-                                                                    initial={{ width: 0 }}
-                                                                    animate={{ width: `${downloadProgress * 100}%` }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ) : isGenerativeModelDownloaded ? (
-                                                        <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-200 dark:border-green-900/30">
-                                                            <CheckCircle2 size={16} />
-                                                            <span className="text-xs font-bold">Engine ready and stored locally.</span>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={downloadGenerativeModel}
-                                                            className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all flex items-center justify-center gap-2"
-                                                        >
-                                                            <Download size={16} /> Download Engine
-                                                        </button>
-                                                    )}
-
-                                                    <div className="pt-2 border-t border-light-border dark:border-dark-border mt-4">
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (confirm('Are you sure you want to delete all local AI models? This will free up space but require a re-download if you want to use AI again.')) {
-                                                                    const { clearModelCache } = useAIStore.getState();
-                                                                    await clearModelCache();
-                                                                }
-                                                            }}
-                                                            className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-600 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <Trash2 size={12} /> Purge Local AI Cache
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </section>
-
-                                            <section className="space-y-4 pt-4">
-                                                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl flex gap-3">
-                                                    <Shield size={20} className="text-blue-600 shrink-0" />
-                                                    <div>
-                                                        <h5 className="text-xs font-bold text-blue-800 dark:text-blue-400">Your Study stays Yours</h5>
-                                                        <p className="text-[11px] text-blue-700/80 dark:text-blue-400/70 mt-0.5 leading-relaxed">
-                                                            Parchments uses <b>Local Intelligence</b>. Unlike other apps, your notes are never uploaded to a cloud for processing. All "thinking" happens inside this browser window.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl flex gap-3">
-                                                    <Info size={20} className="text-amber-600 shrink-0" />
-                                                    <div>
-                                                        <h5 className="text-xs font-bold text-amber-800 dark:text-amber-400">Performance Notice</h5>
-                                                        <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 mt-0.5 leading-relaxed">
-                                                            Generative AI requires a modern computer with enough RAM (8GB+ recommended). If your device feels sluggish, you can disable these features at any time.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </section>
-                                        </>
-                                    )}
-
                                     {activeTab === 'support' && (
                                         <>
                                             <section className="space-y-6">
@@ -1496,7 +1373,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         }
 
                                                         return filtered.map((v: BibleVersion, idx) => {
-                                                            const isIndexed = indexedSet.has(v.id);
                                                             return (
                                                                 <div key={v.id || `off-${idx}`} className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group">
                                                                     <div className="flex items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
@@ -1509,24 +1385,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         </div>
                                                                     </div>
                                                                     <div className="flex items-center gap-3">
-                                                                        {isBibleIndexing && !isIndexed ? (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <CircularProgress size={12} variant="determinate" value={bibleIndexingProgress * 100} />
-                                                                                <span className="text-[10px] font-bold text-primary animate-pulse">Indexing...</span>
-                                                                            </div>
-                                                                        ) : isIndexed ? (
-                                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full">
-                                                                                <Zap size={10} />
-                                                                                <span className="text-[9px] font-bold uppercase">Semantic Ready</span>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => indexBible(v.id)}
-                                                                                className="px-3 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
-                                                                            >
-                                                                                Index for AI Search
-                                                                            </button>
-                                                                        )}
+
                                                                         <button
                                                                             onClick={() => handleDeleteVersion(v.id)}
                                                                             className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"

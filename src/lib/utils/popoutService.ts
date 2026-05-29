@@ -3,7 +3,7 @@
  * Manages the creation and synchronization of external windows for sidebar content.
  */
 
-type PopoutType = 'bible' | 'lexicon' | 'assistant' | 'pins';
+type PopoutType = 'bible' | 'lexicon' | 'pins';
 
 export const popoutService = {
     /**

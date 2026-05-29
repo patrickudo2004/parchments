@@ -26,8 +26,6 @@ import { ManualSaveExtension } from './extensions/ManualSaveExtension';
 import { TextCaseExtension } from './extensions/TextCaseExtension';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useAIStore } from '@/stores/aiStore';
-import { AutoLinkSuggestion } from './AutoLinkSuggestion';
 import Collaboration from '@tiptap/extension-collaboration';
 import Image from '@tiptap/extension-image';
 import { YjsService } from '@/lib/sync/YjsService';
@@ -61,7 +59,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
     const [isSaving, setIsSaving] = useState(false);
-    const [suggestedNoteId, setSuggestedNoteId] = useState<string | null>(null);
+
     // Guards against double-seeding race: ensures IndexedDB has finished loading
     // before we seed Yjs with local content.
     const [isPersistenceSynced, setIsPersistenceSynced] = useState(false);
@@ -70,7 +68,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     const { folders } = useNoteStore();
     const { showToast } = useUIStore();
 
-    const { search } = useAIStore();
 
     // 1. Initialize Yjs Doc for this note
     const { ydoc, provider } = useMemo(() => {
@@ -189,35 +186,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     const debouncedSave = useCallback(
         (() => {
             let timeout: any;
-            let autoLinkTimeout: any;
 
             return (t: string, c: string) => {
                 // Only auto-save if the setting is enabled
                 if (!enableAutoSave) return;
 
                 clearTimeout(timeout);
-                clearTimeout(autoLinkTimeout);
 
                 timeout = setTimeout(() => saveToDB(t, c), 2000);
-
-                // Auto-Linking Logic: Search for related context
-                autoLinkTimeout = setTimeout(async () => {
-                    const cleanText = c.replace(/\<[^\>]*\>/g, '').trim();
-                    if (cleanText.length < 50) return; // Only search if there's enough context
-
-                    // Last 200 chars for context-aware search
-                    const searchSnippet = cleanText.slice(-200);
-                    const results = await search(searchSnippet);
-
-                    // Find a highly relevant note that isn't the current one
-                    const topMatch = results.find(r => r.noteId !== currentNote?.id && r.score > 0.75);
-                    if (topMatch) {
-                        setSuggestedNoteId(topMatch.noteId);
-                    }
-                }, 3000);
             };
         })(),
-        [currentNote?.id, search, saveCurrentNote, enableAutoSave]
+        [currentNote?.id, saveCurrentNote, enableAutoSave]
     );
 
     const editor = useEditor({
@@ -718,24 +697,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                 </div>
             </div>
 
-            {/* AI Suggestions Layer */}
-            {suggestedNoteId && (
-                <AutoLinkSuggestion
-                    noteId={suggestedNoteId}
-                    onDismiss={() => setSuggestedNoteId(null)}
-                    onLink={(id) => {
-                        // For now, we'll just open the note. 
-                        // In the future, we can insert an actual link into the editor.
-                        if (editor) {
-                            const note = useNoteStore.getState().notes.find(n => n.id === id);
-                            if (note) {
-                                editor.chain().focus().extendMarkRange('link').setLink({ href: `note://${id}` }).run();
-                            }
-                        }
-                        setSuggestedNoteId(null);
-                    }}
-                />
-            )}
 
             {/* Share Note Modal */}
             {isShareModalOpen && currentNote && (

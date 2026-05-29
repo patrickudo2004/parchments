@@ -6,7 +6,6 @@ import { seedBibleData } from '@/lib/db/bibleSeed';
 import { popoutService } from '@/lib/utils/popoutService';
 import { BibleReader } from '@/components/bible/BibleReader';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
-import { AssistantSidebar } from '@/components/bible/AssistantSidebar';
 import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 
 import { JoinHandler } from '@/components/sync/JoinHandler';
@@ -38,7 +37,6 @@ const App: React.FC = () => {
             <div className="h-screen bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary">
                 {popoutType === 'bible' && <BibleReader isIndependent={true} />}
                 {popoutType === 'lexicon' && <LexiconSidebar isIndependent={true} />}
-                {popoutType === 'assistant' && <AssistantSidebar isIndependent={true} />}
                 {popoutType === 'pins' && <ResearchSidebar isIndependent={true} />}
             </div>
         );

@@ -24,7 +24,8 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
-    HelpCircle
+    HelpCircle,
+    FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -46,7 +47,7 @@ export const LectioMode: React.FC = () => {
         setReaderStyle
     } = useReadingPlanStore();
 
-    const { setCurrentNote } = useNoteStore();
+    const { setCurrentNote, hasStudyspace, openLocalFolder, isLocalMode } = useNoteStore();
     const { isMobile, showToast } = useUIStore();
 
     // Local UI states
@@ -300,6 +301,45 @@ export const LectioMode: React.FC = () => {
     // Render nothing if Lectio mode is entirely inactive in the Zustand store
     if (!isLectioModeActive) return null;
 
+    // Enforce local library studyspace is unlocked first
+    if (isLocalMode && !hasStudyspace) {
+        return (
+            <div className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col items-center justify-center select-none text-center animate-in fade-in zoom-in duration-300">
+                <div className="max-w-md w-full p-8 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-3xl shadow-2xl relative overflow-hidden">
+                    <div className="absolute inset-0 bg-primary/5 rounded-3xl blur-2xl animate-pulse" />
+                    
+                    {/* Header Exit Button */}
+                    <div className="absolute top-4 right-4 z-10">
+                        <button
+                            onClick={() => exitLectioMode()}
+                            className="p-1.5 rounded-full hover:bg-light-sidebar dark:hover:bg-dark-elevated text-light-text-secondary dark:text-dark-text-secondary transition-all"
+                            title="Close"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="w-16 h-16 bg-primary/10 rounded-full border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                        <FolderOpen className="text-primary animate-bounce" size={30} />
+                    </div>
+
+                    <h2 className="text-2xl font-black mb-3 text-light-text-primary dark:text-dark-text-primary">Unlock your Study Plans</h2>
+                    <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-8 leading-relaxed">
+                        To create or start your study plans in **Lectio Mode**, please select a folder on your computer. Your notes will be saved as physical files in your workspace.
+                    </p>
+
+                    <button
+                        onClick={openLocalFolder}
+                        className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-98"
+                    >
+                        <FolderOpen size={20} />
+                        <span>Open Local Folder</span>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // RENDER CASE 1: Immersive Daily Study Zen Workspace
     if (activePlan) {
         return (
@@ -309,7 +349,7 @@ export const LectioMode: React.FC = () => {
                 className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background flex flex-col overflow-hidden text-light-text-primary dark:text-dark-text-primary"
             >
                 {/* Immersive Session Header */}
-                <header className="h-14 border-b border-light-border dark:border-dark-border px-4 flex items-center justify-between bg-light-surface/80 dark:bg-dark-surface/80 backdrop-blur-md shrink-0 z-20 relative">
+                <header className="h-14 border-b border-light-border dark:border-dark-border px-4 flex items-center justify-between bg-light-surface/80 dark:bg-dark-surface/80 backdrop-blur-md shrink-0 z-[90] relative">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => exitLectioMode()}
@@ -331,10 +371,16 @@ export const LectioMode: React.FC = () => {
                         <select
                             value={versionId}
                             onChange={(e) => setVersionId(e.target.value)}
-                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer text-primary"
+                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-wider focus:ring-0 cursor-pointer text-primary bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
                         >
                             {installedVersions.map((v: BibleVersion) => (
-                                <option key={v.id} value={v.id}>{v.abbreviation}</option>
+                                <option 
+                                    key={v.id} 
+                                    value={v.id}
+                                    className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                                >
+                                    {v.abbreviation}
+                                </option>
                             ))}
                         </select>
 
@@ -810,10 +856,16 @@ export const LectioMode: React.FC = () => {
                                                         copy[idx].startBook = e.target.value;
                                                         setTracksInput(copy);
                                                     }}
-                                                    className="bg-transparent border-b border-light-border dark:border-dark-border text-xs py-1 focus:outline-none focus:border-primary cursor-pointer font-semibold"
+                                                    className="bg-transparent border-b border-light-border dark:border-dark-border text-xs py-1 focus:outline-none focus:border-primary cursor-pointer font-semibold bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
                                                 >
                                                     {BIBLE_BOOKS.map(b => (
-                                                        <option key={b.name} value={b.name}>{b.name}</option>
+                                                        <option 
+                                                            key={b.name} 
+                                                            value={b.name}
+                                                            className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                                                        >
+                                                            {b.name}
+                                                        </option>
                                                     ))}
                                                 </select>
 

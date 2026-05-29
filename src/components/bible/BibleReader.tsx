@@ -270,10 +270,16 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     <select
                         value={mainVersion}
                         onChange={(e) => setMainVersion(e.target.value)}
-                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0"
+                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
                     >
                         {installedVersions.map((v: BibleVersion) => (
-                            <option key={v.id} value={v.id}>{v.abbreviation}</option>
+                            <option 
+                                key={v.id} 
+                                value={v.id}
+                                className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                            >
+                                {v.abbreviation}
+                            </option>
                         ))}
                     </select>
 

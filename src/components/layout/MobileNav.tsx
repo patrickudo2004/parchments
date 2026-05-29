@@ -4,9 +4,11 @@ import {
     BookOpen,
     Search,
     Settings,
-    Mic
+    Mic,
+    Award
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 export const MobileNav: React.FC = () => {
     const {
@@ -18,6 +20,8 @@ export const MobileNav: React.FC = () => {
         toggleSettingsModal,
         toggleSearchModal
     } = useUIStore();
+
+    const isLectioModeActive = useReadingPlanStore(state => state.isLectioModeActive);
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] pb-[var(--safe-area-bottom,0px)]">
@@ -35,6 +39,14 @@ export const MobileNav: React.FC = () => {
             >
                 <BookOpen size={20} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Bible</span>
+            </button>
+
+            <button
+                onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
+                className={`flex flex-col items-center gap-1 p-2 transition-colors ${isLectioModeActive ? 'text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary opacity-60'}`}
+            >
+                <Award size={20} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Lectio</span>
             </button>
 
             <button

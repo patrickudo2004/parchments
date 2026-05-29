@@ -231,20 +231,32 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         initialContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key takeaways and inspired summaries for this track here...</p><br/>`;
                     });
 
-                    // Add note directly in IndexedDB inside the "Lectio Study Journals" folder
-                    const timestamp = Date.now();
-                    const newNote: Note = {
-                        id: noteId,
-                        title: `Lectio Journal: ${dateString}`,
-                        content: initialContent,
-                        createdAt: timestamp,
-                        updatedAt: timestamp,
-                        folderId: plan.folderId,
-                        tags: ['lectio', plan.name.toLowerCase().replace(/[^a-z0-9]/g, '-')],
-                        type: 'text'
-                    };
+                    // Dynamically import noteStore to avoid circular dependency
+                    const { useNoteStore } = await import('@/stores/noteStore');
+                    const noteStoreState = useNoteStore.getState();
+                    const isLocalMode = noteStoreState.isLocalMode;
+                    const localDirectoryHandle = noteStoreState.localDirectoryHandle;
 
-                    await db.notes.add(newNote);
+                    const title = `Lectio Journal: ${dateString}`;
+
+                    if (isLocalMode && localDirectoryHandle) {
+                        // Create in local folder physically
+                        await noteStoreState.createLocalNote(title, plan.folderId, initialContent, noteId);
+                    } else {
+                        // Add note directly in IndexedDB inside the "Lectio Study Journals" folder
+                        const timestamp = Date.now();
+                        const newNote: Note = {
+                            id: noteId,
+                            title,
+                            content: initialContent,
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                            folderId: plan.folderId,
+                            tags: ['lectio', plan.name.toLowerCase().replace(/[^a-z0-9]/g, '-')],
+                            type: 'text'
+                        };
+                        await db.notes.add(newNote);
+                    }
 
                     // Add history record
                     await db.readingPlanHistory.put({

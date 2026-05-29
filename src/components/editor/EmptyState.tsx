@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { BookOpen, FilePlus, FolderPlus, Mic, FolderOpen, Upload } from 'lucide-react';
+import { BookOpen, FilePlus, FolderPlus, Mic, FolderOpen, Upload, Award } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 export const EmptyState: React.FC = () => {
     const { createNote, createVoiceNote, createFolder, isLocalMode, hasStudyspace, openLocalFolder } = useNoteStore();
@@ -40,6 +41,14 @@ export const EmptyState: React.FC = () => {
                     >
                         <BookOpen size={24} />
                         <span>Browse Bible</span>
+                    </button>
+
+                    <button
+                        onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
+                        className="flex items-center gap-3 px-8 py-5 bg-light-sidebar dark:bg-dark-sidebar text-light-text-primary dark:text-dark-text-primary border border-light-border dark:border-dark-border rounded-2xl font-black text-lg shadow-xl transition-all hover:border-primary hover:text-primary hover:scale-105 active:scale-95"
+                    >
+                        <Award size={24} className="text-primary" />
+                        <span>Lectio Plans</span>
                     </button>
                 </div>
 

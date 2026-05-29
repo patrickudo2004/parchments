@@ -25,7 +25,9 @@ import {
     ChevronLeft,
     ChevronRight,
     HelpCircle,
-    FolderOpen
+    FolderOpen,
+    Sun,
+    Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -48,7 +50,13 @@ export const LectioMode: React.FC = () => {
     } = useReadingPlanStore();
 
     const { setCurrentNote, hasStudyspace, openLocalFolder, isLocalMode, localFiles, openLocalFile } = useNoteStore();
-    const { isMobile, showToast } = useUIStore();
+    const { isMobile, showToast, theme, setTheme } = useUIStore();
+
+    const handleToggleTheme = () => {
+        const nextTheme = theme === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+        showToast(`Switched to ${nextTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+    };
 
     // Local UI states
     const [isCreating, setIsCreating] = useState(false);
@@ -393,6 +401,15 @@ export const LectioMode: React.FC = () => {
                             ))}
                         </select>
 
+                        {/* Theme Toggle Button */}
+                        <button
+                            onClick={handleToggleTheme}
+                            className="p-2 rounded-full transition-all duration-200 hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary"
+                            title="Toggle Light/Dark Theme"
+                        >
+                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
+
                         {/* Real-time E-Reader Settings Gear */}
                         <div className="relative">
                             <button
@@ -712,7 +729,16 @@ export const LectioMode: React.FC = () => {
     return (
         <div className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col select-none">
             {/* Top Close Bar */}
-            <div className="max-w-4xl w-full mx-auto flex justify-end shrink-0 mb-4">
+            <div className="max-w-4xl w-full mx-auto flex items-center justify-between shrink-0 mb-4">
+                {/* Theme Toggle Button */}
+                <button
+                    onClick={handleToggleTheme}
+                    className="p-2.5 rounded-full bg-light-surface hover:bg-light-sidebar dark:bg-dark-surface dark:hover:bg-dark-elevated border border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                    title="Toggle Light/Dark Theme"
+                >
+                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+
                 <button
                     onClick={() => exitLectioMode()}
                     className="p-2.5 rounded-full bg-light-surface hover:bg-light-sidebar dark:bg-dark-surface dark:hover:bg-dark-elevated border border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary shadow-sm hover:scale-105 active:scale-95 transition-all"

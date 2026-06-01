@@ -204,12 +204,16 @@ export class PlanSyncManager {
      */
     static async broadcastPlanUpdate(planId: string) {
         const { identity } = useSyncStore.getState();
+        const storedSalt = localStorage.getItem(`plan-salt-${planId}`);
         const roomHash = identity 
-            ? `plan-sync-${identity.vaultHash.slice(0, 8)}-${planId}`
-            : `plan-sync-local-${planId}`;
+            ? `plan-sync-${identity.vaultHash.slice(0, 8)}-${planId}${storedSalt ? `-${storedSalt}` : ''}`
+            : `plan-sync-local-${planId}${storedSalt ? `-${storedSalt}` : ''}`;
 
         const doc = this.docs.get(roomHash);
-        if (!doc) return;
+        if (!doc) {
+            console.log(`[PlanSyncManager] ⚠️ No active sync room found for hash: ${roomHash}`);
+            return;
+        }
 
         const plan = await db.readingPlans.get(planId);
         if (!plan) return;

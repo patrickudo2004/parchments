@@ -132,6 +132,51 @@ Parchments can turn any folder on your computer into a searchable library.
 
 ---
 
+## 📖 Immersive Lectio Study Plans & Zen Mode
+
+**Lectio Mode** is a dedicated, distraction-free environment inside Parchments designed to help you organize daily Bible reading tracks, compose study notes simultaneously, and maintain progress records.
+
+### 1. Launching and Creating Reading Plans
+To open the Lectio interface:
+* **Desktop**: Click the **"Lectio Mode"** button in the Top Bar.
+* **Mobile**: Tap the **"Lectio" (Award 🏆)** icon on the bottom navigation bar, or click **"Lectio Plans"** on the empty workspace page.
+
+Parchments comes pre-seeded with two standard high-value plans to start immediately:
+1. **The Lectio 24-Chapter Devotional**: Features 10 Old Testament chapters, 10 New Testament chapters, 2 Psalms, and 2 Proverbs daily.
+2. **The Classical Canonical (One Year)**: Guides you through the entire Bible from Genesis to Revelation in 365 days.
+
+Alternatively, you can input custom start/end dates and choose specific book segments to generate a personalized study track.
+
+### 2. Customizing Your Reading Flow (Zen Scroll vs. Page-by-Page)
+We believe different studies require different layout modes. Click the **Settings Gear (⚙️)** in the session header to toggle your preference:
+* **📜 Zen Scroll (Default)**: Chapters are stacked vertically in a single, infinite-scroll view. This is ideal for continuous reading.
+* **📖 Page-by-Page**: Isolates exactly one chapter at a time. It adds a premium bottom pagination bar containing `[Previous Chapter]` and `[Next Chapter]` triggers alongside a chapter progress indicator to let you digest text step-by-step.
+
+### 3. The Desktop Split-Pane Zen Workspace
+On desktop viewports, entering a study session splits your screen into a 50/50 division:
+* **Left Pane**: Displays distraction-free Bible scriptures with active scroll anchors.
+* **Right Pane**: Embeds the full-screen Rich Text Editor loaded with an auto-templated daily study note (pre-formatted with dates, scripture ranges, and custom reflection headings).
+
+#### Scripture Pinning & Context Drawer
+* **Pin Verse to Note**: Click any verse number in the scripture pane to slide up a sheet. Select `[ Pin to Daily Journal ]` to append a blockquote of the verse into your editor cursor position instantly.
+* **Picture-in-Picture Drawer**: Tap any linked scripture reference or pinned verse blockquote inside your active editor document. A secure, premium drawer will slide up from the bottom showing the full chapter text for context, allowing you to cross-reference references without losing your virtual keyboard focus.
+
+### 4. Mobile Sliding Viewports & Touch safety
+On mobile screens, Lectio Mode switches to a highly optimized touch layout:
+* **Gesture-Driven Slide**: Swipe horizontally from the edges of your screen or tap the `[Read]` / `[Journal]` headers to toggle between full-screen scripture reading and full-screen note writing.
+* **Rich Text Protection**: Swiping actions starting inside your Tiptap rich-text editor are ignored. This ensures cursor repositioning, text selection, and standard mobile typing physics work natively, preventing accidental pane slides.
+
+### 5. The "Grace" Catch-Up Engine
+Missed a few days? Don't worry. Lectio Mode includes an intelligent redistribution algorithm:
+* Click the **"Catch Up"** button on your plan dashboard.
+* The engine calculates your incomplete reading backlog and evenly redistributes it over your remaining plan days, ensuring your targets stay realistic and stress-free.
+
+### 6. Local Physical Directory & P2P Metadata Syncing
+* **Physical Folder Workspace**: In local folder mode, daily session summary notes are physically saved to a designated folder named `Lectio Study Journals` on your hard drive.
+* **Cross-Device Sync-on-Open**: Your active daily progress and plan cursor offsets are safely embedded as metadata (`lectioProgress`) inside an invisible comment tag (`<!-- parchments-meta: ... -->`) at the bottom of your Markdown files. Opening a shared study note on a mobile device automatically synchronizes the plan progress locally without requiring complex directory-sharing setups.
+
+---
+
 ## 📤 Exporting Your Work
 When your research is ready to be shared or archived:
 1.  Click the **Export** icon in the Top Bar.

@@ -39,6 +39,7 @@ To get started with the Parchments Beta, download the installer for your operati
 ## ✨ Core Features
 
 - **Parallel Bible Reader**: Side-by-side study of up to 4 translations with synced verse scrolling.
+- **Immersive Lectio Reading Plans**: Set up canonical or customized reading plans in a gorgeous split-column Zen Workspace on desktop or swipe-sliding panels on mobile.
 - **Interlinear & Lexicon**: Access original Greek/Hebrew lemmas and Strong's Concordance definitions directly in your study flow.
 - **Smart Outline**: Reshuffle your sermon or study notes with **Drag-to-Reorder** and isolate sections with **Focus Mode**.
 - **Research Bench**: Persistently pin scriptures and cross-references across sessions.
@@ -50,7 +51,8 @@ To get started with the Parchments Beta, download the installer for your operati
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React + TypeScript + Vite
+- **Frontend**: React 19 + TypeScript + Vite
+- **Routing**: React Router v7
 - **State Management**: Zustand (+ Persist)
 - **Editor Framework**: TipTap (ProseMirror)
 - **Styling**: Tailwind CSS + Custom Design System
@@ -86,13 +88,14 @@ To get started with the Parchments Beta, download the installer for your operati
 
 ---
 
-*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.1.0-beta.7`.*
+*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.2.0-beta.1`.*
 
-## 🆕 What's New in Beta 7
-- **Remote Version Control (Nag & Lock)**: The app now notifies you of updates automatically.
-- **Support Hub**: Direct feedback links (GitHub/Email) now available in Settings.
-- **Stability Fixes**: Fixed macOS universal binary targets and Linux dependency chains.
-- **Local AI Transcription**: Whisper AI optimizations for smoother sermon capturing.
+## 🆕 What's New in Beta 2.0 (The Immersive Zen Release)
+- **Immersive "Lectio Mode"**: Launch daily schedules inside beautiful 50/50 reading split-panes.
+- **Zen Scrolling vs. Tap-to-Turn**: Settings toggle to choose between vertical reading stacks or classical paginated swiping.
+- **P2P Progress Sharing**: Reading plans and cursor offsets automatically sync across paired mobile and desktop devices.
+- **UK GDPR & PECR Privacy Compliance**: Transparent on-device consent notices and privacy pages protecting user data.
+- **Stability Fixes**: Raised popover menu z-indexes and resolved dark mode text selection contrast overrides.
 
 ---
 

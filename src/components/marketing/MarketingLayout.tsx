@@ -121,9 +121,16 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                     </div>
 
                     <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <p className="text-[10px] uppercase tracking-widest text-white/20 font-bold">
-                            &copy; 2026 Parchments Project • Free & Open Source
-                        </p>
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                            <p className="text-[10px] uppercase tracking-widest text-white/20 font-bold">
+                                &copy; 2026 Parchments Project • Free & Open Source
+                            </p>
+                            <span className="hidden md:inline text-white/10">•</span>
+                            <div className="flex items-center gap-4">
+                                <a href="/privacy" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Privacy Policy</a>
+                                <a href="/terms" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Terms of Use</a>
+                            </div>
+                        </div>
                         <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/20 font-bold">
                             <Globe size={12} />
                             <span>Locally Crafted in Africa</span>

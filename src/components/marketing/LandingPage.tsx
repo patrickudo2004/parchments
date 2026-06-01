@@ -8,11 +8,27 @@ import {
     Mic,
     Layout,
     Cpu,
-    ArrowRight
+    ArrowRight,
+    BookOpen,
+    Eye
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
 
 export const LandingPage: React.FC = () => {
+    const [showBanner, setShowBanner] = React.useState(false);
+
+    React.useEffect(() => {
+        const consent = localStorage.getItem('parchments-pecr-consent');
+        if (consent !== 'true') {
+            setShowBanner(true);
+        }
+    }, []);
+
+    const acceptConsent = () => {
+        localStorage.setItem('parchments-pecr-consent', 'true');
+        setShowBanner(false);
+    };
+
     return (
         <MarketingLayout>
             {/* Hero Section */}
@@ -102,7 +118,7 @@ export const LandingPage: React.FC = () => {
                         <h3 className="text-3xl md:text-5xl font-black tracking-tight">Everything a researcher needs.</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {/* Scripture Intelligence */}
                         <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
                             <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500 mb-6 group-hover:scale-110 transition-transform">
@@ -121,6 +137,17 @@ export const LandingPage: React.FC = () => {
                             <h4 className="text-xl font-bold mb-3">Radial Privacy</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
                                 Your notes never leave your machine. No mandatory accounts, no cloud shadows, no data selling. Your study stays yours.
+                            </p>
+                        </div>
+
+                        {/* Lectio Plans */}
+                        <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
+                            <div className="w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-500 mb-6 group-hover:scale-110 transition-transform">
+                                <BookOpen size={28} />
+                            </div>
+                            <h4 className="text-xl font-bold mb-3">Lectio Zen Plans</h4>
+                            <p className="text-white/40 text-sm leading-relaxed">
+                                Track customizable scripture reading schedules (e.g., 1-year canonicals) inside physical workspaces on your local hard drive.
                             </p>
                         </div>
 
@@ -143,6 +170,17 @@ export const LandingPage: React.FC = () => {
                             <h4 className="text-xl font-bold mb-3">Collaborative Study</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
                                 Sync folder-level metadata across your team without a central server. Peer-to-peer real-time collaboration.
+                            </p>
+                        </div>
+
+                        {/* PiP References */}
+                        <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
+                            <div className="w-14 h-14 bg-cyan-500/10 rounded-2xl flex items-center justify-center text-cyan-500 mb-6 group-hover:scale-110 transition-transform">
+                                <Eye size={28} />
+                            </div>
+                            <h4 className="text-xl font-bold mb-3">Reference Drawer</h4>
+                            <p className="text-white/40 text-sm leading-relaxed">
+                                Tap scriptures in study notes to pull up Picture-in-Picture context previews instantly without losing focus.
                             </p>
                         </div>
                     </div>
@@ -187,6 +225,37 @@ export const LandingPage: React.FC = () => {
                     </a>
                 </div>
             </section>
+
+            {/* Local-First Storage Consent Banner */}
+            {showBanner && (
+                <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-[420px] z-[100] bg-[#0c0c0c]/90 backdrop-blur-2xl border border-white/10 p-6 rounded-[28px] shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
+                    <div className="flex items-start gap-4">
+                        <div className="p-2.5 bg-primary/10 border border-primary/20 rounded-xl text-primary mt-0.5 animate-pulse">
+                            <ShieldCheck size={20} />
+                        </div>
+                        <div className="space-y-1">
+                            <h5 className="font-bold text-sm text-white">Local-First Storage Notice</h5>
+                            <p className="text-xs text-white/50 leading-relaxed">
+                                Parchments is completely offline-first. We use IndexedDB and localStorage securely on your device to persist Bibles and study notes. No data ever leaves your machine.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <a
+                            href="/privacy"
+                            className="px-4 py-2 text-xs font-semibold text-white/60 hover:text-white transition-colors"
+                        >
+                            Privacy Policy
+                        </a>
+                        <button
+                            onClick={acceptConsent}
+                            className="px-5 py-2 bg-primary hover:scale-105 active:scale-95 text-white text-xs font-bold rounded-full transition-all shadow-md shadow-primary/10 cursor-pointer"
+                        >
+                            Accept & Continue
+                        </button>
+                    </div>
+                </div>
+            )}
         </MarketingLayout>
     );
 };

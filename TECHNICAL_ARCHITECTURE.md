@@ -23,10 +23,10 @@
 
 ### Frontend Framework
 ```
-Core: React 18+ with TypeScript
-Build Tool: Vite 5+
+Core: React 19+ with TypeScript
+Build Tool: Vite 7+
 State Management: Zustand (lightweight, perfect for offline-first)
-Routing: React Router v6
+Routing: React Router v7
 ```
 
 ### Rich Text Editor
@@ -60,7 +60,7 @@ Rationale:
   - Observable queries (reactive UI updates)
   - Versioning and migration support
 
-Database Schema:
+Database Schema (Version 9):
   - notes: User-created text notes
   - folders: Hierarchical folder structure
   - voiceNotes: Audio recordings with metadata
@@ -68,6 +68,8 @@ Database Schema:
   - bibleVersions: Metadata for installed versions
   - strongsEntries: Hebrew/Greek dictionary
   - settings: User preferences and configuration
+  - readingPlans: User-defined devotional study plans
+  - readingPlanHistory: Daily progress checkpoints mapping completed dates
 ```
 
 #### Cloud Sync (Optional)
@@ -97,6 +99,11 @@ Sync Pattern: Host-Dictatorship
 Voice Intelligence Sync:
   - Real-time distribution of transcripts via the Folder Manifest Map.
   - Voice metadata (duration, transcript) included as manifest fields.
+
+Decentralized Study Plan Progress Sync:
+  - Embeds daily study cursor offsets under `lectioProgress` inside note comment headers (`<!-- parchments-meta: ... -->`).
+  - Synced automatically over WebRTC single-note communication channels.
+  - Hydrated seamlessly into the local IndexedDB database upon file opening on secondary devices.
 ```
 ```
 

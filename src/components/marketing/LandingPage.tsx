@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MarketingLayout } from './MarketingLayout';
 import {
     Download,
@@ -14,7 +14,39 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
 
+const GALLERY_ITEMS = [
+    {
+        id: 'workspace',
+        label: 'Zen Workspace',
+        description: 'Expository outline editor',
+        image: '/screenshots/note_editing.png',
+        caption: 'Ephesians 6 expository outline drafting inside the native TipTap editor.'
+    },
+    {
+        id: 'lectio',
+        label: 'Lectio Plans',
+        description: 'Seeded & custom tracks',
+        image: '/screenshots/lectio_zen_session.png',
+        caption: 'An active split-screen Lectio reading track: scriptures on the left, daily reflections on the right.'
+    },
+    {
+        id: 'parallel',
+        label: 'Parallel Translations',
+        description: 'Synced scroll layout',
+        image: '/screenshots/parallel_bible.png',
+        caption: 'KJV and World English Bible translations aligned side-by-side with scroll-synced physics.'
+    },
+    {
+        id: 'citations',
+        label: 'Smart Citations',
+        description: 'Glassmorphic context popups',
+        image: '/screenshots/auto_referencing.png',
+        caption: 'Tapping or hovering over scripture references displays a premium context preview instantly.'
+    }
+];
+
 export const LandingPage: React.FC = () => {
+    const [activeTab, setActiveTab] = React.useState('workspace');
     const [showBanner, setShowBanner] = React.useState(false);
 
     React.useEffect(() => {
@@ -50,61 +82,132 @@ export const LandingPage: React.FC = () => {
                         </h1>
 
                         <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
-                            Parchments is a premium, offline-first workspace for serious Bible study.
-                            Built for theologians who value <span className="text-white hover:text-primary transition-colors cursor-default">privacy</span> and <span className="text-white hover:text-primary transition-colors cursor-default">focus</span>.
+                            The ultimate workspace for serious Bible study.
+                            Built offline-first for theologians and pastors who value <span className="text-white hover:text-primary transition-colors cursor-default">privacy</span> and <span className="text-white hover:text-primary transition-colors cursor-default">focus</span>.
                         </p>
 
-                        <div id="download" className="flex flex-col items-center justify-center gap-8 pt-4">
+                        <div id="download" className="flex flex-col items-center justify-center gap-6 pt-4">
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
                                     href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi"
-                                    className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
+                                    className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
                                     <span>Download for Windows</span>
                                 </a>
                                 <a
                                     href="/guide"
-                                    className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
+                                    className="group px-8 py-5 bg-white/5 text-white font-black rounded-2xl border border-white/10 flex items-center gap-3 hover:bg-white hover:text-black transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
                                 >
                                     <Layout size={22} />
                                     <span>View User Guide</span>
                                 </a>
                             </div>
 
-                            <p className="text-white/40 text-sm font-medium">
-                                Also available for{' '}
-                                <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg" className="text-white/60 hover:text-primary transition-colors underline underline-offset-4 decoration-white/10">macOS</a>
-                                {' '}and{' '}
-                                <a href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb" className="text-white/60 hover:text-primary transition-colors underline underline-offset-4 decoration-white/10">Linux</a>
-                            </p>
+                            {/* Secondary Platform Triggers */}
+                            <div className="flex flex-wrap items-center justify-center gap-3 text-xs pt-2">
+                                <span className="text-white/30 font-bold uppercase tracking-wider text-[10px] mr-1">Other Platforms:</span>
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg"
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                                >
+                                    <span> Download for macOS</span>
+                                </a>
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb"
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                                >
+                                    <span>🐧 Download for Linux</span>
+                                </a>
+                            </div>
                         </div>
                     </motion.div>
 
-                    {/* App Preview Mockup */}
+                    {/* App Preview Mock-Browser Gallery */}
                     <motion.div
                         initial={{ opacity: 0, y: 40 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3, duration: 0.8 }}
-                        className="mt-24 relative max-w-5xl mx-auto"
+                        className="mt-24 relative max-w-5xl mx-auto flex flex-col gap-8"
                     >
-                        <div className="absolute inset-0 bg-primary/20 blur-[120px] rounded-full scale-75 opacity-50" />
-                        <div className="relative bg-[#0d0d0d] rounded-3xl border border-white/10 shadow-3xl overflow-hidden aspect-video group">
-                            <img
-                                src="/preview.png"
-                                alt="Parchments App Preview"
-                                className="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity duration-500"
-                            />
-
-                            {/* Center Logo / CTA Overlay */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                                <a
-                                    href="/app"
-                                    className="px-8 py-4 bg-primary text-white font-black rounded-2xl flex items-center gap-3 hover:scale-110 transition-all shadow-2xl"
-                                >
-                                    Try Web Preview <ArrowRight size={20} />
-                                </a>
+                        <div className="absolute inset-0 bg-primary/20 blur-[120px] rounded-full scale-75 opacity-30 pointer-events-none" />
+                        
+                        {/* Mock Browser Frame */}
+                        <div className="relative bg-[#0c0c0c]/90 rounded-3xl border border-white/10 shadow-2xl overflow-hidden aspect-video group">
+                            {/* Browser Header Bar */}
+                            <div className="h-12 bg-white/[0.02] border-b border-white/5 flex items-center justify-between px-6 select-none">
+                                {/* Window dots */}
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                                    <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                                    <span className="w-3 h-3 rounded-full bg-[#27c93f]" />
+                                </div>
+                                {/* Address Bar */}
+                                <div className="w-[200px] md:w-[450px] h-7 bg-white/[0.04] rounded-lg border border-white/5 flex items-center justify-center text-[10px] text-white/40 font-mono tracking-tight">
+                                    localhost:3000/app/{activeTab}
+                                </div>
+                                {/* Sync Status */}
+                                <div className="flex items-center gap-2 text-[10px] uppercase font-black tracking-widest text-primary/80">
+                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                    <span>👥 Shared Space</span>
+                                </div>
                             </div>
+
+                            {/* Screenshot Viewer */}
+                            <div className="relative w-full h-[calc(100%-48px)] bg-[#050505]">
+                                <AnimatePresence mode="wait">
+                                    {GALLERY_ITEMS.map(item => item.id === activeTab && (
+                                        <motion.div
+                                            key={item.id}
+                                            initial={{ opacity: 0, scale: 0.98 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.98 }}
+                                            transition={{ duration: 0.35, ease: 'easeInOut' }}
+                                            className="absolute inset-0 w-full h-full"
+                                        >
+                                            <img
+                                                src={item.image}
+                                                alt={item.caption}
+                                                className="w-full h-full object-cover object-top opacity-90 group-hover:opacity-60 transition-opacity duration-500"
+                                            />
+                                            {/* Hover preview button */}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                                <a
+                                                    href="/app"
+                                                    className="px-8 py-4 bg-primary text-white font-black rounded-2xl flex items-center gap-3 hover:scale-110 transition-all shadow-2xl cursor-pointer"
+                                                >
+                                                    Open Interactive Workspace <ArrowRight size={20} />
+                                                </a>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+
+                        {/* Feature Navigation Tabs */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4">
+                            {GALLERY_ITEMS.map((item) => {
+                                const isActive = item.id === activeTab;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveTab(item.id)}
+                                        className={`p-5 rounded-2xl text-left border transition-all duration-300 flex flex-col gap-1 cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
+                                            isActive
+                                                ? 'bg-primary/10 border-primary shadow-lg shadow-primary/5'
+                                                : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                                        }`}
+                                    >
+                                        <span className={`text-xs font-black uppercase tracking-wider ${isActive ? 'text-primary' : 'text-white/40'}`}>
+                                            {item.label}
+                                        </span>
+                                        <span className="text-[10px] text-white/50 font-medium leading-tight">
+                                            {item.description}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </motion.div>
                 </div>

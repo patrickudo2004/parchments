@@ -3,6 +3,7 @@ import { useReadingPlanStore, getDailySegments } from '@/stores/readingPlanStore
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { db } from '@/lib/db';
+import { useSyncStore } from '@/stores/syncStore';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion, ReadingPlanTrack } from '@/types/database';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
@@ -27,7 +28,12 @@ import {
     HelpCircle,
     FolderOpen,
     Sun,
-    Moon
+    Moon,
+    Share2,
+    Copy,
+    Check,
+    Users,
+    Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -72,6 +78,9 @@ export const LectioMode: React.FC = () => {
 
     // Header popovers
     const [showSettingsPopover, setShowSettingsPopover] = useState(false);
+
+    const [sharingPlan, setSharingPlan] = useState<any | null>(null);
+    const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
 
     // Active study session states
     const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
@@ -953,13 +962,25 @@ export const LectioMode: React.FC = () => {
                                 <Layers size={14} strokeWidth={2.5} />
                                 <span>Active Scripture Plans</span>
                             </h3>
-                            <button
-                                onClick={() => setIsCreating(true)}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-xl border border-primary/10 hover:bg-primary/20 transition-all"
-                            >
-                                <Plus size={14} />
-                                <span>Add New Plan</span>
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setSharingPlan(null); // Indicates empty / inbound only
+                                        setIsSharingModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-light-surface hover:bg-light-sidebar dark:bg-dark-surface dark:hover:bg-dark-elevated text-xs font-black uppercase tracking-widest rounded-xl border border-light-border dark:border-dark-border transition-all text-light-text-secondary dark:text-dark-text-secondary"
+                                >
+                                    <Users size={14} />
+                                    <span>Join Plan</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsCreating(true)}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-xl border border-primary/10 hover:bg-primary/20 transition-all"
+                                >
+                                    <Plus size={14} />
+                                    <span>Add New Plan</span>
+                                </button>
+                            </div>
                         </div>
 
                         {activePlans.length === 0 ? (
@@ -1024,6 +1045,20 @@ export const LectioMode: React.FC = () => {
 
                                                 <button
                                                     onClick={() => {
+                                                        setSharingPlan(plan);
+                                                        setIsSharingModalOpen(true);
+                                                    }}
+                                                    className="p-2.5 rounded-xl border border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-colors group/btn relative"
+                                                    title="Share Study Plan"
+                                                >
+                                                    <Share2 size={16} />
+                                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-gray-900 text-white text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-md">
+                                                        Share Plan
+                                                    </div>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
                                                         if (window.confirm('Grace recalculation redistributes unread chapters evenly across remaining days. Would you like to proceed?')) {
                                                             recalculatePlanGrace(plan.id);
                                                             showToast('Recalculated track metrics! Enjoy the Grace catch-up!', 'success');
@@ -1059,6 +1094,13 @@ export const LectioMode: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <SharePlanModal
+                isOpen={isSharingModalOpen}
+                onClose={() => setIsSharingModalOpen(false)}
+                plan={sharingPlan}
+                onToast={showToast}
+            />
         </div>
     );
 };
@@ -1148,5 +1190,239 @@ const PipContextDrawer: React.FC<PipContextDrawerProps> = ({ scripture, versionI
                 )}
             </div>
         </div>
+    );
+};
+
+interface SharePlanModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    plan: any | null; // Null indicates empty / inbound only
+    onToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+}
+
+export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose, plan, onToast }) => {
+    const { identity } = useSyncStore();
+    const [copiedLink, setCopiedLink] = useState(false);
+    const [copiedHash, setCopiedHash] = useState(false);
+    const [inboundInput, setInboundInput] = useState('');
+    const [isSyncingPlan, setIsSyncingPlan] = useState(false);
+
+    // Cryptographically Secure Salt derived or generated
+    const [planSalt, setPlanSalt] = useState('');
+
+    React.useEffect(() => {
+        if (isOpen && plan) {
+            // Generate or fetch plan salt to secure P2P discovery
+            const storedSalt = localStorage.getItem(`plan-salt-${plan.id}`);
+            if (storedSalt) {
+                setPlanSalt(storedSalt);
+            } else {
+                const newSalt = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+                localStorage.setItem(`plan-salt-${plan.id}`, newSalt);
+                setPlanSalt(newSalt);
+            }
+        }
+    }, [isOpen, plan]);
+
+    const roomHash = plan && planSalt
+        ? identity 
+            ? `plan-sync-${identity.vaultHash.slice(0, 8)}-${plan.id}-${planSalt}`
+            : `plan-sync-local-${plan.id}-${planSalt}`
+        : '';
+
+    const shareUrl = roomHash 
+        ? `${window.location.origin}/join/${roomHash}?title=${encodeURIComponent(plan.name)}`
+        : '';
+
+    // Join the room as the host when opening the share UI
+    React.useEffect(() => {
+        if (isOpen && roomHash) {
+            import('@/lib/sync/PlanSyncManager').then(({ PlanSyncManager }) => {
+                PlanSyncManager.joinPlanRoom(roomHash);
+                PlanSyncManager.broadcastPlanUpdate(plan.id);
+            });
+        }
+    }, [isOpen, roomHash, plan]);
+
+    if (!isOpen) return null;
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopiedLink(true);
+            onToast('Share Link copied!', 'success');
+            setTimeout(() => setCopiedLink(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
+
+    const handleCopyHash = async () => {
+        try {
+            await navigator.clipboard.writeText(roomHash);
+            setCopiedHash(true);
+            onToast('Room Hash copied!', 'success');
+            setTimeout(() => setCopiedHash(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
+
+    const handleReceivePlan = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const inputVal = inboundInput.trim();
+        if (!inputVal) {
+            onToast('Please enter a valid link or room hash.', 'error');
+            return;
+        }
+
+        setIsSyncingPlan(true);
+        onToast('Connecting to plan sync room...', 'info');
+
+        try {
+            let targetHash = inputVal;
+            if (inputVal.includes('/join/')) {
+                const parts = inputVal.split('/join/');
+                targetHash = parts[1].split('?')[0];
+            }
+
+            if (!targetHash.startsWith('plan-sync-')) {
+                onToast('Invalid plan share key format.', 'error');
+                setIsSyncingPlan(false);
+                return;
+            }
+
+            // Join the sync room
+            const { PlanSyncManager } = await import('@/lib/sync/PlanSyncManager');
+            await PlanSyncManager.joinPlanRoom(targetHash);
+
+            onToast('Connected! Sibling notes and tracks are synchronizing in the background.', 'success');
+            setInboundInput('');
+            setIsSyncingPlan(false);
+            onClose();
+        } catch (err) {
+            console.error('[SharePlanModal] Sync fail:', err);
+            onToast('Failed to join synchronization room.', 'error');
+            setIsSyncingPlan(false);
+        }
+    };
+
+    return (
+        <AnimatePresence>
+            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full max-w-lg bg-light-surface dark:bg-dark-surface rounded-3xl shadow-2xl border border-light-border dark:border-dark-border overflow-hidden"
+                >
+                    {/* Modal Header */}
+                    <div className="p-5 border-b border-light-border dark:border-dark-border flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                                <Users size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-serif font-bold text-lg text-light-text-primary dark:text-dark-text-primary">
+                                    {plan ? 'Share Reading Plan' : 'Join Shared Plan'}
+                                </h3>
+                                <p className="text-[10px] text-light-text-secondary uppercase tracking-widest font-black opacity-60">
+                                    {plan ? plan.name : 'Lectio Synchronization Hub'}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors text-light-text-secondary dark:text-dark-text-secondary">
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                        {plan && (
+                            /* OUTBOUND SHARING VIEW */
+                            <div className="space-y-4 text-left">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">P2P Collaboration Link</h4>
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 rounded text-[9px] font-black uppercase">
+                                        <Lock size={10} />
+                                        <span>Secure P2P Salt</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <div className="p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-xs font-mono break-all text-light-text-secondary dark:text-dark-text-secondary max-h-24 overflow-y-auto">
+                                        {shareUrl}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleCopy}
+                                            className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${copiedLink ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-98'}`}
+                                        >
+                                            {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
+                                            {copiedLink ? 'Link Copied' : 'Copy Share Link'}
+                                        </button>
+                                        <button
+                                            onClick={handleCopyHash}
+                                            className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${copiedHash ? 'bg-green-500 text-white' : 'bg-light-sidebar dark:bg-dark-sidebar border border-light-border dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary'}`}
+                                        >
+                                            {copiedHash ? <Check size={14} /> : <Copy size={14} />}
+                                            <span>{copiedHash ? 'Hash' : 'Hash'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-light-text-disabled uppercase font-black leading-relaxed">
+                                    Copy this secure cryptographic link. Open it on your other device to synchronize your tracks, completions, and all sibling journal notes recursively.
+                                </p>
+                            </div>
+                        )}
+
+                        {plan && <div className="h-[1px] bg-light-border dark:bg-dark-border my-4" />}
+
+                        {/* INBOUND RECEIVING VIEW */}
+                        <div className="space-y-4 text-left">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
+                                {plan ? 'Receive / Sync Another Plan' : 'Enter Shared Plan Key'}
+                            </h4>
+
+                            <form onSubmit={handleReceivePlan} className="flex flex-col gap-2.5">
+                                <input
+                                    type="text"
+                                    required
+                                    value={inboundInput}
+                                    onChange={(e) => setInboundInput(e.target.value)}
+                                    placeholder="Paste Link or Room Hash (e.g. plan-sync-...)"
+                                    className="input py-2.5 px-4 rounded-xl text-xs bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border focus:ring-1 focus:ring-primary font-medium"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isSyncingPlan}
+                                    className="w-full py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/25 transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-99 disabled:opacity-50"
+                                >
+                                    {isSyncingPlan ? (
+                                        <div className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />
+                                    ) : (
+                                        <Users size={12} />
+                                    )}
+                                    <span>{isSyncingPlan ? 'Connecting...' : 'Receive & Sync Plan'}</span>
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* E2EE Info Block */}
+                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl space-y-2.5 text-left">
+                            <div className="flex items-center gap-2 text-primary">
+                                <Lock size={16} />
+                                <h5 className="font-bold text-xs">End-to-End P2P Architecture</h5>
+                            </div>
+                            <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary leading-relaxed font-semibold">
+                                Syncing is completely local-first and serverless. Your daily notes are transferred directly peer-to-peer and saved locally onto your workspace disk handle in real-time.
+                            </p>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        </AnimatePresence>
     );
 };

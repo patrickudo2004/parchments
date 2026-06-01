@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import type { ReadingPlan, ReadingPlanTrack, Note } from '@/types/database';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { v4 as uuidv4 } from 'uuid';
+import { fileSystem, type FileSystemDirectoryHandle } from '@/lib/filesystem/FileSystemService';
 
 interface ReadingPlanState {
     activePlans: ReadingPlan[];
@@ -146,6 +147,64 @@ export const getDailySegments = (track: ReadingPlanTrack): { book: string; chapt
     return segments;
 };
 
+export const sanitizePathName = (name: string): string => {
+    return name.replace(/[:/\\*?"<>|]/g, '-');
+};
+
+export const getPlanMetadataAndHistory = async (planId: string) => {
+    const history = await db.readingPlanHistory.where('planId').equals(planId).toArray();
+    const notes: Record<string, any> = {};
+    
+    for (const record of history) {
+        if (record.noteId) {
+            const note = await db.notes.get(record.noteId);
+            if (note) {
+                notes[record.noteId] = {
+                    title: note.title,
+                    createdAt: note.createdAt,
+                    updatedAt: note.updatedAt
+                };
+            }
+        }
+    }
+    return { history, notes };
+};
+
+export const updateLocalPlanJson = async (plan: ReadingPlan) => {
+    const { useNoteStore } = await import('@/stores/noteStore');
+    const noteStoreState = useNoteStore.getState();
+    if (!noteStoreState.isLocalMode || !noteStoreState.localDirectoryHandle) return;
+
+    try {
+        const localFiles = noteStoreState.localFiles;
+        const parentFolder = localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+        if (!parentFolder) return;
+
+        const sanitizedName = sanitizePathName(plan.name);
+        const subFolder = localFiles.find(f => f.name === sanitizedName && f.parentId === parentFolder.id && f.kind === 'directory');
+        if (!subFolder) return;
+
+        const subFolderHandle = subFolder.handle as FileSystemDirectoryHandle;
+        const { history, notes } = await getPlanMetadataAndHistory(plan.id);
+        const manifest = {
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.startDate,
+            endDate: plan.endDate,
+            status: plan.status,
+            tracks: plan.tracks,
+            history,
+            notes
+        };
+
+        // Write plan.json physically
+        await fileSystem.createFile(subFolderHandle, 'plan.json', JSON.stringify(manifest, null, 2));
+        console.log(`[Local Plan JSON] Updated plan.json physically for: ${plan.name}`);
+    } catch (err) {
+        console.error('[readingPlanStore] Failed to update local plan.json:', err);
+    }
+};
+
 export const useReadingPlanStore = create<ReadingPlanState>()(
     persist(
         (set, get) => ({
@@ -182,7 +241,21 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         const refreshedFiles = useNoteStore.getState().localFiles;
                         localFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
                     }
-                    targetFolderId = localFolder ? localFolder.id : null;
+                    
+                    if (localFolder) {
+                        const sanitizedPlanName = sanitizePathName(name);
+                        let subFolder = useNoteStore.getState().localFiles.find(
+                            f => f.name === sanitizedPlanName && f.parentId === localFolder!.id && f.kind === 'directory'
+                        );
+                        if (!subFolder) {
+                            await noteStoreState.createLocalFolder(sanitizedPlanName, localFolder.id);
+                            const refreshedFiles = useNoteStore.getState().localFiles;
+                            subFolder = refreshedFiles.find(
+                                f => f.name === sanitizedPlanName && f.parentId === localFolder!.id && f.kind === 'directory'
+                            );
+                        }
+                        targetFolderId = subFolder ? subFolder.id : localFolder.id;
+                    }
                 } else {
                     // Ensure a "Lectio Study Journals" DB folder exists
                     let folder = await db.folders.where('name').equals('Lectio Study Journals').first();
@@ -219,6 +292,9 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 };
 
                 await db.readingPlans.add(newPlan);
+                if (isLocalMode) {
+                    await updateLocalPlanJson(newPlan);
+                }
                 await get().loadPlans();
                 return newPlan;
             },
@@ -232,11 +308,11 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 const historyId = `${planId}-${dateKey}`;
                 const existingHistory = await db.readingPlanHistory.get(historyId);
 
-                let noteId = existingHistory?.noteId;
+                // Use deterministic ID
+                const noteId = existingHistory?.noteId || `note-lectio-${planId}-${dateKey}`;
 
                 // 2. If no session note exists for today, create one auto-populated with headings
-                if (!noteId) {
-                    noteId = `note-lectio-${Date.now()}`;
+                if (!existingHistory) {
                     const dateString = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
                     // Generate a gorgeous pre-seeded template showing daily chapters to read
@@ -262,19 +338,31 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     const title = `Lectio Journal - ${dateString}`;
 
                     if (isLocalMode && localDirectoryHandle) {
-                        // Ensure the physical folder exists
-                        let targetFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
-                        if (!targetFolder) {
+                        let parentFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                        if (!parentFolder) {
                             await noteStoreState.createLocalFolder('Lectio Study Journals', null);
-                            const refreshedFiles = useNoteStore.getState().localFiles;
-                            targetFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                            parentFolder = useNoteStore.getState().localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
                         }
-                        const finalFolderId = targetFolder ? targetFolder.id : null;
 
-                        // Create in local folder physically
-                        await noteStoreState.createLocalNote(title, finalFolderId, initialContent, noteId);
+                        let targetFolderId = null;
+                        if (parentFolder) {
+                            const sanitizedPlanName = sanitizePathName(plan.name);
+                            let subFolder = useNoteStore.getState().localFiles.find(
+                                f => f.name === sanitizedPlanName && f.parentId === parentFolder.id && f.kind === 'directory'
+                            );
+                            if (!subFolder) {
+                                await noteStoreState.createLocalFolder(sanitizedPlanName, parentFolder.id);
+                                subFolder = useNoteStore.getState().localFiles.find(
+                                    f => f.name === sanitizedPlanName && f.parentId === parentFolder.id && f.kind === 'directory'
+                                );
+                            }
+                            targetFolderId = subFolder ? subFolder.id : parentFolder.id;
+                        }
+
+                        // Create in local folder physically inside plan subfolder
+                        await noteStoreState.createLocalNote(title, targetFolderId, initialContent, noteId);
                     } else {
-                        // Add note directly in IndexedDB inside the "Lectio Study Journals" folder
+                        // Add note directly in IndexedDB inside the plan's folder
                         const timestamp = Date.now();
                         const newNote: Note = {
                             id: noteId,
@@ -295,6 +383,16 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         planId,
                         completedAt: 0, // 0 signifies in progress
                         noteId
+                    });
+
+                    // Flush updated plan.json physically
+                    if (isLocalMode) {
+                        await updateLocalPlanJson(plan);
+                    }
+
+                    // Broadcast P2P plan sync
+                    import('@/lib/sync/PlanSyncManager').then(({ PlanSyncManager }) => {
+                        PlanSyncManager.broadcastPlanUpdate(planId);
                     });
                 }
 
@@ -384,7 +482,89 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     completedAt: Date.now()
                 });
 
-                // 3. Clean up active state
+                // 3. AUTO-GENERATE NEXT DAY'S NOTE (Pre-seeding tomorrow's chapters)
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const nextDateKey = tomorrow.toISOString().split('T')[0];
+                const nextHistoryId = `${activePlanId}-${nextDateKey}`;
+                const nextExistingHistory = await db.readingPlanHistory.get(nextHistoryId);
+
+                const { useNoteStore } = await import('@/stores/noteStore');
+                const noteStoreState = useNoteStore.getState();
+                const isLocalMode = noteStoreState.isLocalMode;
+
+                if (!nextExistingHistory) {
+                    const nextNoteId = `note-lectio-${activePlanId}-${nextDateKey}`;
+                    const tomorrowString = tomorrow.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+                    // Generate pre-seeded template using UPDATED tracks!
+                    let nextContent = `<h1 class="text-3xl font-black mb-4">Lectio Study Journal: ${tomorrowString}</h1>`;
+                    nextContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-8">Daily reading companion for plan: <b>${plan.name}</b></p>`;
+
+                    updatedTracks.forEach(track => {
+                        const segments = getDailySegments(track);
+                        const chaptersString = segments
+                            .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
+                            .join(', ');
+
+                        nextContent += `<h2 class="text-xl font-bold mt-6 border-b border-light-border dark:border-dark-border pb-1">📖 ${track.name} (${chaptersString})</h2>`;
+                        nextContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key takeaways and inspired summaries for this track here...</p><br/>`;
+                    });
+
+                    const title = `Lectio Journal - ${tomorrowString}`;
+
+                    if (isLocalMode && noteStoreState.localDirectoryHandle) {
+                        let parentFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                        if (parentFolder) {
+                            const sanitizedPlanName = sanitizePathName(plan.name);
+                            const subFolder = useNoteStore.getState().localFiles.find(
+                                f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id && f.kind === 'directory'
+                            );
+                            const targetFolderId = subFolder ? subFolder.id : parentFolder.id;
+                            
+                            // Create next day physically
+                            await noteStoreState.createLocalNote(title, targetFolderId, nextContent, nextNoteId);
+                        }
+                    } else {
+                        // Create next day in DB
+                        const timestamp = Date.now();
+                        const nextNote: Note = {
+                            id: nextNoteId,
+                            title,
+                            content: nextContent,
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                            folderId: plan.folderId,
+                            tags: ['lectio', plan.name.toLowerCase().replace(/[^a-z0-9]/g, '-')],
+                            type: 'text'
+                        };
+                        await db.notes.add(nextNote);
+                    }
+
+                    // Create blank history record for tomorrow
+                    await db.readingPlanHistory.put({
+                        id: nextHistoryId,
+                        planId: activePlanId,
+                        completedAt: 0,
+                        noteId: nextNoteId
+                    });
+                    console.log(`[Lectio Mode] Pre-generated next session note deterministically: ${nextNoteId}`);
+                }
+
+                // 4. Update local plan.json with new advanced state and notes manifest
+                if (isLocalMode) {
+                    const latestPlan = await db.readingPlans.get(activePlanId);
+                    if (latestPlan) {
+                        await updateLocalPlanJson(latestPlan);
+                    }
+                }
+
+                // Broadcast P2P sync
+                import('@/lib/sync/PlanSyncManager').then(({ PlanSyncManager }) => {
+                    PlanSyncManager.broadcastPlanUpdate(activePlanId);
+                });
+
+                // 5. Clean up active state
                 set({
                     activePlanId: null,
                     activeNoteId: null,
@@ -436,6 +616,28 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
             },
 
             deletePlan: async (planId) => {
+                const plan = await db.readingPlans.get(planId);
+                if (plan) {
+                    const { useNoteStore } = await import('@/stores/noteStore');
+                    const noteStoreState = useNoteStore.getState();
+                    if (noteStoreState.isLocalMode) {
+                        try {
+                            const localFiles = noteStoreState.localFiles;
+                            const parentFolder = localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                            if (parentFolder) {
+                                const sanitizedPlanName = sanitizePathName(plan.name);
+                                const subFolder = localFiles.find(f => f.name === sanitizedPlanName && f.parentId === parentFolder.id && f.kind === 'directory');
+                                if (subFolder) {
+                                    await noteStoreState.deleteFolder(subFolder.id);
+                                    console.log(`[Delete Plan] Deleted physical plan subfolder: ${sanitizedPlanName}`);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('[readingPlanStore] Failed to delete local physical folder:', err);
+                        }
+                    }
+                }
+
                 await db.readingPlans.delete(planId);
                 // Also clean up plan history
                 const historyKeys = await db.readingPlanHistory.where('planId').equals(planId).primaryKeys();

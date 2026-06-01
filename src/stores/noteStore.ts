@@ -107,6 +107,9 @@ interface NoteStore {
     localFiles: LocalItem[];
     currentFileHandle: FileSystemFileHandle | null;
     hasStudyspace: boolean;
+    isWorkspaceLocked: boolean;
+    lockedNotesBuffer: string[];
+    flushWorkspaceLockBuffer: () => Promise<void>;
     // Actions
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
@@ -162,6 +165,36 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     localFiles: [],
     currentFileHandle: null,
     hasStudyspace: autoSandbox,
+    isWorkspaceLocked: false,
+    lockedNotesBuffer: [],
+    flushWorkspaceLockBuffer: async () => {
+        const { isWorkspaceLocked, lockedNotesBuffer, localFiles, dehydrateAssets } = get();
+        if (!isWorkspaceLocked || lockedNotesBuffer.length === 0) return;
+
+        console.log(`[Workspace Lock Flusher] 🔄 Attempting to flush ${lockedNotesBuffer.length} buffered note writes...`);
+        const remainingBuffer: string[] = [];
+
+        for (const fileId of lockedNotesBuffer) {
+            const dbNote = await db.notes.get(fileId);
+            const localFile = localFiles.find(f => f.id === fileId && f.kind === 'file');
+
+            if (dbNote && localFile) {
+                try {
+                    let fsContent = dehydrateAssets(dbNote.content);
+                    await fileSystem.writeFile(localFile.handle as FileSystemFileHandle, fsContent);
+                    console.log(`[Workspace Lock Flusher] 💾 Flushed buffered note: ${localFile.name}`);
+                } catch (e) {
+                    console.error(`[Workspace Lock Flusher] Failed to write ${localFile.name}, keeping in buffer:`, e);
+                    remainingBuffer.push(fileId);
+                }
+            }
+        }
+
+        set({
+            lockedNotesBuffer: remainingBuffer,
+            isWorkspaceLocked: remainingBuffer.length > 0
+        });
+    },
 
     // Internal Helper: Enforce stable sorting (Folders > Files, then alphabetical)
     sortLocalItems: (items: LocalItem[]) => {
@@ -597,6 +630,84 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                             parentId: f.parentId
                         });
                     }
+                } else if (f.kind === 'file' && f.name === 'plan.json') {
+                    try {
+                        const fileHandle = f.handle as FileSystemFileHandle;
+                        const planContentText = await fileSystem.readFile(fileHandle) as string;
+                        const planData = JSON.parse(planContentText);
+
+                        if (planData && planData.id && planData.name && planData.tracks) {
+                            const { BIBLE_BOOKS } = await import('@/lib/bible/BibleData');
+                            const existingPlan = await db.readingPlans.get(planData.id);
+
+                            if (!existingPlan) {
+                                console.log('[File System] Ingesting discovered plan:', planData.name);
+                                await db.readingPlans.put({
+                                    id: planData.id,
+                                    name: planData.name,
+                                    startDate: planData.startDate,
+                                    endDate: planData.endDate,
+                                    status: planData.status,
+                                    tracks: planData.tracks,
+                                    folderId: f.parentId
+                                });
+                            } else {
+                                // Maximum progress merges
+                                const mergedTracks = planData.tracks.map((remoteTrack: any) => {
+                                    const localTrack = existingPlan.tracks.find(t => t.name === remoteTrack.name);
+                                    if (!localTrack) return remoteTrack;
+
+                                    const remoteBookIndex = BIBLE_BOOKS.findIndex(b => b.name === remoteTrack.currentBook);
+                                    const localBookIndex = BIBLE_BOOKS.findIndex(b => b.name === localTrack.currentBook);
+
+                                    let remoteWins = false;
+                                    if (remoteBookIndex > localBookIndex) {
+                                        remoteWins = true;
+                                    } else if (remoteBookIndex === localBookIndex) {
+                                        if (remoteTrack.currentChapter > localTrack.currentChapter) {
+                                            remoteWins = true;
+                                        }
+                                    }
+
+                                    return remoteWins ? remoteTrack : localTrack;
+                                });
+
+                                await db.readingPlans.update(planData.id, {
+                                    name: planData.name,
+                                    startDate: planData.startDate,
+                                    endDate: planData.endDate,
+                                    status: planData.status,
+                                    tracks: mergedTracks,
+                                    folderId: f.parentId
+                                });
+                            }
+
+                            // Ingest history logs
+                            if (Array.isArray(planData.history)) {
+                                for (const record of planData.history) {
+                                    const existingRec = await db.readingPlanHistory.get(record.id);
+                                    if (!existingRec || record.completedAt > existingRec.completedAt) {
+                                        await db.readingPlanHistory.put(record);
+                                    }
+                                }
+                            }
+
+                            // Reload reading plans
+                            import('@/stores/readingPlanStore').then(({ useReadingPlanStore }) => {
+                                useReadingPlanStore.getState().loadPlans();
+                            });
+                        }
+                    } catch (e) {
+                        console.error('[refreshLocalFiles] Failed to ingest discovered plan:', f.name, e);
+                    }
+
+                    mappedFiles.push({
+                        id: f.id,
+                        name: f.name,
+                        kind: f.kind,
+                        handle: f.handle,
+                        parentId: f.parentId
+                    });
                 } else {
                     mappedFiles.push({
                         id: f.id,
@@ -976,7 +1087,36 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() }
                 });
             } catch (error) {
-                console.error('Failed to save to file:', error);
+                console.warn('[NoteStore] File system write blocked or handle locked. Caching in IndexedDB Safe-Buffer...', error);
+                
+                // Fallback: Write safely to IndexedDB
+                try {
+                    await db.notes.put({
+                        id: currentNote.id,
+                        title: finalTitle,
+                        content: portableContent,
+                        updatedAt: Date.now(),
+                        createdAt: currentNote.createdAt,
+                        folderId: null,
+                        tags: [],
+                        type: currentNote.type
+                    });
+                    
+                    const existingBuffer = get().lockedNotesBuffer;
+                    if (!existingBuffer.includes(currentNote.id)) {
+                        set({
+                            lockedNotesBuffer: [...existingBuffer, currentNote.id],
+                            isWorkspaceLocked: true
+                        });
+                    }
+
+                    // Update UI state so it looks saved in-memory
+                    set({
+                        currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() }
+                    });
+                } catch (dbError) {
+                    console.error('[NoteStore] Failed to write fallback save to IndexedDB:', dbError);
+                }
             }
         } else if (!isLocalMode && currentNote.id) {
             // DB Mode

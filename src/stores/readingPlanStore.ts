@@ -306,10 +306,24 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 // 1. Check if the user has already read today
                 const dateKey = new Date().toISOString().split('T')[0];
                 const historyId = `${planId}-${dateKey}`;
-                const existingHistory = await db.readingPlanHistory.get(historyId);
+                let existingHistory = await db.readingPlanHistory.get(historyId);
 
                 // Use deterministic ID
-                const noteId = existingHistory?.noteId || `note-lectio-${planId}-${dateKey}`;
+                let noteId = existingHistory?.noteId || `note-lectio-${planId}-${dateKey}`;
+
+                // Read ahead logic: If today is already complete, open tomorrow's pre-seeded note early if it exists
+                if (existingHistory && existingHistory.completedAt > 0) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowDateKey = tomorrow.toISOString().split('T')[0];
+                    const tomorrowHistoryId = `${planId}-${tomorrowDateKey}`;
+                    const tomorrowHistory = await db.readingPlanHistory.get(tomorrowHistoryId);
+                    if (tomorrowHistory) {
+                        existingHistory = tomorrowHistory;
+                        noteId = tomorrowHistory.noteId || '';
+                        console.log(`[readingPlanStore] Today is complete. Opening tomorrow's pre-seeded note early: ${noteId}`);
+                    }
+                }
 
                 // 2. If no session note exists for today, create one auto-populated with headings
                 if (!existingHistory) {

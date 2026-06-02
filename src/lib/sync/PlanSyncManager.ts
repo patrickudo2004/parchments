@@ -32,6 +32,27 @@ export class PlanSyncManager {
 
         this.providers.set(roomHash, provider);
 
+        // Pre-warm Yjs docs of all notes in this plan's history to allow recursive syncing
+        try {
+            const hashParts = roomHash.split('-');
+            const planIdIndex = hashParts.findIndex((p, idx) => p === 'plan' && idx > 0 && /^\d+$/.test(hashParts[idx + 1] || ''));
+            if (planIdIndex !== -1 && hashParts[planIdIndex + 1]) {
+                const planId = `plan-${hashParts[planIdIndex + 1]}`;
+                db.readingPlanHistory.where('planId').equals(planId).toArray().then(historyList => {
+                    console.log(`[PlanSyncManager] 🔥 Pre-warming ${historyList.length} notes for plan sync: ${planId}`);
+                    historyList.forEach(rec => {
+                        if (rec.noteId) {
+                            YjsService.getDoc(rec.noteId);
+                        }
+                    });
+                }).catch(err => {
+                    console.error('[PlanSyncManager] Failed to pre-warm sync notes:', err);
+                });
+            }
+        } catch (err) {
+            console.error('[PlanSyncManager] Failed to parse roomHash for pre-warming:', err);
+        }
+
         // Define Yjs collections
         const metadata = doc.getMap('metadata');
         const history = doc.getArray('history');

@@ -7,6 +7,11 @@ import { BibleIngestionService } from '../bible/BibleIngestionService';
  * via the BibleDownloadService or import them manually.
  */
 export const seedBibleData = async () => {
+    if (localStorage.getItem('skip-bible-seeding') === 'true') {
+        console.info('[BibleDB] Skipping Bible seeding due to test bypass flag.');
+        return;
+    }
+
     // Check for legacy data (Uppercase book names in IDs, e.g., kjv-Genesis-1-1)
     // We strictly need lowercase IDs for tooltips to work consistently.
     const legacyVerse = await db.bibleVerses.get('kjv-Genesis-1-1');

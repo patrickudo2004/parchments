@@ -27,6 +27,70 @@ export const JoinHandler: React.FC = () => {
 
             showToast('Connecting to collaborative session...', 'info');
 
+            // 0. Plan Synchronization Intercept
+            if (roomHash.startsWith('plan-sync-')) {
+                try {
+                    // Extract planId and salt to store locally on the receiver
+                    const hashParts = roomHash.split('-');
+                    const planSalt = hashParts[hashParts.length - 1];
+                    const planIdIndex = hashParts.findIndex((p, idx) => p === 'plan' && idx > 0 && /^\d+$/.test(hashParts[idx + 1] || ''));
+                    if (planIdIndex !== -1 && hashParts[planIdIndex + 1] && planSalt) {
+                        const planId = `plan-${hashParts[planIdIndex + 1]}`;
+                        localStorage.setItem(`plan-salt-${planId}`, planSalt);
+                        console.log(`[JoinHandler] Stored plan salt for: ${planId} -> ${planSalt}`);
+                    }
+
+                    const { PlanSyncManager } = await import('@/lib/sync/PlanSyncManager');
+                    await PlanSyncManager.joinPlanRoom(roomHash);
+
+                    // Wait for metadata to sync over the WebRTC provider
+                    const waitForPlanSync = () => {
+                        return new Promise<void>((resolve) => {
+                            const provider = (PlanSyncManager as any).providers.get(roomHash);
+                            if (provider && provider.connected && provider.synced) {
+                                resolve();
+                                return;
+                            }
+                            let resolved = false;
+                            const handleSynced = () => {
+                                if (!resolved) {
+                                    resolved = true;
+                                    resolve();
+                                }
+                            };
+                            if (provider) {
+                                provider.on('synced', handleSynced);
+                                setTimeout(() => {
+                                    if (!resolved) {
+                                        resolved = true;
+                                        provider.off('synced', handleSynced);
+                                        resolve();
+                                    }
+                                }, 3500);
+                            } else {
+                                resolve();
+                            }
+                        });
+                    };
+
+                    await waitForPlanSync();
+                    showToast('Connected to reading plan!', 'success');
+
+                    // Navigate to Lectio Mode so the plan mounts instantly
+                    const { useReadingPlanStore } = await import('@/stores/readingPlanStore');
+                    useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null });
+
+                    setTimeout(() => {
+                        navigate('/app', { replace: true });
+                    }, 500);
+                } catch (err) {
+                    console.error('[JoinHandler] Plan sync failed:', err);
+                    showToast('Failed to join reading plan.', 'error');
+                    navigate('/app', { replace: true });
+                }
+                return;
+            }
+
             // Format of roomHash: 'local-[encodedId]' or 'p-[vault]-[encodedId]'
             const parts = roomHash.split('-');
             const startIndex = roomHash.startsWith('local-') ? 1 : 2;

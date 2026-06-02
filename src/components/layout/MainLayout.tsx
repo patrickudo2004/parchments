@@ -82,6 +82,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     // Mobile detection
     React.useEffect(() => {
+        (window as any).useUIStore = useUIStore;
+        (window as any).useNoteStore = useNoteStore;
+        
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768);
         };

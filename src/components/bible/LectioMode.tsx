@@ -102,6 +102,10 @@ export const LectioMode: React.FC = () => {
 
     const activePlan = activePlans.find(p => p.id === activePlanId);
 
+    const isPlanShared = useMemo(() => {
+        return !!activePlanId && !!localStorage.getItem(`plan-salt-${activePlanId}`);
+    }, [activePlanId]);
+
     // 2. Sync daily session Note into global NoteStore so RichTextEditor loads it
     useEffect(() => {
         if (isLectioModeActive && activeNoteId) {
@@ -138,7 +142,12 @@ export const LectioMode: React.FC = () => {
     const activeTrack = activePlan?.tracks[selectedTrackIndex];
     const dailySegments = useMemo(() => {
         return activeTrack ? getDailySegments(activeTrack) : [];
-    }, [activeTrack]);
+    }, [
+        activeTrack?.currentBook,
+        activeTrack?.currentChapter,
+        activeTrack?.chaptersPerDay,
+        activeTrack?.startBook
+    ]);
 
     // Flatten daily track segments into individual sequential pages for single-page reading
     const pages = useMemo(() => {
@@ -202,7 +211,20 @@ export const LectioMode: React.FC = () => {
         };
 
         fetchScriptures();
-    }, [isLectioModeActive, activePlanId, selectedTrackIndex, versionId, activeTrack, readerStyle, activePageIndex, pages, dailySegments]);
+    }, [
+        isLectioModeActive,
+        activePlanId,
+        selectedTrackIndex,
+        versionId,
+        readerStyle,
+        activePageIndex,
+        activeTrack?.currentBook,
+        activeTrack?.currentChapter,
+        activeTrack?.chaptersPerDay,
+        activeTrack?.startBook,
+        pages,
+        dailySegments
+    ]);
 
     // Click interceptor inside editor for Scripture links or blockquotes to slide up PiP drawer
     const handleJournalPanelClick = async (e: React.MouseEvent) => {
@@ -707,7 +729,7 @@ export const LectioMode: React.FC = () => {
                     >
                         {activeNoteId ? (
                             <div className="flex-1 h-full flex flex-col overflow-hidden relative">
-                                <RichTextEditor activeRoom={null} identity={null} shouldSync={false} />
+                                <RichTextEditor activeRoom={null} identity={null} shouldSync={isPlanShared} />
                             </div>
                         ) : (
                             <div className="h-full flex items-center justify-center p-8 text-center text-light-text-disabled">
@@ -1292,6 +1314,16 @@ export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose,
                 onToast('Invalid plan share key format.', 'error');
                 setIsSyncingPlan(false);
                 return;
+            }
+
+            // Extract planId and salt to store locally on the receiver
+            const hashParts = targetHash.split('-');
+            const planSalt = hashParts[hashParts.length - 1];
+            const planIdIndex = hashParts.findIndex((p, idx) => p === 'plan' && idx > 0 && /^\d+$/.test(hashParts[idx + 1] || ''));
+            if (planIdIndex !== -1 && hashParts[planIdIndex + 1] && planSalt) {
+                const planId = `plan-${hashParts[planIdIndex + 1]}`;
+                localStorage.setItem(`plan-salt-${planId}`, planSalt);
+                console.log(`[Sync Ingest] Stored plan salt for: ${planId} -> ${planSalt}`);
             }
 
             // Join the sync room

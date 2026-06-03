@@ -623,6 +623,9 @@ export const FilesSidebar: React.FC = () => {
         : rootNotes;
 
     const rootItems = [...allFolders, ...allNotes];
+    const isExplorerEmpty = isLocalMode
+        ? localFiles.filter(f => !f.parentId).length === 0
+        : rootItems.length === 0;
 
     return (
         <div
@@ -719,7 +722,7 @@ export const FilesSidebar: React.FC = () => {
                             Open Folder
                         </button>
                     </div>
-                ) : isLocalMode && localFiles.filter(f => !f.parentId).length === 0 ? (
+                ) : isExplorerEmpty ? (
                     <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
                         <div className="w-10 h-10 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center">
                             <FileText className="text-light-text-disabled" size={20} />

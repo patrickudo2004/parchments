@@ -22,6 +22,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                     <div className="hidden md:flex items-center gap-8">
                         <a href="#features" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Features</a>
                         <a href="/guide" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Guide</a>
+                        <a href="/releases" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Releases</a>
                         <a href="#download" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Download</a>
                         <a href="https://github.com/patrickudo2004/parchments" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
                             <Github size={20} />
@@ -115,7 +116,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-6">Support</h4>
                             <ul className="space-y-4 text-sm text-white/40">
                                 <li><a href="https://github.com/patrickudo2004/parchments/issues" className="hover:text-white transition-colors text-xs">Report an Issue</a></li>
-                                <li><a href="https://github.com/patrickudo2004/parchments/releases" className="hover:text-white transition-colors text-xs">Release Notes</a></li>
+                                <li><a href="/releases" className="hover:text-white transition-colors text-xs">Release Notes</a></li>
                             </ul>
                         </div>
                     </div>

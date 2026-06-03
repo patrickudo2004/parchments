@@ -94,6 +94,23 @@ export class PlanSyncManager {
                     }
                     targetFolderId = subFolder ? subFolder.id : parentFolder.id;
                 }
+            } else {
+                // Sandbox Mode: Ensure virtual folders exist recursively in IndexedDB
+                let parentFolder = useNoteStore.getState().folders.find(f => f.name === 'Lectio Study Journals');
+                if (!parentFolder) {
+                    parentFolder = await useNoteStore.getState().createFolder('Lectio Study Journals', null);
+                }
+
+                if (parentFolder) {
+                    const sanitizedPlanName = sanitizePathName(planName);
+                    let subFolder = useNoteStore.getState().folders.find(
+                        f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id
+                    );
+                    if (!subFolder) {
+                        subFolder = await useNoteStore.getState().createFolder(sanitizedPlanName, parentFolder.id);
+                    }
+                    targetFolderId = subFolder ? subFolder.id : parentFolder.id;
+                }
             }
 
             // Ingest/update plan in db
@@ -169,12 +186,13 @@ export class PlanSyncManager {
                     console.log(`[PlanSyncManager] 📥 Merged text for: ${noteMeta.title}`);
                     const timestamp = Date.now();
 
+                    let targetFolderId = null;
+
                     if (isLocalMode && noteStoreState.localDirectoryHandle) {
                         const { sanitizePathName } = await import('@/stores/readingPlanStore');
                         const planName = metadata.get('name') as string;
                         
                         let parentFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
-                        let targetFolderId = null;
 
                         if (parentFolder && planName) {
                             const sanitizedPlanName = sanitizePathName(planName);
@@ -189,6 +207,18 @@ export class PlanSyncManager {
                         // Write note physically inside subdirectory
                         await noteStoreState.createLocalNote(name, targetFolderId, contentText, noteId);
                     } else {
+                        // Resolve virtual folder ID for this plan on Client B (Mobile Sandbox)
+                        const { sanitizePathName } = await import('@/stores/readingPlanStore');
+                        const planName = metadata.get('name') as string;
+                        let parentFolder = useNoteStore.getState().folders.find(f => f.name === 'Lectio Study Journals');
+                        if (parentFolder && planName) {
+                            const sanitizedPlanName = sanitizePathName(planName);
+                            const subFolder = useNoteStore.getState().folders.find(
+                                f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id
+                            );
+                            targetFolderId = subFolder ? subFolder.id : parentFolder.id;
+                        }
+
                         // Write note in database
                         await db.notes.put({
                             id: noteId,
@@ -196,10 +226,13 @@ export class PlanSyncManager {
                             content: contentText,
                             createdAt: noteMeta.createdAt || timestamp,
                             updatedAt: timestamp,
-                            folderId: metadata.get('folderId') as string || null,
+                            folderId: targetFolderId,
                             tags: ['lectio'],
                             type: 'text'
                         });
+
+                        // Refresh note store cache to update file tree view
+                        await useNoteStore.getState().loadNotes();
                     }
 
                     // Detach sync watcher once note is replicated physically

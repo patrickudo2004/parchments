@@ -56,6 +56,39 @@ const TABS = [
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const settings = useUIStore();
+    const isTauri = typeof window !== 'undefined' && (!!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__);
+    const [updateChecking, setUpdateChecking] = useState(false);
+    const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+
+    const handleCheckForUpdates = async () => {
+        if (!isTauri) {
+            settings.showToast('Updates are managed by GitHub for the web version.', 'info');
+            return;
+        }
+        setUpdateChecking(true);
+        setUpdateStatus("Checking for updates...");
+        try {
+            const { check } = await import('@tauri-apps/plugin-updater');
+            const { relaunch } = await import('@tauri-apps/plugin-process');
+            
+            const update = await check();
+            if (update) {
+                setUpdateStatus(`Downloading version v${update.version}...`);
+                await update.downloadAndInstall();
+                setUpdateStatus("Relaunching...");
+                await relaunch();
+            } else {
+                setUpdateStatus("You are running the latest version!");
+                settings.showToast("Parchments is up to date!", "success");
+            }
+        } catch (err: any) {
+            console.error('Failed to check/install updates:', err);
+            setUpdateStatus(`Error: ${err.message || err}`);
+            settings.showToast(`Update check failed: ${err.message || err}`, "error");
+        } finally {
+            setUpdateChecking(false);
+        }
+    };
     const { mainVersion, setMainVersion, verseHoverPreviews, toggleVerseHoverPreviews } = useBibleStore();
 
     const {
@@ -1156,6 +1189,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         )}
                                                     </button>
                                                 </div>
+
+                                                {/* Desktop Auto-Updater (Tauri-only) */}
+                                                {isTauri && (
+                                                    <div className="space-y-3 pt-5 border-t border-light-border dark:border-dark-border">
+                                                        <h4 className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Application Updates</h4>
+                                                        <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                            <div>
+                                                                <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary flex items-center gap-1.5 animate-pulse">
+                                                                    <Cpu size={14} className="text-primary" />
+                                                                    <span>Desktop Update Center</span>
+                                                                </p>
+                                                                <p className="text-[10px] text-light-text-secondary mt-1">Check GitHub for the latest desktop app releases and signatures.</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={handleCheckForUpdates}
+                                                                disabled={updateChecking}
+                                                                className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
+                                                            >
+                                                                {updateChecking ? (
+                                                                    <>
+                                                                        <CircularProgress size={12} className="text-white" />
+                                                                        <span>Checking...</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Download size={12} />
+                                                                        <span>Check for Updates</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                        {updateStatus && (
+                                                            <p className="text-[10px] text-primary font-black uppercase tracking-wide px-1 mt-1">{updateStatus}</p>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 {/* Links footer */}
                                                 <div className="space-y-3 pt-5 border-t border-light-border dark:border-dark-border">

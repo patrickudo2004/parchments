@@ -225,9 +225,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     loadFolders: async () => {
         const folders = await db.folders.toArray();
+        const { isLocalMode } = get();
         set({
             folders,
-            hasStudyspace: autoSandbox ? folders.length > 0 : get().hasStudyspace
+            hasStudyspace: !isLocalMode ? true : (autoSandbox ? folders.length > 0 : get().hasStudyspace)
         });
     },
 

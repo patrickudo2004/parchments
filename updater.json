@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "notes": "Parchments offline-first P2P syncing release.",
+  "pubkey": "dW51c2VkX3B1YmxpY19rZXlfdGVtcGxhdGU=",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/patrickudo2004/parchments/releases/download/v0.1.0/Parchments_0.1.0_x64_en-US.msi.zip"
+    },
+    "darwin-x86_64": {
+      "signature": "",
+      "url": "https://github.com/patrickudo2004/parchments/releases/download/v0.1.0/Parchments_0.1.0_x64.app.tar.gz"
+    },
+    "darwin-aarch64": {
+      "signature": "",
+      "url": "https://github.com/patrickudo2004/parchments/releases/download/v0.1.0/Parchments_0.1.0_aarch64.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "",
+      "url": "https://github.com/patrickudo2004/parchments/releases/download/v0.1.0/parchments_0.1.0_amd64.deb.tar.gz"
+    }
+  }
+}

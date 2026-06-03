@@ -33,5 +33,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://raw.githubusercontent.com/patrickudo2004/parchments/main/updater.json"
+      ],
+      "pubkey": "dW51c2VkX3B1YmxpY19rZXlfdGVtcGxhdGU="
+    }
   }
 }

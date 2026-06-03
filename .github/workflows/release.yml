@@ -50,3 +50,51 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
+
+  build-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install dependencies
+        run: npm install
+
+      - name: build web assets
+        run: npm run build
+
+      - name: sync capacitor assets
+        run: npx cap sync android
+
+      - name: set up gradle cache
+        uses: gradle/gradle-build-action@v2
+
+      - name: build release apk
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: rename apk
+        run: mv android/app/build/outputs/apk/release/app-release-unsigned.apk android/app/build/outputs/apk/release/parchments-android.apk
+
+      - name: upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: android/app/build/outputs/apk/release/parchments-android.apk
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

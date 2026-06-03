@@ -22,7 +22,7 @@ export const MenuBar: React.FC = () => {
         editorFontSize,
         toggleFocusMode
     } = useUIStore();
-    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +53,9 @@ export const MenuBar: React.FC = () => {
             case 'Export to Word': openExportModal('docx'); break;
             case 'Settings':
                 toggleSettingsModal();
+                break;
+            case 'Switch Workspace Folder...':
+                openLocalFolder();
                 break;
             case 'Toggle Sidebar':
                 toggleLeftSidebar();
@@ -136,6 +139,8 @@ export const MenuBar: React.FC = () => {
                 { label: 'Print', shortcut: 'Ctrl+P' },
                 { type: 'separator' },
                 { label: 'Settings', shortcut: 'Ctrl+,' },
+                { type: 'separator' },
+                { label: 'Switch Workspace Folder...', shortcut: '' },
             ]
         },
         {

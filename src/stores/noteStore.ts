@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
-import { fileSystem, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
+import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
 
 
 export const UNTITLED_NOTE = 'Untitled Note';
@@ -147,11 +147,14 @@ interface NoteStore {
     hydrateAssets: (content: string) => Promise<string>;
     dehydrateAssets: (content: string) => string;
     sortLocalItems: (items: LocalItem[]) => LocalItem[];
+    activeWorkspaceId: string | null;
+    setActiveWorkspaceId: (id: string | null) => void;
+    createWorkspace: (name: string) => Promise<void>;
 }
 
 const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
-const autoSandbox = isMobileViewport || !isFileSystemSupported;
+const autoSandbox = (isMobileViewport || !isFileSystemSupported) && !isCapacitor;
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,
@@ -167,6 +170,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     hasStudyspace: autoSandbox,
     isWorkspaceLocked: false,
     lockedNotesBuffer: [],
+    activeWorkspaceId: null,
+    setActiveWorkspaceId: (id) => {
+        if (id) {
+            localStorage.setItem('parchments-active-workspace', id);
+        } else {
+            localStorage.removeItem('parchments-active-workspace');
+        }
+        set({ activeWorkspaceId: id, selectedFolderId: null, currentNote: null });
+    },
+    createWorkspace: async (name) => {
+        const folder = await get().createFolder(name, null);
+        set({ activeWorkspaceId: folder.id, selectedFolderId: null, currentNote: null });
+        localStorage.setItem('parchments-active-workspace', folder.id);
+    },
     flushWorkspaceLockBuffer: async () => {
         const { isWorkspaceLocked, lockedNotesBuffer, localFiles, dehydrateAssets } = get();
         if (!isWorkspaceLocked || lockedNotesBuffer.length === 0) return;
@@ -224,16 +241,65 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     loadFolders: async () => {
-        const folders = await db.folders.toArray();
+        let folders = await db.folders.toArray();
         const { isLocalMode } = get();
+        
+        if (!isLocalMode) {
+            // Find folders with parentId === null
+            let workspaces = folders.filter(f => f.parentId === null);
+            if (workspaces.length === 0) {
+                const defaultWorkspace = await dbHelpers.createFolder({
+                    name: 'Study Journal',
+                    parentId: null,
+                    order: 0
+                });
+                folders = await db.folders.toArray();
+                workspaces = [defaultWorkspace];
+            }
+            
+            let activeId = get().activeWorkspaceId;
+            if (!activeId || !workspaces.some(w => w.id === activeId)) {
+                const savedId = localStorage.getItem('parchments-active-workspace');
+                if (savedId && workspaces.some(w => w.id === savedId)) {
+                    activeId = savedId;
+                } else {
+                    activeId = workspaces[0].id;
+                    localStorage.setItem('parchments-active-workspace', activeId);
+                }
+            }
+            
+            // Migration: Move legacy root folders/notes to activeId
+            let migratedAny = false;
+            for (const f of folders) {
+                if (f.parentId === null && f.id !== activeId && !workspaces.some(w => w.id === f.id)) {
+                    await db.folders.update(f.id, { parentId: activeId });
+                    migratedAny = true;
+                }
+            }
+            
+            const notes = await db.notes.toArray();
+            for (const n of notes) {
+                if (n.folderId === null) {
+                    await db.notes.update(n.id, { folderId: activeId });
+                    migratedAny = true;
+                }
+            }
+            
+            if (migratedAny) {
+                folders = await db.folders.toArray();
+            }
+            
+            set({ activeWorkspaceId: activeId });
+        }
+        
         set({
             folders,
-            hasStudyspace: !isLocalMode ? true : (autoSandbox ? folders.length > 0 : get().hasStudyspace)
+            hasStudyspace: !isLocalMode ? true : (folders.length > 0 || get().hasStudyspace)
         });
     },
 
     createNote: async (folderId, title, forceId) => {
-        const { isLocalMode, localDirectoryHandle, createLocalNote } = get();
+        const { isLocalMode, localDirectoryHandle, createLocalNote, activeWorkspaceId } = get();
 
         // Fallback to DB if localized but no folder is open (Incognito/PWA fallback)
         if (isLocalMode && localDirectoryHandle) {
@@ -247,21 +313,23 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             return currentNote as Note;
         }
 
+        const targetFolderId = folderId || activeWorkspaceId;
+
         const note = await dbHelpers.createNote({
             title: title || UNTITLED_NOTE,
             content: '',
-            folderId,
+            folderId: targetFolderId,
             tags: [],
             type: 'text',
         }, forceId);
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        broadcastFolderChange(folderId);
+        broadcastFolderChange(targetFolderId);
         return note;
     },
 
     createNoteFromTemplate: async (folderId, templateId) => {
-        const { isLocalMode, createLocalNote } = get();
+        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
         const template = STUDY_TEMPLATES[templateId as keyof typeof STUDY_TEMPLATES];
         if (!template) throw new Error('Template not found');
 
@@ -273,30 +341,34 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             return {} as Note; // In local mode, refreshing file list handles selection
         }
 
+        const targetFolderId = folderId || activeWorkspaceId;
+
         const note = await dbHelpers.createNote({
             title,
             content: template.content,
-            folderId,
+            folderId: targetFolderId,
             tags: [],
             type: 'text',
         });
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        broadcastFolderChange(folderId);
+        broadcastFolderChange(targetFolderId);
         return note;
     },
 
     createVoiceNote: async (folderId, audioBlob, duration, transcript) => {
-        const { isLocalMode, createLocalVoiceNote } = get();
+        const { isLocalMode, createLocalVoiceNote, activeWorkspaceId } = get();
         if (isLocalMode) {
             await createLocalVoiceNote(audioBlob, folderId, transcript);
             return {} as Note;
         }
 
+        const targetFolderId = folderId || activeWorkspaceId;
+
         const note = await dbHelpers.createNote({
             title: 'Voice Note',
             content: '', // Empty - transcript is stored in transcript field
-            folderId,
+            folderId: targetFolderId,
             tags: [],
             type: 'voice',
             audioBlob,
@@ -305,14 +377,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         });
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
-        broadcastFolderChange(folderId);
+        broadcastFolderChange(targetFolderId);
         return note;
     },
 
     createFolder: async (name, parentId = null, forceId) => {
+        const { isLocalMode, activeWorkspaceId } = get();
+        const targetParentId = parentId || (!isLocalMode ? activeWorkspaceId : null);
+
         const folder = await dbHelpers.createFolder({
             name,
-            parentId,
+            parentId: targetParentId,
             order: 0,
         }, forceId);
         const { folders } = get();

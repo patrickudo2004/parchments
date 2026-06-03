@@ -89,7 +89,7 @@ export const LandingPage: React.FC = () => {
                         <div id="download" className="flex flex-col items-center justify-center gap-6 pt-4">
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.1_x64_en-US.msi"
                                     className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
@@ -108,17 +108,30 @@ export const LandingPage: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-center gap-3 text-xs pt-2">
                                 <span className="text-white/30 font-bold uppercase tracking-wider text-[10px] mr-1">Other Platforms:</span>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.1_universal.dmg"
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    <span> Download for macOS</span>
+                                    <span> macOS</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb"
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.1_amd64.deb"
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    <span>🐧 Download for Linux</span>
+                                    <span>🐧 Linux</span>
                                 </a>
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments-android.apk"
+                                    className="px-4 py-2 bg-white/5 hover:bg-primary/20 text-white border border-primary/20 hover:border-primary/40 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                                    title="Download Android Release APK"
+                                >
+                                    <span>🤖 Android (APK)</span>
+                                </a>
+                                <button
+                                    onClick={() => alert("To install on iOS:\n1. Open Safari on your iPhone/iPad.\n2. Go to https://parchments.vercel.app (or your hosted PWA link).\n3. Tap the Share button in Safari.\n4. Select 'Add to Home Screen'.")}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                                >
+                                    <span>📱 iOS (PWA Setup)</span>
+                                </button>
                             </div>
                         </div>
                     </motion.div>

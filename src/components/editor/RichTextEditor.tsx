@@ -562,10 +562,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                     </button>
                 </div>
             )}
-
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div
-                    className={`mx-auto py-16 px-8 min-h-full transition-all duration-500 ${writingLayout === 'centered' ? 'max-w-4xl shadow-sm bg-light-surface dark:bg-dark-background/30' : 'max-w-none'
+                    className={`mx-auto py-8 px-4 md:py-16 md:px-8 min-h-full transition-all duration-500 ${writingLayout === 'centered' ? 'max-w-4xl shadow-sm bg-light-surface dark:bg-dark-background/30' : 'max-w-none'
                         }`}
                     style={{
                         fontFamily: editorFontFamily === 'serif' ? '"Source Serif 4", Georgia, serif' : 'Inter, sans-serif',
@@ -603,13 +602,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         }}
                         placeholder="Note Title"
                         rows={1}
-                        className={`w-full text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''} ${pulpitMode ? 'cursor-default pointer-events-none select-none' : ''}`}
+                        className={`w-full text-3xl md:text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block break-words ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''} ${pulpitMode ? 'cursor-default pointer-events-none select-none' : ''}`}
                         style={{ height: 'auto' }}
                     />
 
                     {/* Meta Info */}
-                    <div className="flex items-center justify-between mb-6 border-b border-light-border dark:border-dark-border pb-4">
-                        <div className="flex items-center gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 border-b border-light-border dark:border-dark-border pb-4">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-bold text-light-text-disabled uppercase tracking-widest">
                             <span>Created: {new Date(currentNote.createdAt).toLocaleDateString()}</span>
                             <span>•</span>
                             <span className={isSaving ? 'text-primary animate-pulse' : ''}>
@@ -632,7 +631,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             )}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {/* Share Note Button */}
                             {identity && (
                                 <button

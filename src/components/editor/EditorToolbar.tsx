@@ -169,7 +169,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     };
 
     return (
-        <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 ${isMobile && showAdvanced ? 'h-24' : 'h-12'}`}>
+        <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 w-full max-w-full overflow-hidden ${isMobile && showAdvanced ? 'h-24' : 'h-12'}`}>
             {/* Primary Row */}
             <div className="h-12 w-full flex items-center px-4 gap-1 overflow-x-auto no-scrollbar">
                 {/* Save button */}

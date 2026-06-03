@@ -39,8 +39,116 @@ export const FilesSidebar: React.FC = () => {
         hasStudyspace,
         refreshLocalFiles,
         selectedFolderId,
-        setSelectedFolderId
+        setSelectedFolderId,
+        activeWorkspaceId,
+        setActiveWorkspaceId,
+        createWorkspace,
+        localDirectoryHandle
     } = useNoteStore();
+
+    const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
+
+    const renderWorkspaceSwitcher = () => {
+        const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
+        const workspaceName = isLocalMode
+            ? (localDirectoryHandle?.name || 'Local Folder')
+            : (activeWorkspaceFolder?.name || 'Study Journal');
+
+        const workspaces = folders.filter(f => f.parentId === null);
+
+        const handleSelectWorkspace = (workspaceId: string) => {
+            setActiveWorkspaceId(workspaceId);
+            setIsWorkspaceDropdownOpen(false);
+        };
+
+        const handleCreateWorkspaceClick = () => {
+            setIsWorkspaceDropdownOpen(false);
+            setPromptConfig({
+                isOpen: true,
+                title: 'New Workspace',
+                label: 'Workspace Name',
+                defaultValue: 'New Study Journal',
+                onConfirm: async (name) => {
+                    if (name) {
+                        await createWorkspace(name);
+                    }
+                    setPromptConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            });
+        };
+
+        return (
+            <div className="relative z-40">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
+                    }}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[150px] md:max-w-[200px]"
+                >
+                    <FolderOpen size={14} className="text-primary shrink-0" />
+                    <span className="truncate">{workspaceName}</span>
+                    <ChevronDown size={12} className={`transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isWorkspaceDropdownOpen && (
+                    <>
+                        <div 
+                            className="fixed inset-0 z-30" 
+                            onClick={() => setIsWorkspaceDropdownOpen(false)} 
+                        />
+                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-lg z-40 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">
+                                Workspaces
+                            </div>
+                            {isLocalMode ? (
+                                <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10">
+                                    <Folder size={14} />
+                                    <span className="truncate">{workspaceName}</span>
+                                </div>
+                            ) : (
+                                <div className="max-h-40 overflow-y-auto">
+                                    {workspaces.map(w => (
+                                        <button
+                                            key={w.id}
+                                            onClick={() => handleSelectWorkspace(w.id)}
+                                            className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-light-background dark:hover:bg-dark-background transition-colors ${w.id === activeWorkspaceId ? 'text-primary font-bold bg-primary/5' : ''}`}
+                                        >
+                                            <span className="truncate">{w.name}</span>
+                                            {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="border-t border-light-border dark:border-dark-border my-1" />
+                            
+                            {!isLocalMode && (
+                                <button
+                                    onClick={handleCreateWorkspaceClick}
+                                    className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5 text-primary font-medium"
+                                >
+                                    <FolderPlus size={14} />
+                                    <span>Create Workspace...</span>
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => {
+                                    setIsWorkspaceDropdownOpen(false);
+                                    openLocalFolder();
+                                }}
+                                className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5"
+                            >
+                                <Upload size={14} />
+                                <span>{isLocalMode ? 'Switch Local Folder...' : 'Open Local Folder...'}</span>
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    };
 
     const navigate = useNavigate();
     const { toggleTemplateModal, toggleNoFolderModal, isMobile, toggleLeftSidebar } = useUIStore();
@@ -382,10 +490,20 @@ export const FilesSidebar: React.FC = () => {
 
         // 2. ACTIVE DRILL DOWN CALCULATION
         const currentFolder = folders.find(f => f.id === selectedFolderId);
-        const parentFolderId = currentFolder ? currentFolder.parentId : null;
+        const parentFolderId = currentFolder 
+            ? (currentFolder.parentId === activeWorkspaceId ? null : currentFolder.parentId) 
+            : null;
         
-        const activeSubfolders = folders.filter(f => f.parentId === selectedFolderId);
-        const activeNotes = notes.filter(n => n.folderId === selectedFolderId);
+        const activeSubfolders = folders.filter(f => 
+            selectedFolderId 
+                ? f.parentId === selectedFolderId 
+                : (isLocalMode ? f.parentId === null : f.parentId === activeWorkspaceId)
+        );
+        const activeNotes = notes.filter(n => 
+            selectedFolderId 
+                ? n.folderId === selectedFolderId 
+                : (isLocalMode ? n.folderId === null : n.folderId === activeWorkspaceId)
+        );
 
         return (
             <div className="flex flex-col h-full bg-light-surface dark:bg-dark-surface overflow-hidden">
@@ -401,9 +519,13 @@ export const FilesSidebar: React.FC = () => {
                                 <ChevronRight size={20} className="rotate-180 shrink-0" />
                             </button>
                         )}
-                        <h3 className="text-base font-extrabold truncate">
-                            {currentFolder ? currentFolder.name : 'Library'}
-                        </h3>
+                        {selectedFolderId ? (
+                            <h3 className="text-base font-extrabold truncate">
+                                {currentFolder?.name}
+                            </h3>
+                        ) : (
+                            renderWorkspaceSwitcher()
+                        )}
                     </div>
                     <div className="flex items-center gap-1">
                         <button
@@ -605,13 +727,13 @@ export const FilesSidebar: React.FC = () => {
     }
 
     // Desktop explorer layout
-    const rootFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
-    const rootNotes = notes.filter(n => !n.folderId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
+    const rootFolders = folders.filter(f => f.parentId === activeWorkspaceId).map(f => ({ ...f, type: 'folder' as const }));
+    const rootNotes = notes.filter(n => n.folderId === activeWorkspaceId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
 
     const allFolders = isLocalMode
         ? [
             ...localFiles.filter(D => !D.parentId && D.kind === 'directory').map(f => ({ ...f, type: 'folder' as const })),
-            ...folders.filter(f => !localFiles.some(lf => lf.id === f.id)).map(f => ({ ...f, type: 'folder' as const }))
+            ...folders.filter(f => f.parentId === null && !localFiles.some(lf => lf.id === f.id)).map(f => ({ ...f, type: 'folder' as const }))
         ]
         : rootFolders;
 
@@ -633,7 +755,7 @@ export const FilesSidebar: React.FC = () => {
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
             <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Explorer</h3>
+                {renderWorkspaceSwitcher()}
                 <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
                     <button
                         onClick={handleCreateNote}

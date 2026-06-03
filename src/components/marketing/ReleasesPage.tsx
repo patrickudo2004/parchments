@@ -21,9 +21,11 @@ const RELEASES: ReleaseItem[] = [
         description: "Mobile sandbox database isolation, recursive note synchronization, scroll state stabilization, and desktop update center.",
         features: [
             "Desktop Auto-Updater: Direct signature updates from GitHub Releases right in the settings panel.",
-            "Releases Timeline: Premium releases and changelog view tracking project milestones."
+            "Releases Timeline: Premium releases and changelog view tracking project milestones.",
+            "Android APK Package: Mobile client releases compiled automatically and attached to GitHub draft releases."
         ],
         improvements: [
+            "Capacitor Mobile Filesystem: Native OS file permission prompts and local storage writing to Documents/Parchments on Android/iOS.",
             "Recursive Note Replication: Pre-warms closed study plan notes recursively over WebRTC rooms to load full historical note archives on linked phone clients.",
             "Sandbox Workspace Explorer: Automatically displays virtual folder trees inside mobile browsers without requiring native directory handles."
         ],

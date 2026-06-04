@@ -17,6 +17,7 @@ import { PrivacyPolicy } from '@/components/marketing/PrivacyPolicy';
 import { TermsOfService } from '@/components/marketing/TermsOfService';
 import { ReleasesPage } from '@/components/marketing/ReleasesPage';
 import { useNoteStore } from '@/stores/noteStore';
+import { Capacitor } from '@capacitor/core';
 
 const App: React.FC = () => {
     useSpaceSync();
@@ -31,7 +32,7 @@ const App: React.FC = () => {
         loadFolders().catch(err => console.error('Failed to load folders:', err));
     }, []);
 
-    const isDesktop = !!(window as any).__TAURI__;
+    const isNativeApp = !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__ || Capacitor.isNativePlatform();
     const isPopout = popoutService.isPopout();
     const popoutType = popoutService.getPopoutType();
 
@@ -48,7 +49,7 @@ const App: React.FC = () => {
     return (
         <Routes>
             <Route path="/" element={
-                isDesktop ? <Navigate to="/app" replace /> : <LandingPage />
+                isNativeApp ? <Navigate to="/app" replace /> : <LandingPage />
             } />
             <Route path="/app/*" element={
                 <MainLayout>

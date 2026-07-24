@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Folder, Sparkles, Zap } from 'lucide-react';
+import { Search, FileText, Folder, Sparkles, Zap, Loader2 } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { dbHelpers } from '@/lib/db';
+import { db, dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
+import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 
 interface SearchResult {
     id: string;
@@ -21,6 +22,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
     const [query, setQuery] = useState(initialQuery);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [aiLoadingStatus, setAiLoadingStatus] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +66,40 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
             });
         }
 
+
+        // 2. Semantic Search (triggered by ? prefix)
+        if (searchQuery.startsWith('?')) {
+            const cleanQuery = searchQuery.slice(1).trim();
+            if (cleanQuery) {
+                try {
+                    const semanticHits = await SemanticSearchService.searchNotes(cleanQuery, (progressData) => {
+                        setAiLoadingStatus(`Downloading AI Search Model: ${Math.round(progressData.progress || 0)}%`);
+                    });
+                    setAiLoadingStatus(null);
+
+                    for (const hit of semanticHits) {
+                        const note = await db.notes.get(hit.noteId);
+                        if (note && !seenIds.has(note.id)) {
+                            seenIds.add(note.id);
+                            newResults.push({
+                                id: `semantic-${note.id}`,
+                                type: 'semantic',
+                                title: note.title,
+                                subtitle: `Semantic Match: ${Math.round(hit.similarity * 100)}% similarity`,
+                                icon: <Zap className="text-amber-500" size={16} />,
+                                handler: () => {
+                                    setCurrentNote(note);
+                                    onClose();
+                                }
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error('Semantic search query execution failed:', err);
+                    setAiLoadingStatus(null);
+                }
+            }
+        }
 
         // 3. Keyword Search - Database
         const dbHits = await dbHelpers.searchNotes(searchQuery);
@@ -185,13 +221,20 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Search everything... (Try 'John 3:16' or '> Theme')"
+                                placeholder="Search... (Try 'John 3:16', '> Theme', or '?Grace')"
                                 className="flex-1 bg-transparent border-none outline-none text-lg text-light-text-primary dark:text-dark-text-primary placeholder:text-light-text-disabled"
                             />
                             <div className="flex items-center gap-1 opacity-50">
                                 <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-bold">ESC</kbd>
                             </div>
                         </div>
+
+                        {aiLoadingStatus && (
+                            <div className="bg-primary/5 px-6 py-2.5 border-b border-light-border dark:border-dark-border flex items-center gap-3 text-xs text-primary font-bold animate-pulse">
+                                <Loader2 className="animate-spin text-primary shrink-0" size={14} />
+                                <span>{aiLoadingStatus}</span>
+                            </div>
+                        )}
 
                         {/* Results Area */}
                         <div

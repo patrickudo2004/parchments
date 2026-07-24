@@ -3,6 +3,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
+import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 
 
 export const UNTITLED_NOTE = 'Untitled Note';
@@ -1213,6 +1214,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 console.error('Failed to save to DB:', error);
             }
         }
+
+        // Trigger background semantic search vector indexing
+        SemanticSearchService.indexNote(currentNote.id, finalTitle, portableContent).catch(err => {
+            console.error('[NoteStore] Background semantic indexing failed:', err);
+        });
     },
     saveLocalAsset: async (file: File) => {
         const { localDirectoryHandle, isLocalMode } = get();
@@ -1290,5 +1296,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         return doc.body.innerHTML;
     },
 
-    setLocalMode: (enabled) => set({ isLocalMode: enabled }),
+    setLocalMode: (enabled) => {
+        set({ isLocalMode: enabled, currentNote: null, selectedFolderId: null });
+        if (!enabled) {
+            get().loadFolders();
+            get().loadNotes();
+        }
+    },
 }));

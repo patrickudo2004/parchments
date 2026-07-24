@@ -16,7 +16,8 @@ import {
     PenTool,
     Pin,
     Share2,
-    BookOpen
+    BookOpen,
+    Database
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
@@ -43,16 +44,20 @@ export const FilesSidebar: React.FC = () => {
         activeWorkspaceId,
         setActiveWorkspaceId,
         createWorkspace,
-        localDirectoryHandle
+        localDirectoryHandle,
+        setLocalMode
     } = useNoteStore();
 
     const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
 
     const renderWorkspaceSwitcher = () => {
         const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
-        const workspaceName = isLocalMode
+        const displayName = isLocalMode
             ? (localDirectoryHandle?.name || 'Local Folder')
             : (activeWorkspaceFolder?.name || 'Study Journal');
+        const workspaceName = isLocalMode
+            ? `${displayName} (Local Folder)`
+            : `${displayName} (Browser DB)`;
 
         const workspaces = folders.filter(f => f.parentId === null);
 
@@ -104,7 +109,7 @@ export const FilesSidebar: React.FC = () => {
                             {isLocalMode ? (
                                 <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10">
                                     <Folder size={14} />
-                                    <span className="truncate">{workspaceName}</span>
+                                    <span className="truncate">{displayName} (Local Directory)</span>
                                 </div>
                             ) : (
                                 <div className="max-h-40 overflow-y-auto">
@@ -114,7 +119,7 @@ export const FilesSidebar: React.FC = () => {
                                             onClick={() => handleSelectWorkspace(w.id)}
                                             className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-light-background dark:hover:bg-dark-background transition-colors ${w.id === activeWorkspaceId ? 'text-primary font-bold bg-primary/5' : ''}`}
                                         >
-                                            <span className="truncate">{w.name}</span>
+                                            <span className="truncate">{w.name} (Browser Sandbox)</span>
                                             {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                                         </button>
                                     ))}
@@ -130,6 +135,19 @@ export const FilesSidebar: React.FC = () => {
                                 >
                                     <FolderPlus size={14} />
                                     <span>Create Workspace...</span>
+                                </button>
+                            )}
+
+                            {isLocalMode && (
+                                <button
+                                    onClick={() => {
+                                        setIsWorkspaceDropdownOpen(false);
+                                        setLocalMode(false);
+                                    }}
+                                    className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5 text-primary font-medium"
+                                >
+                                    <Database size={14} />
+                                    <span>Switch to Browser Database</span>
                                 </button>
                             )}
 

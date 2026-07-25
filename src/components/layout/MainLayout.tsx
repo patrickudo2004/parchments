@@ -79,6 +79,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
+    const [bibleMobileFullscreen, setBibleMobileFullscreen] = React.useState(false);
 
     // Mobile detection
     React.useEffect(() => {
@@ -92,6 +93,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, [setIsMobile]);
+
+    // Listen for Bible fullscreen toggle from MobileNav
+    React.useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail as { fullscreen: boolean };
+            setBibleMobileFullscreen(detail.fullscreen);
+        };
+        window.addEventListener('bible-mobile-fullscreen', handler);
+        return () => window.removeEventListener('bible-mobile-fullscreen', handler);
+    }, []);
 
     const startResizingLeft = React.useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -251,7 +262,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     )}
 
                     {/* Main Content Area - Editor */}
-                    <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'h-[55%] w-full order-last' : 'flex-1 h-full'}`}>
+                    <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${
+                        isMobile && rightSidebarOpen && rightSidebarContent === 'bible'
+                            ? bibleMobileFullscreen
+                                ? 'hidden'
+                                : 'h-[55%] w-full order-last'
+                            : 'flex-1 h-full'
+                    }`}>
                         {children}
                     </main>
 
@@ -284,7 +301,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 }}
                                 className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
                                     isMobile && rightSidebarContent === 'bible'
-                                        ? 'w-full h-[45%] border-b order-first z-10'
+                                        ? `w-full border-b order-first z-10 ${bibleMobileFullscreen ? 'fixed inset-0 z-[65]' : 'h-[45%]'}`
                                         : isMobile
                                             ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl border-l'
                                             : isRightSidebarFloating

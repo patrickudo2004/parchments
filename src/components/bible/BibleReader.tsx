@@ -321,7 +321,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     >
                         <Languages size={18} />
                     </button>
-                    {!isIndependent && (
+                    {!isIndependent && !isMobile && (
                         <button
                             onClick={toggleRightSidebarFloating}
                             className={`p-1.5 rounded-full transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
@@ -330,6 +330,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                             {isRightSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                         </button>
                     )}
+                    {!isMobile && (
                     <button
                         onClick={() => {
                             popoutService.open('bible');
@@ -340,6 +341,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     >
                         <ExternalLink size={18} />
                     </button>
+                    )}
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
                     <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={18} /></button>
                     <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={18} /></button>

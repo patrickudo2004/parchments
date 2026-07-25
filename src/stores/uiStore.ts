@@ -277,7 +277,13 @@ export const useUIStore = create<UIStore>()(
             setEditorStats: (words, characters) => set({ wordCount: words, characterCount: characters }),
             setLeftSidebarPosition: (pos) => set({ leftSidebarPosition: pos }),
             setRightSidebarPosition: (pos) => set({ rightSidebarPosition: pos }),
-            setIsMobile: (isMobile) => set({ isMobile }),
+            setIsMobile: (isMobile) => set((state) => ({
+                isMobile,
+                // On mobile, close the left sidebar by default so it doesn't
+                // obstruct the editor area on launch
+                isLeftSidebarOpen: isMobile ? false : state.isLeftSidebarOpen,
+                leftSidebarContent: isMobile ? null : state.leftSidebarContent,
+            })),
             setVersionStatus: (status, info) => set({ versionStatus: status, updateInfo: info || null }),
         }),
         {

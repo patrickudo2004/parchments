@@ -82,7 +82,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <ul className="space-y-4 text-sm text-white/40">
                                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                                 <li><a href="/guide" className="hover:text-white transition-colors">Guide</a></li>
-                                <li><a href="/app" className="hover:text-white transition-colors italic">Web Preview</a></li>
+                                <li><a href="/app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors italic">Web Preview</a></li>
                             </ul>
                         </div>
 

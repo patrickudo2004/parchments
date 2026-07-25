@@ -187,6 +187,8 @@ export const LandingPage: React.FC = () => {
                                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                                                 <a
                                                     href="/app"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     className="px-8 py-4 bg-primary text-white font-black rounded-2xl flex items-center gap-3 hover:scale-110 transition-all shadow-2xl cursor-pointer"
                                                 >
                                                     Open Interactive Workspace <ArrowRight size={20} />

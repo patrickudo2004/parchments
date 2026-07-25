@@ -388,10 +388,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 initialQuery={searchQuery}
                 onClose={toggleSearchModal}
             />
-            <BibleModal />
             <SettingsModal isOpen={isSettingsModalOpen} onClose={toggleSettingsModal} />
             <ShortcutModal isOpen={isShortcutModalOpen} onClose={toggleShortcutModal} />
-            <TemplatePickerModal />
                 {/* Toast System */}
                 <AnimatePresence>
                     {toast && (
@@ -399,7 +397,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             initial={{ opacity: 0, y: 50 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 50 }}
-                            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-dark-surface border border-dark-border rounded-full shadow-2xl flex items-center gap-3"
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-dark-surface border border-dark-border rounded-full shadow-2xl flex items-center gap-3"
                         >
                             <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-primary'}`} />
                             <span className="text-sm font-bold text-white tracking-tight">{toast.message}</span>

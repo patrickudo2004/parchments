@@ -157,6 +157,7 @@ export const dbHelpers = {
     // Bible Verses
     getVerseText: async (versionId: string, book: string, chapter: number, verse: number, verseEnd?: number | null) => {
         try {
+            const { decryptVerseText } = await import('@/lib/bible/bibleCryptoService');
             if (verseEnd && verseEnd > verse) {
                 // Fetch verse range
                 const verses = await db.bibleVerses
@@ -165,7 +166,11 @@ export const dbHelpers = {
                     .and(v => v.verse >= verse && v.verse <= verseEnd)
                     .sortBy('verse');
 
-                return verses.map(v => `<sup>${v.verse}</sup> ${v.text}`).join(' ');
+                const decryptedVerses = await Promise.all(verses.map(async v => {
+                    const text = await decryptVerseText(v.text);
+                    return `<sup>${v.verse}</sup> ${text}`;
+                }));
+                return decryptedVerses.join(' ');
             } else {
                 // Fetch single verse
                 const verseData = await db.bibleVerses
@@ -173,7 +178,9 @@ export const dbHelpers = {
                     .equals([versionId, book, chapter, verse])
                     .first();
 
-                return verseData ? `<sup>${verseData.verse}</sup> ${verseData.text}` : null;
+                if (!verseData) return null;
+                const text = await decryptVerseText(verseData.text);
+                return `<sup>${verseData.verse}</sup> ${text}`;
             }
         } catch (error) {
             console.error('Error fetching verse:', error);

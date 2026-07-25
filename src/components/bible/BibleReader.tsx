@@ -68,7 +68,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 db.bibleVerses.where('[versionId+book+chapter]').equals([vid, book, chapter]).toArray()
             )
         );
-        return results.flat();
+        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+        return await decryptVerses(results.flat());
     }, [activeVersions, book, chapter]) || [];
 
     // Group verses by verse number

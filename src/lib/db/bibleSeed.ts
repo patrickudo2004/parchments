@@ -3,8 +3,7 @@ import { BibleIngestionService } from '../bible/BibleIngestionService';
 
 /**
  * Seeds initial metadata if the database is empty.
- * In a production state, this will be empty, as users download versions 
- * via the BibleDownloadService or import them manually.
+ * Re-seeds automatically if unencrypted legacy data is detected.
  */
 export const seedBibleData = async () => {
     if (localStorage.getItem('skip-bible-seeding') === 'true') {
@@ -12,26 +11,33 @@ export const seedBibleData = async () => {
         return;
     }
 
-    // Check for legacy data (Uppercase book names in IDs, e.g., kjv-Genesis-1-1)
-    // We strictly need lowercase IDs for tooltips to work consistently.
+    // Migration Check: Detect unencrypted legacy Bible data
+    const sampleVerses = await db.bibleVerses.limit(1).toArray();
+    const sampleVerse = sampleVerses[0];
+    if (sampleVerse && !sampleVerse.text.startsWith('ENC::v1::')) {
+        console.info('[BibleDB] Detected unencrypted legacy Bible data. Purging for encrypted re-seeding...');
+        await db.bibleVerses.clear();
+        await db.bibleVersions.clear();
+        console.info('[BibleDB] Legacy unencrypted Bible data purged.');
+    }
+
+    // Check for legacy data with Title Case IDs
     const legacyVerse = await db.bibleVerses.get('kjv-Genesis-1-1');
     if (legacyVerse) {
-        console.info('[BibleDB] Detected legacy KJV data (Title Case IDs). Purging for migration...');
+        console.info('[BibleDB] Detected legacy KJV data (Title Case IDs). Purging...');
         await db.bibleVersions.delete('kjv');
         await db.bibleVerses.where('versionId').equals('kjv').delete();
         console.info('[BibleDB] Legacy KJV data purged.');
     }
 
     const existingVersions = await db.bibleVersions.count();
-
-    // Check if KJV is already downloaded
     const isKjvDownloaded = await BibleIngestionService.isKJVDownloaded();
 
     if (existingVersions === 0 || !isKjvDownloaded) {
-        console.info('[BibleDB] Triggering initial KJV ingestion...');
+        console.info('[BibleDB] Triggering encrypted initial KJV ingestion...');
         await BibleIngestionService.fetchAndIngestKJV();
     } else {
-        console.info('[BibleDB] KJV already exists. Skipping initial ingestion.');
+        console.info('[BibleDB] Encrypted KJV already exists. Skipping initial ingestion.');
     }
 
     // Check for Strongs
@@ -41,8 +47,7 @@ export const seedBibleData = async () => {
         await BibleIngestionService.ingestStrongs();
     }
 
-    // Check for Interlinear (check if some verses have it)
-    // We'll check the first verse of John 1
+    // Check for Interlinear
     const john1_1 = await db.bibleVerses.get('kjv-john-1-1');
     if (john1_1 && !john1_1.interlinear) {
         console.info('[BibleDB] Interlinear data missing for KJV. Triggering ingestion...');

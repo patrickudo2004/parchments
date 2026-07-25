@@ -109,16 +109,20 @@ export const useBibleStore = create<BibleStore>()(
                         const concordance = await db.strongsConcordance.where('strongsNumbers').equals(sId).toArray();
                         const verseIds = concordance.map(c => c.verseId);
                         const rawResults = await db.bibleVerses.bulkGet(verseIds);
-                        results = rawResults.filter(v => v && v.versionId === mainVersion);
+                        const validRaw = (rawResults.filter(Boolean) as any[]).filter(v => v.versionId === mainVersion);
+                        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                        results = await decryptVerses(validRaw);
                     } else {
                         // 2. Lexical Keyword Search - Direct In-Memory Filter Cache
                         let versionVerses = versionVersesCache[mainVersion];
                         if (!versionVerses) {
                             console.log(`[bibleStore] ⚡ Loading version ${mainVersion} into memory cache for instant searching...`);
-                            versionVerses = await db.bibleVerses
+                            const rawVerses = await db.bibleVerses
                                 .where('versionId')
                                 .equals(mainVersion)
                                 .toArray();
+                            const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                            versionVerses = await decryptVerses(rawVerses);
                             versionVersesCache[mainVersion] = versionVerses;
                         }
 

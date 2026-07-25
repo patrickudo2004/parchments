@@ -9,8 +9,7 @@ import {
     Download,
     Share2,
     BookMarked,
-    X,
-    Maximize2
+    X
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -23,21 +22,19 @@ export const MobileNav: React.FC = () => {
         toggleLeftSidebar,
         rightSidebarOpen,
         rightSidebarContent,
-        toggleRightSidebar,
         toggleSettingsModal,
         toggleSearchModal,
         toggleTemplateModal,
         toggleNoFolderModal,
-        openExportModal
+        openExportModal,
+        mobileBibleState,
+        cycleMobileBibleState
     } = useUIStore();
 
     const { hasStudyspace, currentNote } = useNoteStore();
     const { identity } = useSyncStore();
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [bibleMobileFullscreen, setBibleMobileFullscreen] = useState(false);
-    const bibleTapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const bibleTapCount = React.useRef(0);
 
     const handleNewStudy = () => {
         setIsMenuOpen(false);
@@ -48,39 +45,8 @@ export const MobileNav: React.FC = () => {
         toggleTemplateModal();
     };
 
-    // Double-tap handler for the Bible button:
-    //  - 1st tap: opens the bible panel at half-height (normal)
-    //  - 2nd tap within 400ms: expands to full-screen
-    //  - Tapping while in full-screen: closes it back to half (or closes if already closed)
     const handleBibleTap = () => {
-        bibleTapCount.current += 1;
-
-        if (bibleTapCount.current === 1) {
-            // First tap — open/toggle at half height
-            if (!rightSidebarOpen || rightSidebarContent !== 'bible') {
-                setBibleMobileFullscreen(false);
-                toggleRightSidebar('bible');
-            }
-            // Start the window for double-tap
-            bibleTapTimer.current = setTimeout(() => {
-                bibleTapCount.current = 0;
-            }, 400);
-        } else if (bibleTapCount.current === 2) {
-            // Double tap — toggle full-screen
-            if (bibleTapTimer.current) clearTimeout(bibleTapTimer.current);
-            bibleTapCount.current = 0;
-            if (rightSidebarOpen && rightSidebarContent === 'bible') {
-                const next = !bibleMobileFullscreen;
-                setBibleMobileFullscreen(next);
-                // Dispatch a custom event so MainLayout can apply the full-screen class
-                window.dispatchEvent(new CustomEvent('bible-mobile-fullscreen', { detail: { fullscreen: next } }));
-            } else {
-                // Bible is closed — open it at full-screen directly
-                setBibleMobileFullscreen(true);
-                toggleRightSidebar('bible');
-                window.dispatchEvent(new CustomEvent('bible-mobile-fullscreen', { detail: { fullscreen: true } }));
-            }
-        }
+        cycleMobileBibleState();
     };
 
     return (
@@ -143,7 +109,6 @@ export const MobileNav: React.FC = () => {
                                     <button
                                         onClick={() => {
                                             setIsMenuOpen(false);
-                                            // Share modal is toggled in TopBar / app state
                                             toggleSettingsModal('sync');
                                         }}
                                         className="flex items-center gap-3 p-3 bg-light-background dark:bg-dark-background hover:opacity-80 rounded-2xl transition-all font-bold text-xs"
@@ -185,12 +150,16 @@ export const MobileNav: React.FC = () => {
 
                 <button
                     onClick={handleBibleTap}
-                    className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${rightSidebarOpen && rightSidebarContent === 'bible' ? 'text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary opacity-60'}`}
+                    className={`flex flex-col items-center gap-0.5 p-2 transition-colors ${rightSidebarOpen && rightSidebarContent === 'bible' ? 'text-primary font-bold' : 'text-light-text-secondary dark:text-dark-text-secondary opacity-60'}`}
                 >
                     <BookOpen size={18} />
-                    <span className="text-[9px] font-bold uppercase tracking-wider">Bible</span>
-                    {rightSidebarOpen && rightSidebarContent === 'bible' && !bibleMobileFullscreen && (
-                        <Maximize2 size={9} className="opacity-50 -mt-0.5" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">
+                        {rightSidebarOpen && rightSidebarContent === 'bible' && mobileBibleState === 'full' ? 'Bible (Full)' : 'Bible'}
+                    </span>
+                    {rightSidebarOpen && rightSidebarContent === 'bible' && (
+                        <span className="text-[7px] font-black uppercase tracking-tighter opacity-75 leading-none">
+                            {mobileBibleState === 'half' ? '▲ Expand' : '✕ Close'}
+                        </span>
                     )}
                 </button>
 

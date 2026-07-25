@@ -56,6 +56,7 @@ interface UIStore {
     wordCount: number;
     characterCount: number;
     isMobile: boolean;
+    mobileBibleState: 'closed' | 'half' | 'full';
 
     // Actions
     toggleTheme: () => void;
@@ -92,6 +93,8 @@ interface UIStore {
     setEditorStats: (words: number, characters: number) => void;
     setIsMobile: (isMobile: boolean) => void;
     setVersionStatus: (status: 'up-to-date' | 'outdated' | 'obsolete', info?: any) => void;
+    setMobileBibleState: (mobileState: 'closed' | 'half' | 'full') => void;
+    cycleMobileBibleState: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -285,6 +288,45 @@ export const useUIStore = create<UIStore>()(
                 leftSidebarContent: isMobile ? null : state.leftSidebarContent,
             })),
             setVersionStatus: (status, info) => set({ versionStatus: status, updateInfo: info || null }),
+
+            mobileBibleState: 'closed',
+            setMobileBibleState: (mobileState) => set((state) => {
+                if (mobileState === 'closed') {
+                    return {
+                        mobileBibleState: 'closed',
+                        rightSidebarOpen: state.rightSidebarContent === 'bible' ? false : state.rightSidebarOpen,
+                        rightSidebarContent: state.rightSidebarContent === 'bible' ? null : state.rightSidebarContent,
+                    };
+                }
+                return {
+                    mobileBibleState: mobileState,
+                    rightSidebarOpen: true,
+                    rightSidebarContent: 'bible',
+                };
+            }),
+            cycleMobileBibleState: () => set((state) => {
+                // If Bible is not open or different content active, start at half
+                if (!state.rightSidebarOpen || state.rightSidebarContent !== 'bible' || state.mobileBibleState === 'closed') {
+                    return {
+                        mobileBibleState: 'half',
+                        rightSidebarOpen: true,
+                        rightSidebarContent: 'bible',
+                    };
+                }
+                if (state.mobileBibleState === 'half') {
+                    return {
+                        mobileBibleState: 'full',
+                        rightSidebarOpen: true,
+                        rightSidebarContent: 'bible',
+                    };
+                }
+                // 'full' -> 'closed'
+                return {
+                    mobileBibleState: 'closed',
+                    rightSidebarOpen: false,
+                    rightSidebarContent: null,
+                };
+            }),
         }),
         {
             name: 'parchments-ui',

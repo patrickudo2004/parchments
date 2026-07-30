@@ -23,7 +23,9 @@ export class PlanSyncManager {
         this.docs.set(roomHash, doc);
 
         const signalingServers = [
-            'wss://parchments-signaling.patrickudo2004.deno.net'
+            'wss://parchments-signaling.patrickudo2004.deno.net',
+            'wss://signaling.yjs.dev',
+            'wss://y-webrtc.fly.dev',
         ];
 
         const provider = new WebrtcProvider(`parchment-v1-${roomHash}`, doc, {

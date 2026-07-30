@@ -1,5 +1,6 @@
 import { db } from '../lib/db';
 import type { BibleVerse } from '../types/database';
+import { encryptVerseText } from '../lib/bible/bibleCryptoService';
 
 const USFM_BOOK_MAPPING: Record<string, string> = {
     'GEN': 'Genesis', 'EXO': 'Exodus', 'LEV': 'Leviticus', 'NUM': 'Numbers', 'DEU': 'Deuteronomy',
@@ -61,13 +62,13 @@ self.addEventListener('message', async (event) => {
 
                         // Hierarchical Object has a "verses" property inside chapter
                         const versesSource = isArray ? chapterData : (chapterData.verses ? Object.entries(chapterData.verses) : []);
-                        
-                        // If it's not a flat array of books/chapters, versesSource is an array of [verse, text] entries
                         const isEntryFormat = !isArray;
 
                         for (const vEntry of versesSource) {
                             const verseNum = isEntryFormat ? parseInt((vEntry as any)[0]) : (versesSource.indexOf(vEntry) + 1);
                             const text = isEntryFormat ? (vEntry as any)[1] : vEntry;
+
+                            const encrypted = await encryptVerseText(text);
 
                             versesToInsert.push({
                                 id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
@@ -75,7 +76,7 @@ self.addEventListener('message', async (event) => {
                                 book: bookName,
                                 chapter: chapterNum,
                                 verse: verseNum,
-                                text,
+                                text: encrypted,
                             });
                         }
 
@@ -90,15 +91,13 @@ self.addEventListener('message', async (event) => {
                     }
                 }
             } else if (data.verses) {
-                // Format 2: Flat { verses: [{ book_name, chapter, verse, text }] }
                 const { verses } = data;
                 const totalVerses = verses.length;
                 let processedVerses = 0;
 
                 for (const v of verses) {
-                    // Normalize book name if needed (e.g. Roman numerals)
-                    // For now assuming web.json has standard names like 'Genesis'
                     const bookName = v.book_name;
+                    const encrypted = await encryptVerseText(v.text);
 
                     versesToInsert.push({
                         id: `${versionId}-${bookName}-${v.chapter}-${v.verse}`.toLowerCase(),
@@ -106,7 +105,7 @@ self.addEventListener('message', async (event) => {
                         book: bookName,
                         chapter: v.chapter,
                         verse: v.verse,
-                        text: v.text,
+                        text: encrypted,
                     });
 
                     processedVerses++;
@@ -122,9 +121,9 @@ self.addEventListener('message', async (event) => {
                 throw new Error('Unknown JSON format. Expected "books" or "verses" array.');
             }
 
-            self.postMessage({ status: 'saving', message: 'Saving to database...' });
+            self.postMessage({ status: 'saving', message: 'Encrypting & saving to database...' });
 
-            // Bulk add to Dexie (Dexie works in Web Workers!)
+            // Bulk add to Dexie
             await db.bibleVerses.bulkPut(versesToInsert);
 
             // Mark version as downloaded
@@ -143,23 +142,17 @@ self.addEventListener('message', async (event) => {
             const content = data as string;
             const versesToInsert: BibleVerse[] = [];
 
-            // Extract USFM 3-letter book ID from header (e.g. \id GEN World English Bible)
             const idMatch = content.match(/\\id\s+([A-Z0-9]{3})\b/i);
             const bookCode = idMatch ? idMatch[1].toUpperCase() : null;
-            
-            // Map to standard book name or fallback
+
             let bookName = versionId.toUpperCase();
             if (bookCode && USFM_BOOK_MAPPING[bookCode]) {
                 bookName = USFM_BOOK_MAPPING[bookCode];
             } else if (bookCode) {
-                // Capitalize code if mapping is missing
                 bookName = bookCode.charAt(0) + bookCode.slice(1).toLowerCase();
             }
 
-            // Basic USFM Regex for verses
             const verseRegex = /\\v\s+(\d+)\s+([^\\\n]+)/g;
-
-            // Split into chapters
             const chapters = content.split(/\\c\s+/);
 
             for (let i = 1; i < chapters.length; i++) {
@@ -170,10 +163,9 @@ self.addEventListener('message', async (event) => {
                 while ((verseMatch = verseRegex.exec(chapterContent)) !== null) {
                     const verseNum = parseInt(verseMatch[1]);
                     let text = verseMatch[2].trim();
-
-                    // Clean up common USFM formatting tags (e.g. paragraph \p, \wj ... \wj*, \add ... \add*, etc.)
-                    // Strips tags like \add, \add*, \wj, \wj*, \p, \q, etc., leaving the text inside
                     text = text.replace(/\\[a-z]+(?:\*|\b)/gi, '').trim();
+
+                    const encrypted = await encryptVerseText(text);
 
                     versesToInsert.push({
                         id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
@@ -181,12 +173,12 @@ self.addEventListener('message', async (event) => {
                         book: bookName,
                         chapter: chapterNum,
                         verse: verseNum,
-                        text,
+                        text: encrypted,
                     });
                 }
             }
 
-            self.postMessage({ status: 'saving', message: `Saving ${versesToInsert.length} verses...` });
+            self.postMessage({ status: 'saving', message: `Encrypting & saving ${versesToInsert.length} verses...` });
             await db.bibleVerses.bulkPut(versesToInsert);
             await db.bibleVersions.update(versionId, { isDownloaded: true });
             self.postMessage({ status: 'complete', message: 'USFM Import successful!' });

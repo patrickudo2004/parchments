@@ -16,7 +16,8 @@ import {
     PenTool,
     Pin,
     Share2,
-    BookOpen
+    BookOpen,
+    Database
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
@@ -43,16 +44,20 @@ export const FilesSidebar: React.FC = () => {
         activeWorkspaceId,
         setActiveWorkspaceId,
         createWorkspace,
-        localDirectoryHandle
+        localDirectoryHandle,
+        setLocalMode
     } = useNoteStore();
 
     const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
 
     const renderWorkspaceSwitcher = () => {
         const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
-        const workspaceName = isLocalMode
+        const displayName = isLocalMode
             ? (localDirectoryHandle?.name || 'Local Folder')
             : (activeWorkspaceFolder?.name || 'Study Journal');
+        const workspaceName = isLocalMode
+            ? `${displayName} (Local Folder)`
+            : `${displayName} (Browser DB)`;
 
         const workspaces = folders.filter(f => f.parentId === null);
 
@@ -84,11 +89,11 @@ export const FilesSidebar: React.FC = () => {
                         e.stopPropagation();
                         setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
                     }}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[150px] md:max-w-[200px]"
+                    className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[100px] sm:max-w-[130px]"
                 >
                     <FolderOpen size={14} className="text-primary shrink-0" />
                     <span className="truncate">{workspaceName}</span>
-                    <ChevronDown size={12} className={`transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isWorkspaceDropdownOpen && (
@@ -97,14 +102,14 @@ export const FilesSidebar: React.FC = () => {
                             className="fixed inset-0 z-30" 
                             onClick={() => setIsWorkspaceDropdownOpen(false)} 
                         />
-                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-lg z-40 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">
                                 Workspaces
                             </div>
                             {isLocalMode ? (
                                 <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10">
                                     <Folder size={14} />
-                                    <span className="truncate">{workspaceName}</span>
+                                    <span className="truncate">{displayName} (Local Directory)</span>
                                 </div>
                             ) : (
                                 <div className="max-h-40 overflow-y-auto">
@@ -114,7 +119,7 @@ export const FilesSidebar: React.FC = () => {
                                             onClick={() => handleSelectWorkspace(w.id)}
                                             className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-light-background dark:hover:bg-dark-background transition-colors ${w.id === activeWorkspaceId ? 'text-primary font-bold bg-primary/5' : ''}`}
                                         >
-                                            <span className="truncate">{w.name}</span>
+                                            <span className="truncate">{w.name} (Browser Sandbox)</span>
                                             {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                                         </button>
                                     ))}
@@ -130,6 +135,19 @@ export const FilesSidebar: React.FC = () => {
                                 >
                                     <FolderPlus size={14} />
                                     <span>Create Workspace...</span>
+                                </button>
+                            )}
+
+                            {isLocalMode && (
+                                <button
+                                    onClick={() => {
+                                        setIsWorkspaceDropdownOpen(false);
+                                        setLocalMode(false);
+                                    }}
+                                    className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5 text-primary font-medium"
+                                >
+                                    <Database size={14} />
+                                    <span>Switch to Browser Database</span>
                                 </button>
                             )}
 
@@ -508,8 +526,8 @@ export const FilesSidebar: React.FC = () => {
         return (
             <div className="flex flex-col h-full bg-light-surface dark:bg-dark-surface overflow-hidden">
                 {/* Mobile Explorer Header */}
-                <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between bg-light-background/20 dark:bg-dark-background/20 shrink-0">
-                    <div className="flex items-center gap-2 overflow-hidden">
+                <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between bg-light-background/20 dark:bg-dark-background/20 shrink-0 relative z-30">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                         {selectedFolderId && (
                             <button
                                 onClick={() => setSelectedFolderId(parentFolderId)}
@@ -754,9 +772,9 @@ export const FilesSidebar: React.FC = () => {
             data-sidebar
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
-            <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
+            <div className="p-3 border-b border-light-border dark:border-dark-border flex items-center justify-between gap-1 relative z-30">
                 {renderWorkspaceSwitcher()}
-                <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
+                <div className="flex items-center gap-0.5 shrink-0 text-light-text-secondary dark:text-dark-text-secondary">
                     <button
                         onClick={handleCreateNote}
                         className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"

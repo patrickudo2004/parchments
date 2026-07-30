@@ -71,9 +71,8 @@ export class YjsService {
         // 2. Enable P2P Connectivity (WebRTC)
         const signalingServers = [
             'wss://parchments-signaling.patrickudo2004.deno.net',
-            // Public fallbacks are currently disabled to prevent console clutter during public server downtime
-            // 'wss://signaling.yjs.dev',
-            // 'wss://y-webrtc.fly.dev',
+            'wss://signaling.yjs.dev',
+            'wss://y-webrtc.fly.dev',
         ];
 
         const webrtcProvider = new WebrtcProvider(expectedRoomName, doc, {

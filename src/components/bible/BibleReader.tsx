@@ -13,6 +13,7 @@ import { Pin, X, BookOpen } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoutService } from '@/lib/utils/popoutService';
+import { BibleSearchOverlay } from './BibleSearchOverlay';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
@@ -30,7 +31,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         interlinearEnabled,
         toggleInterlinear,
         selectionRange,
-        setSelectionRange
+        setSelectionRange,
+        isSearchOpen
     } = useBibleStore();
 
     const { pinItem } = useResearchStore();
@@ -68,7 +70,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 db.bibleVerses.where('[versionId+book+chapter]').equals([vid, book, chapter]).toArray()
             )
         );
-        return results.flat();
+        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+        return await decryptVerses(results.flat());
     }, [activeVersions, book, chapter]) || [];
 
     // Group verses by verse number
@@ -265,8 +268,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">
             {/* Nav Header */}
-            <div className={`h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between pl-4 ${!isIndependent ? 'pr-14' : 'pr-4'} bg-light-background/30 dark:bg-dark-background/20 shrink-0`}>
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[60%]">
+            <div className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-3 bg-light-background/30 dark:bg-dark-background/20 shrink-0 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     <select
                         value={mainVersion}
                         onChange={(e) => setMainVersion(e.target.value)}
@@ -320,7 +323,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     >
                         <Languages size={18} />
                     </button>
-                    {!isIndependent && (
+                    {!isIndependent && !isMobile && (
                         <button
                             onClick={toggleRightSidebarFloating}
                             className={`p-1.5 rounded-full transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
@@ -329,6 +332,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                             {isRightSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                         </button>
                     )}
+                    {!isMobile && (
                     <button
                         onClick={() => {
                             popoutService.open('bible');
@@ -339,6 +343,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     >
                         <ExternalLink size={18} />
                     </button>
+                    )}
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
                     <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={18} /></button>
                     <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={18} /></button>
@@ -484,6 +489,11 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         </button>
                     </motion.div>
                 )}
+            </AnimatePresence>
+
+            {/* Search Overlay */}
+            <AnimatePresence>
+                {isSearchOpen && <BibleSearchOverlay key="search-overlay" />}
             </AnimatePresence>
         </div>
     );

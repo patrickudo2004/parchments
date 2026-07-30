@@ -73,7 +73,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         leftSidebarPosition,
         setLeftSidebarPosition,
         rightSidebarPosition,
-        setRightSidebarPosition
+        setRightSidebarPosition,
+        mobileBibleState
     } = useUIStore();
     const { hasStudyspace, openLocalFolder, createNote } = useNoteStore();
 
@@ -251,7 +252,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     )}
 
                     {/* Main Content Area - Editor */}
-                    <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'h-[55%] w-full order-last' : 'flex-1 h-full'}`}>
+                    <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${
+                        isMobile && rightSidebarOpen && rightSidebarContent === 'bible'
+                            ? mobileBibleState === 'full'
+                                ? 'hidden'
+                                : 'h-[55%] w-full order-last'
+                            : 'flex-1 h-full'
+                    }`}>
                         {children}
                     </main>
 
@@ -284,7 +291,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 }}
                                 className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
                                     isMobile && rightSidebarContent === 'bible'
-                                        ? 'w-full h-[45%] border-b order-first z-10'
+                                        ? `w-full border-b order-first z-10 ${mobileBibleState === 'full' ? 'fixed inset-0 z-[65]' : 'h-[45%]'}`
                                         : isMobile
                                             ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl border-l'
                                             : isRightSidebarFloating
@@ -388,10 +395,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 initialQuery={searchQuery}
                 onClose={toggleSearchModal}
             />
-            <BibleModal />
             <SettingsModal isOpen={isSettingsModalOpen} onClose={toggleSettingsModal} />
             <ShortcutModal isOpen={isShortcutModalOpen} onClose={toggleShortcutModal} />
-            <TemplatePickerModal />
                 {/* Toast System */}
                 <AnimatePresence>
                     {toast && (
@@ -399,7 +404,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             initial={{ opacity: 0, y: 50 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 50 }}
-                            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-dark-surface border border-dark-border rounded-full shadow-2xl flex items-center gap-3"
+                            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-dark-surface border border-dark-border rounded-full shadow-2xl flex items-center gap-3"
                         >
                             <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-primary'}`} />
                             <span className="text-sm font-bold text-white tracking-tight">{toast.message}</span>

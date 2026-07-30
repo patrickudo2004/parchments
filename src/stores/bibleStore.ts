@@ -44,6 +44,7 @@ const BOOK_ORDER: Record<string, number> = {
     "Genesis": 1, "Exodus": 2, "Leviticus": 3, "Numbers": 4, "Deuteronomy": 5, "Joshua": 6, "Judges": 7, "Ruth": 8, "1 Samuel": 9, "2 Samuel": 10, "1 Kings": 11, "2 Kings": 12, "1 Chronicles": 13, "2 Chronicles": 14, "Ezra": 15, "Nehemiah": 16, "Esther": 17, "Job": 18, "Psalms": 19, "Proverbs": 20, "Ecclesiastes": 21, "Song of Solomon": 22, "Isaiah": 23, "Jeremiah": 24, "Lamentations": 25, "Ezekiel": 26, "Daniel": 27, "Hosea": 28, "Joel": 29, "Amos": 30, "Obadiah": 31, "Jonah": 32, "Micah": 33, "Nahum": 34, "Habakkuk": 35, "Zephaniah": 36, "Haggai": 37, "Zechariah": 38, "Malachi": 39, "Matthew": 40, "Mark": 41, "Luke": 42, "John": 43, "Acts": 44, "Romans": 45, "1 Corinthians": 46, "2 Corinthians": 47, "Galatians": 48, "Ephesians": 49, "Philippians": 50, "Colossians": 51, "1 Thessalonians": 52, "2 Thessalonians": 53, "1 Timothy": 54, "2 Timothy": 55, "Titus": 56, "Philemon": 57, "Hebrews": 58, "James": 59, "1 Peter": 60, "2 Peter": 61, "1 John": 62, "2 John": 63, "3 John": 64, "Jude": 65, "Revelation": 66
 };
 
+const versionVersesCache: Record<string, any[]> = {};
 let lastEffectSearchId = 0;
 
 export const useBibleStore = create<BibleStore>()(
@@ -53,12 +54,12 @@ export const useBibleStore = create<BibleStore>()(
             parallelVersions: [],
             bibleFocus: { book: 'John', chapter: 1, verse: null },
             interlinearEnabled: false,
-            verseHoverPreviews: true,
             selectionRange: null,
             isSearchOpen: false,
             searchQuery: '',
             searchResults: [],
             isSearching: false,
+            verseHoverPreviews: true,
 
             setMainVersion: (version) => set({ mainVersion: version.toLowerCase() }),
 
@@ -108,15 +109,26 @@ export const useBibleStore = create<BibleStore>()(
                         const concordance = await db.strongsConcordance.where('strongsNumbers').equals(sId).toArray();
                         const verseIds = concordance.map(c => c.verseId);
                         const rawResults = await db.bibleVerses.bulkGet(verseIds);
-                        results = rawResults.filter(v => v && v.versionId === mainVersion);
+                        const validRaw = (rawResults.filter(Boolean) as any[]).filter(v => v.versionId === mainVersion);
+                        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                        results = await decryptVerses(validRaw);
                     } else {
-                        // 2. Lexical Keyword Search - Direct Dexie Query
-                        results = await db.bibleVerses
-                            .where('versionId')
-                            .equals(mainVersion)
+                        // 2. Lexical Keyword Search - Direct In-Memory Filter Cache
+                        let versionVerses = versionVersesCache[mainVersion];
+                        if (!versionVerses) {
+                            console.log(`[bibleStore] ⚡ Loading version ${mainVersion} into memory cache for instant searching...`);
+                            const rawVerses = await db.bibleVerses
+                                .where('versionId')
+                                .equals(mainVersion)
+                                .toArray();
+                            const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                            versionVerses = await decryptVerses(rawVerses);
+                            versionVersesCache[mainVersion] = versionVerses;
+                        }
+
+                        results = versionVerses
                             .filter(v => v.text.toLowerCase().includes(querySnippet))
-                            .limit(100)
-                            .toArray();
+                            .slice(0, 100);
                     }
 
                     // Abort if a newer search has started

@@ -102,7 +102,7 @@ export const FilesSidebar: React.FC = () => {
                             className="fixed inset-0 z-30" 
                             onClick={() => setIsWorkspaceDropdownOpen(false)} 
                         />
-                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-lg z-40 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">
                                 Workspaces
                             </div>
@@ -526,8 +526,8 @@ export const FilesSidebar: React.FC = () => {
         return (
             <div className="flex flex-col h-full bg-light-surface dark:bg-dark-surface overflow-hidden">
                 {/* Mobile Explorer Header */}
-                <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between bg-light-background/20 dark:bg-dark-background/20 shrink-0">
-                    <div className="flex items-center gap-2 overflow-hidden">
+                <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between bg-light-background/20 dark:bg-dark-background/20 shrink-0 relative z-30">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                         {selectedFolderId && (
                             <button
                                 onClick={() => setSelectedFolderId(parentFolderId)}
@@ -772,7 +772,7 @@ export const FilesSidebar: React.FC = () => {
             data-sidebar
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
-            <div className="p-3 border-b border-light-border dark:border-dark-border flex items-center justify-between gap-1 overflow-hidden">
+            <div className="p-3 border-b border-light-border dark:border-dark-border flex items-center justify-between gap-1 relative z-30">
                 {renderWorkspaceSwitcher()}
                 <div className="flex items-center gap-0.5 shrink-0 text-light-text-secondary dark:text-dark-text-secondary">
                     <button

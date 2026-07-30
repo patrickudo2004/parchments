@@ -89,11 +89,11 @@ export const FilesSidebar: React.FC = () => {
                         e.stopPropagation();
                         setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
                     }}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[150px] md:max-w-[200px]"
+                    className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[100px] sm:max-w-[130px]"
                 >
                     <FolderOpen size={14} className="text-primary shrink-0" />
                     <span className="truncate">{workspaceName}</span>
-                    <ChevronDown size={12} className={`transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isWorkspaceDropdownOpen && (
@@ -772,9 +772,9 @@ export const FilesSidebar: React.FC = () => {
             data-sidebar
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
-            <div className="p-4 border-b border-light-border dark:border-dark-border flex items-center justify-between">
+            <div className="p-3 border-b border-light-border dark:border-dark-border flex items-center justify-between gap-1 overflow-hidden">
                 {renderWorkspaceSwitcher()}
-                <div className="flex items-center gap-1 text-light-text-secondary dark:text-dark-text-secondary">
+                <div className="flex items-center gap-0.5 shrink-0 text-light-text-secondary dark:text-dark-text-secondary">
                     <button
                         onClick={handleCreateNote}
                         className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"

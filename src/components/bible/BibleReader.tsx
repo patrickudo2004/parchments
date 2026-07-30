@@ -13,6 +13,7 @@ import { Pin, X, BookOpen } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoutService } from '@/lib/utils/popoutService';
+import { BibleSearchOverlay } from './BibleSearchOverlay';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
@@ -30,7 +31,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         interlinearEnabled,
         toggleInterlinear,
         selectionRange,
-        setSelectionRange
+        setSelectionRange,
+        isSearchOpen
     } = useBibleStore();
 
     const { pinItem } = useResearchStore();
@@ -266,8 +268,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">
             {/* Nav Header */}
-            <div className={`h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between pl-4 ${!isIndependent ? 'pr-14' : 'pr-4'} bg-light-background/30 dark:bg-dark-background/20 shrink-0`}>
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[60%]">
+            <div className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-3 bg-light-background/30 dark:bg-dark-background/20 shrink-0 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     <select
                         value={mainVersion}
                         onChange={(e) => setMainVersion(e.target.value)}
@@ -487,6 +489,11 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         </button>
                     </motion.div>
                 )}
+            </AnimatePresence>
+
+            {/* Search Overlay */}
+            <AnimatePresence>
+                {isSearchOpen && <BibleSearchOverlay key="search-overlay" />}
             </AnimatePresence>
         </div>
     );

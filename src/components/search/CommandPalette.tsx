@@ -8,6 +8,8 @@ import { db, dbHelpers } from '@/lib/db';
 import { parseScriptureReference } from '@/lib/scriptureParser';
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 
+const paletteVersesCache: Record<string, any[]> = {};
+
 export interface SearchResult {
     id: string;
     type: 'note' | 'folder' | 'scripture' | 'action' | 'semantic' | 'strongs' | 'bible_verse';
@@ -125,12 +127,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
         // ── 3. Full-Text Bible Verse Search ─────────────────────────────────────
         if (lowerQuery.length >= 3 && !scripture && !searchQuery.startsWith('?')) {
             try {
-                const rawVerses = await db.bibleVerses
-                    .where('versionId')
-                    .equals(mainVersion)
-                    .toArray();
-                const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
-                const versionVerses = await decryptVerses(rawVerses);
+                let versionVerses = paletteVersesCache[mainVersion];
+                if (!versionVerses) {
+                    const rawVerses = await db.bibleVerses
+                        .where('versionId')
+                        .equals(mainVersion)
+                        .toArray();
+                    const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                    versionVerses = await decryptVerses(rawVerses);
+                    paletteVersesCache[mainVersion] = versionVerses;
+                }
 
                 const verseHits = versionVerses
                     .filter(v => v.text.toLowerCase().includes(lowerQuery))

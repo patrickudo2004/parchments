@@ -3,6 +3,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { Button } from '@/components/ui/Button';
 import { Plus, Mic, BookOpen, Languages } from 'lucide-react';
+import { checkAppVersion } from '@/hooks/useVersionCheck';
 
 
 export const MenuBar: React.FC = () => {
@@ -77,6 +78,12 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Keyboard Shortcuts':
                 toggleShortcutModal();
+                break;
+            case 'Check for Updates...':
+                checkAppVersion(true);
+                break;
+            case 'About Parchments':
+                toggleSettingsModal('support');
                 break;
             case 'Find in Bible':
                 toggleSearchModal('bible:');
@@ -194,6 +201,7 @@ export const MenuBar: React.FC = () => {
             label: 'Help',
             items: [
                 { label: 'Keyboard Shortcuts', shortcut: 'F1' },
+                { label: 'Check for Updates...', shortcut: '' },
                 { label: 'About Parchments', shortcut: '' },
             ]
         },

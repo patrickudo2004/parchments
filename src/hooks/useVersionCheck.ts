@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { APP_VERSION, VERSION_INFO } from '@/lib/version';
 
@@ -7,10 +7,10 @@ const VERSION_URLS = [
     'https://raw.githubusercontent.com/patrickudo2004/parchments/main/public/version.json',
     'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json'
 ];
-const CURRENT_VERSION = APP_VERSION;
+export const CURRENT_VERSION = APP_VERSION;
 
 // Helper to compare semantic versions (basic version for beta tags)
-const compareVersions = (v1: string, v2: string) => {
+export const compareVersions = (v1: string, v2: string) => {
     const parse = (version: string) => {
         const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/);
         if (!match) return [0, 0, 0, 0];
@@ -32,7 +32,7 @@ const compareVersions = (v1: string, v2: string) => {
     return 0;
 };
 
-const fetchVersionInfo = async () => {
+export const fetchVersionInfo = async () => {
     for (const url of VERSION_URLS) {
         try {
             const response = await fetch(url, { cache: 'no-store' });
@@ -45,42 +45,78 @@ const fetchVersionInfo = async () => {
     return VERSION_INFO;
 };
 
-export const useVersionCheck = () => {
-    const { setVersionStatus } = useUIStore();
+export const checkAppVersion = async (manual = false): Promise<void> => {
+    const { setVersionStatus, showToast } = useUIStore.getState();
+    const isTauri = typeof window !== 'undefined' && (!!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__);
 
-    const checkVersion = useCallback(async () => {
+    if (manual) {
+        showToast('Checking for updates...', 'info');
+    }
+
+    // In desktop Tauri, try the native plugin updater first if available
+    if (isTauri && manual) {
         try {
-            const data = await fetchVersionInfo();
-            const { latest, min_required, download_url, message } = data;
-
-            // 1. Check for Obsolescence (Lock)
-            if (min_required && compareVersions(CURRENT_VERSION, min_required) === -1) {
-                console.log(`[Version Check] App is obsolete: ${CURRENT_VERSION} < ${min_required}`);
-                setVersionStatus('obsolete', { latest, minRequired: min_required, downloadUrl: download_url, message });
+            const { check } = await import('@tauri-apps/plugin-updater');
+            const update = await check();
+            if (update) {
+                setVersionStatus('outdated', {
+                    latest: update.version,
+                    minRequired: CURRENT_VERSION,
+                    downloadUrl: 'https://github.com/patrickudo2004/parchments/releases',
+                    message: update.body || 'A new desktop update is available.'
+                });
+                showToast(`Parchments v${update.version} is available!`, 'info');
                 return;
             }
-
-            // 2. Check for Updates (Nag)
-            if (latest && compareVersions(CURRENT_VERSION, latest) === -1) {
-                console.log(`[Version Check] New version available: ${latest}`);
-                setVersionStatus('outdated', { latest, minRequired: min_required, downloadUrl: download_url, message });
-                return;
-            }
-
-            // 3. Up to date
-            setVersionStatus('up-to-date', null);
-        } catch {
-            // Default to up-to-date if offline/failed to avoid blocking
-            setVersionStatus('up-to-date', null);
+        } catch (tauriErr) {
+            console.warn('[Version Check] Tauri updater check fallback to web metadata:', tauriErr);
         }
-    }, [setVersionStatus]);
+    }
 
+    try {
+        const data = await fetchVersionInfo();
+        const { latest, min_required, download_url, message } = data;
+
+        // 1. Check for Obsolescence (Lock)
+        if (min_required && compareVersions(CURRENT_VERSION, min_required) === -1) {
+            console.log(`[Version Check] App is obsolete: ${CURRENT_VERSION} < ${min_required}`);
+            setVersionStatus('obsolete', { latest, minRequired: min_required, downloadUrl: download_url, message });
+            if (manual) showToast('This version has expired. Please update.', 'error');
+            return;
+        }
+
+        // 2. Check for Updates (Nag)
+        if (latest && compareVersions(CURRENT_VERSION, latest) === -1) {
+            console.log(`[Version Check] New version available: ${latest}`);
+            setVersionStatus('outdated', { latest, minRequired: min_required, downloadUrl: download_url, message });
+            if (manual) showToast(`Parchments v${latest} is available!`, 'info');
+            return;
+        }
+
+        // 3. Up to date
+        setVersionStatus('up-to-date', null);
+        if (manual) {
+            showToast(`Parchments is up to date (v${CURRENT_VERSION})`, 'success');
+        }
+    } catch (err) {
+        console.error('[Version Check] Failed:', err);
+        setVersionStatus('up-to-date', null);
+        if (manual) {
+            showToast('Unable to reach update server. Check your connection.', 'info');
+        }
+    }
+};
+
+export const useVersionCheck = () => {
     useEffect(() => {
-        // Run check on mount
-        checkVersion();
+        // Run silent check on mount
+        checkAppVersion(false);
 
-        // Optionally check every 6 hours if the app stays open
-        const interval = setInterval(checkVersion, 6 * 60 * 60 * 1000);
+        // Check periodically every 6 hours if the app stays open
+        const interval = setInterval(() => {
+            checkAppVersion(false);
+        }, 6 * 60 * 60 * 1000);
+
         return () => clearInterval(interval);
-    }, [checkVersion]);
+    }, []);
 };

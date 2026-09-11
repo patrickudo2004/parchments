@@ -25,20 +25,25 @@ interface UIStore {
     rightSidebarWidth: number;
     rightSidebarOpen: boolean;
     isRightSidebarDetached: boolean; // For window pop-out status
-    rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | null;
+    rightSidebarContent: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | 'commentary' | 'dictionary' | null;
     rightSidebarPosition: { x: number, y: number };
     isBibleModalOpen: boolean;
     isStrongsModalOpen: boolean;
     selectedStrongsId: string | null;
     selectedVerseId: string | null;
+    selectedDictionaryTerm: string | null;
     isSettingsModalOpen: boolean;
-    settingsTab: 'appearance' | 'bible' | 'editor' | 'intelligence' | 'sync' | 'storage' | 'support';
+    settingsTab: 'appearance' | 'bible' | 'editor' | 'intelligence' | 'sync' | 'storage' | 'support' | 'resources';
     isTemplateModalOpen: boolean;
     isSearchModalOpen: boolean;
     searchQuery: string;
     isShortcutModalOpen: boolean;
     isFocusMode: boolean;
     pulpitMode: boolean;
+    pulpitModeType: 'scroll' | 'paginate';
+    pulpitScrollSpeed: number;
+    pulpitFontSize: number;
+    pulpitHighContrast: boolean;
     focusedHeadingPos: number | null;
     activeEditor: Editor | null;
     toast: { message: string, type: 'success' | 'error' | 'info' } | null;
@@ -78,7 +83,7 @@ interface UIStore {
     toggleNoFolderModal: (isOpen?: boolean) => void;
     togglePairingModal: (mode?: 'host' | 'client' | null) => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
-    toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
+    toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | 'commentary' | 'dictionary') => void;
     toggleLeftSidebarFloating: () => void;
     toggleRightSidebarFloating: () => void;
     setRightSidebarDetached: (isDetached: boolean) => void;
@@ -86,10 +91,17 @@ interface UIStore {
     setRightSidebarWidth: (width: number) => void;
     setLeftSidebarPosition: (pos: { x: number, y: number }) => void;
     setRightSidebarPosition: (pos: { x: number, y: number }) => void;
-    openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant') => void;
+    openRightSidebar: (content: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | 'commentary' | 'dictionary') => void;
     closeRightSidebar: () => void;
     openLexicon: (id?: string) => void;
     openCrossRefs: (verseId?: string) => void;
+    openCommentary: () => void;
+    openDictionary: (term?: string) => void;
+    setSelectedDictionaryTerm: (term: string | null) => void;
+    setPulpitModeType: (mode: 'scroll' | 'paginate') => void;
+    setPulpitScrollSpeed: (speed: number) => void;
+    setPulpitFontSize: (size: number) => void;
+    setPulpitHighContrast: (highContrast: boolean) => void;
     setEditorStats: (words: number, characters: number) => void;
     setIsMobile: (isMobile: boolean) => void;
     setVersionStatus: (status: 'up-to-date' | 'outdated' | 'obsolete', info?: any) => void;
@@ -127,6 +139,7 @@ export const useUIStore = create<UIStore>()(
             isStrongsModalOpen: false,
             selectedStrongsId: null,
             selectedVerseId: null,
+            selectedDictionaryTerm: null,
             isSettingsModalOpen: false,
             settingsTab: 'appearance',
             isTemplateModalOpen: false,
@@ -135,6 +148,10 @@ export const useUIStore = create<UIStore>()(
             isShortcutModalOpen: false,
             isFocusMode: false,
             pulpitMode: false,
+            pulpitModeType: 'scroll',
+            pulpitScrollSpeed: 120,
+            pulpitFontSize: 32,
+            pulpitHighContrast: true,
             focusedHeadingPos: null,
             activeEditor: null,
             toast: null,
@@ -257,6 +274,23 @@ export const useUIStore = create<UIStore>()(
                 rightSidebarContent: 'crossrefs',
                 selectedVerseId: verseId || state.selectedVerseId
             })),
+
+            openCommentary: () => set({
+                rightSidebarOpen: true,
+                rightSidebarContent: 'commentary'
+            }),
+
+            openDictionary: (term) => set((state) => ({
+                rightSidebarOpen: true,
+                rightSidebarContent: 'dictionary',
+                selectedDictionaryTerm: term !== undefined ? term : state.selectedDictionaryTerm
+            })),
+
+            setSelectedDictionaryTerm: (term) => set({ selectedDictionaryTerm: term }),
+            setPulpitModeType: (mode) => set({ pulpitModeType: mode }),
+            setPulpitScrollSpeed: (speed) => set({ pulpitScrollSpeed: speed }),
+            setPulpitFontSize: (size) => set({ pulpitFontSize: size }),
+            setPulpitHighContrast: (highContrast) => set({ pulpitHighContrast: highContrast }),
 
             setTheme: (theme) =>
                 set(() => {

@@ -1,21 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import { db } from '@/lib/db';
-import type { BibleCrossRef, Note } from '@/types/database';
-import { Link2, BookOpen, FileText, ExternalLink, Plus, Search, Trash2, X, Maximize2, Minimize2 } from 'lucide-react';
+import type { BibleCrossRef, Note, TSKReferenceItem } from '@/types/database';
+import { Link2, BookOpen, FileText, ExternalLink, Plus, Search, Trash2, X, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { popoutService } from '@/lib/utils/popoutService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { referenceDataService } from '@/lib/bible/ReferenceDataService';
+import { parseScriptureReference } from '@/lib/scriptureParser';
 
 export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
     const { selectedVerseId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
+    const { setBibleFocus } = useBibleStore();
     const [isPickingNote, setIsPickingNote] = useState(false);
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [realTskRefs, setRealTskRefs] = useState<TSKReferenceItem[]>([]);
+    const [isLoadingTsk, setIsLoadingTsk] = useState(false);
 
     // Fetch cross references for the selected verse
     const crossRefs = useLiveQuery(
@@ -23,8 +29,48 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
         [selectedVerseId]
     ) || [];
 
+    // Load actual Treasury of Scripture Knowledge cross-references
+    useEffect(() => {
+        let isMounted = true;
+        if (!selectedVerseId) {
+            setRealTskRefs([]);
+            return;
+        }
+
+        const loadTsk = async () => {
+            setIsLoadingTsk(true);
+            try {
+                const installed = await referenceDataService.isTSKInstalled();
+                if (!installed) {
+                    await referenceDataService.installTSK();
+                }
+                const refs = await referenceDataService.getTSKRefs(selectedVerseId);
+                if (isMounted) {
+                    setRealTskRefs(refs);
+                }
+            } catch (err) {
+                console.error('[CrossRefSidebar] TSK load error:', err);
+            } finally {
+                if (isMounted) setIsLoadingTsk(false);
+            }
+        };
+
+        loadTsk();
+        return () => { isMounted = false; };
+    }, [selectedVerseId]);
+
+    const handleNavigateToRef = (ref: TSKReferenceItem) => {
+        const parsed = parseScriptureReference(ref.displayRef);
+        if (parsed) {
+            setBibleFocus({
+                book: parsed.book,
+                chapter: parsed.chapter,
+                verse: parsed.verse
+            });
+        }
+    };
+
     // Grouping logic for the UI
-    const tskRefs = crossRefs.filter(r => r.linkType === 'tsk' || r.linkType === 'parallel');
     const noteRefs = crossRefs.filter(r => r.targetType === 'note');
 
     // Note search results for picking
@@ -193,24 +239,48 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
 
                         {/* TSK / Chain References */}
                         <section className="space-y-4">
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
-                                <BookOpen size={14} />
-                                <span>Chain References (TSK)</span>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
+                                    <BookOpen size={14} />
+                                    <span>Treasury of Scripture Knowledge ({realTskRefs.length})</span>
+                                </div>
+                                {isLoadingTsk && <Loader2 size={12} className="animate-spin text-primary" />}
                             </div>
 
                             <div className="space-y-2">
-                                {tskRefs.length > 0 ? (
-                                    tskRefs.map(ref => (
-                                        <VerseLinkItem key={ref.id} refData={ref} />
-                                    ))
+                                {realTskRefs.length > 0 ? (
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {realTskRefs.map((item, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleNavigateToRef(item)}
+                                                className="w-full flex items-center justify-between p-3 bg-white dark:bg-dark-background/40 hover:bg-primary/5 dark:hover:bg-primary/10 rounded-xl border border-light-border dark:border-dark-border hover:border-primary/40 transition-all text-left group"
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 group-hover:scale-125 transition-transform shrink-0" />
+                                                    <span className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors truncate">
+                                                        {item.displayRef}
+                                                    </span>
+                                                </div>
+                                                {item.votes !== undefined && item.votes > 0 ? (
+                                                    <span className="text-[10px] font-semibold text-light-text-disabled bg-light-background dark:bg-dark-surface px-2 py-0.5 rounded-md border border-light-border/40 dark:border-dark-border/40 shrink-0">
+                                                        {item.votes} votes
+                                                    </span>
+                                                ) : (
+                                                    <ExternalLink size={12} className="text-light-text-disabled group-hover:text-primary transition-colors shrink-0" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : isLoadingTsk ? (
+                                    <div className="p-8 text-center">
+                                        <Loader2 size={20} className="animate-spin text-primary mx-auto mb-2" />
+                                        <p className="text-[11px] text-light-text-disabled">Loading cross-references...</p>
+                                    </div>
                                 ) : (
-                                    <div className="p-10 text-center">
-                                        <div className="w-10 h-10 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center mx-auto mb-3 opacity-50">
-                                            <Search size={16} className="text-light-text-disabled" />
-                                        </div>
-                                        <p className="text-[10px] text-light-text-disabled leading-relaxed">
-                                            Indexing reference data...<br />Sample TSK coming in Phase 2.1
-                                        </p>
+                                    <div className="p-8 text-center rounded-xl border border-dashed border-light-border dark:border-dark-border">
+                                        <BookOpen size={16} className="text-light-text-disabled mx-auto mb-2 opacity-50" />
+                                        <p className="text-[11px] text-light-text-disabled">No TSK cross-references found for this verse.</p>
                                     </div>
                                 )}
                             </div>
@@ -260,16 +330,5 @@ const NoteLinkItem: React.FC<{ refData: BibleCrossRef, onDelete: () => void }> =
                 <Trash2 size={12} />
             </button>
         </div>
-    );
-};
-
-const VerseLinkItem: React.FC<{ refData: BibleCrossRef }> = ({ refData }) => {
-    return (
-        <button className="w-full flex flex-col items-start gap-1 p-3 bg-white dark:bg-dark-background/30 rounded-xl border border-light-border dark:border-dark-border hover:border-primary transition-all text-left">
-            <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-primary">{refData.targetId.toUpperCase().replace(/-/g, ' ')}</span>
-                <ExternalLink size={10} className="text-light-text-disabled" />
-            </div>
-        </button>
     );
 };

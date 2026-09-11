@@ -2,6 +2,8 @@ import React from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import {
     BookOpen,
+    BookMarked,
+    Book,
     Search,
     GitBranch,
     Pin,
@@ -23,8 +25,10 @@ export const RightActivityBar: React.FC = () => {
 
     const items = [
         { id: 'bible', icon: BookOpen, label: 'Bible' },
-        { id: 'lexicon', icon: Search, label: 'Lexicon' },
+        { id: 'commentary', icon: BookMarked, label: 'Commentary' },
+        { id: 'dictionary', icon: Book, label: 'Dictionary' },
         { id: 'crossrefs', icon: GitBranch, label: 'References' },
+        { id: 'lexicon', icon: Search, label: 'Lexicon' },
         { id: 'pins', icon: Pin, label: 'Pins' },
     ];
 

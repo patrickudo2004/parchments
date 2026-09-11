@@ -23,6 +23,8 @@ import { VoiceSidebar } from '@/components/voice/VoiceSidebar';
 import { StrongsModal } from '@/components/bible/StrongsModal';
 import { LexiconSidebar } from '@/components/bible/LexiconSidebar';
 import { CrossRefSidebar } from '@/components/bible/CrossRefSidebar';
+import { CommentarySidebar } from '@/components/bible/CommentarySidebar';
+import { DictionarySidebar } from '@/components/bible/DictionarySidebar';
 import { TemplatePickerModal } from '@/components/notes/TemplatePickerModal';
 import { ResearchSidebar } from '@/components/bible/ResearchSidebar';
 import { RightActivityBar } from './RightActivityBar';
@@ -315,6 +317,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     {rightSidebarContent === 'bible' && <BibleReader />}
                                     {rightSidebarContent === 'lexicon' && <LexiconSidebar />}
                                     {rightSidebarContent === 'crossrefs' && <CrossRefSidebar />}
+                                    {rightSidebarContent === 'commentary' && <CommentarySidebar />}
+                                    {rightSidebarContent === 'dictionary' && <DictionarySidebar />}
                                     {rightSidebarContent === 'pins' && <ResearchSidebar />}
 
                                     {!rightSidebarContent && (

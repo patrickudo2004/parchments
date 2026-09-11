@@ -32,59 +32,119 @@ self.addEventListener('message', async (event) => {
             const versesToInsert: BibleVerse[] = [];
 
             if (data.books) {
-                // Determine if books is an array or an object
                 const isArray = Array.isArray(data.books);
                 const bookEntries = isArray ? data.books : Object.entries(data.books);
-
                 let totalChapters = 0;
-                if (isArray) {
-                    data.books.forEach((b: any) => totalChapters += b.chapters.length);
-                } else {
-                    Object.values(data.books).forEach((b: any) => totalChapters += Object.keys(b.chapters).length);
+                for (const entry of bookEntries) {
+                    const bData = isArray ? entry : (entry as any)[1];
+                    if (bData?.chapters) {
+                        totalChapters += Array.isArray(bData.chapters) ? bData.chapters.length : Object.keys(bData.chapters).length;
+                    }
                 }
+                if (totalChapters === 0) totalChapters = 100;
 
                 let processedChapters = 0;
 
                 for (const entry of bookEntries) {
-                    let bookName = isArray ? (entry as any).name : (entry as any)[0];
-                    const bookData = isArray ? (entry as any) : (entry as any)[1];
+                    const rawBookName = isArray ? (entry as any).name : (entry as any)[0];
+                    const bookId = isArray ? ((entry as any).id || (entry as any).bookId) : null;
+                    let bookName = rawBookName || '';
 
-                    // Normalize book name (Roman numerals to Arabic)
-                    if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
-                    else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
-                    else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
+                    if (bookId && USFM_BOOK_MAPPING[String(bookId).toUpperCase()]) {
+                        bookName = USFM_BOOK_MAPPING[String(bookId).toUpperCase()];
+                    } else if (USFM_BOOK_MAPPING[bookName.toUpperCase()]) {
+                        bookName = USFM_BOOK_MAPPING[bookName.toUpperCase()];
+                    } else if (bookName.startsWith('I ')) {
+                        bookName = bookName.replace('I ', '1 ');
+                    } else if (bookName.startsWith('II ')) {
+                        bookName = bookName.replace('II ', '2 ');
+                    } else if (bookName.startsWith('III ')) {
+                        bookName = bookName.replace('III ', '3 ');
+                    }
 
-                    const chaptersArr = isArray ? bookData.chapters : Object.entries(bookData.chapters);
+                    const bookData = isArray ? entry : (entry as any)[1];
+                    const chaptersObj = bookData?.chapters;
+                    if (!chaptersObj) continue;
+
+                    const isChArray = Array.isArray(chaptersObj);
+                    const chaptersArr = isChArray ? chaptersObj : Object.entries(chaptersObj);
 
                     for (const chEntry of chaptersArr) {
-                        const chapterNum = isArray ? (chaptersArr.indexOf(chEntry) + 1) : parseInt((chEntry as any)[0]);
-                        const chapterData = isArray ? chEntry : (chEntry as any)[1];
+                        let chapterNum = 0;
+                        let versesObj: any = null;
 
-                        // Hierarchical Object has a "verses" property inside chapter
-                        const versesSource = isArray ? chapterData : (chapterData.verses ? Object.entries(chapterData.verses) : []);
-                        const isEntryFormat = !isArray;
+                        if (isChArray) {
+                            if (chEntry.chapter && typeof chEntry.chapter === 'object') {
+                                // HelloAO format
+                                chapterNum = chEntry.chapter.number || (chaptersArr.indexOf(chEntry) + 1);
+                                versesObj = chEntry.chapter.content || [];
+                            } else {
+                                // Scrollmapper format
+                                chapterNum = chEntry.chapter !== undefined ? chEntry.chapter : (chaptersArr.indexOf(chEntry) + 1);
+                                versesObj = chEntry.verses || chEntry;
+                            }
+                        } else {
+                            // Object format (KJV.json)
+                            chapterNum = parseInt((chEntry as any)[0]);
+                            const cVal = (chEntry as any)[1];
+                            versesObj = cVal?.verses ? cVal.verses : cVal;
+                        }
 
-                        for (const vEntry of versesSource) {
-                            const verseNum = isEntryFormat ? parseInt((vEntry as any)[0]) : (versesSource.indexOf(vEntry) + 1);
-                            const text = isEntryFormat ? (vEntry as any)[1] : vEntry;
+                        if (!versesObj) continue;
 
-                            const encrypted = await encryptVerseText(text);
-
-                            versesToInsert.push({
-                                id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
-                                versionId,
-                                book: bookName,
-                                chapter: chapterNum,
-                                verse: verseNum,
-                                text: encrypted,
-                            });
+                        if (Array.isArray(versesObj)) {
+                            for (const v of versesObj) {
+                                if (v.type === 'verse') {
+                                    const verseNum = v.number;
+                                    const text = v.text || (Array.isArray(v.content) ? v.content.join(' ') : String(v.content || ''));
+                                    if (text && text.trim()) {
+                                        const encrypted = await encryptVerseText(text);
+                                        versesToInsert.push({
+                                            id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
+                                            versionId,
+                                            book: bookName,
+                                            chapter: chapterNum,
+                                            verse: verseNum,
+                                            text: encrypted,
+                                        });
+                                    }
+                                } else if (v.verse !== undefined) {
+                                    if (v.text && v.text.trim()) {
+                                        const encrypted = await encryptVerseText(v.text);
+                                        versesToInsert.push({
+                                            id: `${versionId}-${bookName}-${chapterNum}-${v.verse}`.toLowerCase(),
+                                            versionId,
+                                            book: bookName,
+                                            chapter: chapterNum,
+                                            verse: v.verse,
+                                            text: encrypted,
+                                        });
+                                    }
+                                }
+                            }
+                        } else if (typeof versesObj === 'object') {
+                            for (const [vNumStr, vText] of Object.entries(versesObj)) {
+                                const verseNum = parseInt(vNumStr);
+                                const text = typeof vText === 'string' ? vText : (vText as any)?.text || '';
+                                if (text && text.trim()) {
+                                    const encrypted = await encryptVerseText(text);
+                                    versesToInsert.push({
+                                        id: `${versionId}-${bookName}-${chapterNum}-${verseNum}`.toLowerCase(),
+                                        versionId,
+                                        book: bookName,
+                                        chapter: chapterNum,
+                                        verse: verseNum,
+                                        text: encrypted,
+                                    });
+                                }
+                            }
                         }
 
                         processedChapters++;
-                        if (processedChapters % 10 === 0) {
+                        if (processedChapters % 15 === 0) {
                             self.postMessage({
                                 status: 'progress',
-                                progress: (processedChapters / totalChapters) * 100,
+                                progress: Math.min(95, Math.round((processedChapters / totalChapters) * 100)),
                                 message: `Processing ${bookName} ${chapterNum}...`
                             });
                         }
@@ -96,23 +156,25 @@ self.addEventListener('message', async (event) => {
                 let processedVerses = 0;
 
                 for (const v of verses) {
-                    const bookName = v.book_name;
-                    const encrypted = await encryptVerseText(v.text);
-
-                    versesToInsert.push({
-                        id: `${versionId}-${bookName}-${v.chapter}-${v.verse}`.toLowerCase(),
-                        versionId,
-                        book: bookName,
-                        chapter: v.chapter,
-                        verse: v.verse,
-                        text: encrypted,
-                    });
+                    const rawBook = v.book_name || v.book || '';
+                    const bookName = USFM_BOOK_MAPPING[rawBook.toUpperCase()] || rawBook;
+                    if (v.text && v.text.trim()) {
+                        const encrypted = await encryptVerseText(v.text);
+                        versesToInsert.push({
+                            id: `${versionId}-${bookName}-${v.chapter}-${v.verse}`.toLowerCase(),
+                            versionId,
+                            book: bookName,
+                            chapter: v.chapter,
+                            verse: v.verse,
+                            text: encrypted,
+                        });
+                    }
 
                     processedVerses++;
                     if (processedVerses % 500 === 0) {
                         self.postMessage({
                             status: 'progress',
-                            progress: (processedVerses / totalVerses) * 100,
+                            progress: Math.min(95, Math.round((processedVerses / totalVerses) * 100)),
                             message: `Processing ${bookName} ${v.chapter}:${v.verse}...`
                         });
                     }
@@ -121,7 +183,7 @@ self.addEventListener('message', async (event) => {
                 throw new Error('Unknown JSON format. Expected "books" or "verses" array.');
             }
 
-            self.postMessage({ status: 'saving', message: 'Encrypting & saving to database...' });
+            self.postMessage({ status: 'saving', message: `Encrypting & saving ${versesToInsert.length} verses...` });
 
             // Bulk add to Dexie
             await db.bibleVerses.bulkPut(versesToInsert);

@@ -1,5 +1,14 @@
 [
   {
+    "id": "kjv",
+    "name": "King James Version (1769)",
+    "abbreviation": "KJV",
+    "language": "eng",
+    "size": "4.8MB",
+    "url": "/data/bibles/KJV.json",
+    "copyright": "Public Domain"
+  },
+  {
     "id": "bsb",
     "name": "Berean Standard Bible (BSB)",
     "abbreviation": "BSB",
@@ -9,21 +18,75 @@
     "copyright": "Public Domain / Berean Study Bible License"
   },
   {
-    "id": "kjv",
-    "name": "King James Version (KJV)",
-    "abbreviation": "KJV",
-    "language": "eng",
-    "size": "4.8MB",
-    "url": "/data/bibles/KJV.json",
-    "copyright": "Public Domain"
-  },
-  {
     "id": "web",
     "name": "World English Bible (WEB)",
     "abbreviation": "WEB",
     "language": "eng",
     "size": "6.0MB",
     "url": "/data/bibles/web.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "asv",
+    "name": "American Standard Version (1901)",
+    "abbreviation": "ASV",
+    "language": "eng",
+    "size": "8.0MB",
+    "url": "/data/bibles/asv.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "ylt",
+    "name": "Young's Literal Translation (YLT)",
+    "abbreviation": "YLT",
+    "language": "eng",
+    "size": "8.0MB",
+    "url": "/data/bibles/ylt.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "darby",
+    "name": "Darby Bible (1890)",
+    "abbreviation": "DARBY",
+    "language": "eng",
+    "size": "8.0MB",
+    "url": "/data/bibles/darby.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "drc",
+    "name": "Douay-Rheims (Challoner 1899)",
+    "abbreviation": "DRC",
+    "language": "eng",
+    "size": "9.3MB",
+    "url": "/data/bibles/drc.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "wlc",
+    "name": "Biblia Hebraica (Westminster Leningrad Codex)",
+    "abbreviation": "WLC",
+    "language": "hbo",
+    "size": "8.2MB",
+    "url": "/data/bibles/wlc.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "tr",
+    "name": "Textus Receptus (Greek New Testament)",
+    "abbreviation": "TR",
+    "language": "grc",
+    "size": "5.5MB",
+    "url": "/data/bibles/tr.json",
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "lxx",
+    "name": "Septuagint (Brenton Greek Old Testament)",
+    "abbreviation": "LXX",
+    "language": "grc",
+    "size": "8.2MB",
+    "url": "/data/bibles/lxx.json",
     "copyright": "Public Domain"
   }
 ]

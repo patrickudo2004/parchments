@@ -117,3 +117,44 @@ export interface ReadingPlanHistory {
     completedAt: number;
     noteId?: string;
 }
+
+// STUDY RESOURCE TYPES
+export interface TSKReferenceItem {
+    targetVerseId: string; // e.g. "Prov.3.19" or "Proverbs-3-19"
+    displayRef: string;     // e.g. "Proverbs 3:19"
+    votes?: number;
+}
+
+export interface TSKEntry {
+    verseId: string; // normalized key: e.g. "genesis-1-1"
+    refs: TSKReferenceItem[];
+}
+
+export interface CommentaryEntry {
+    id: string; // e.g. "mh-john-3-16" or "jfb-john-3-16"
+    source: 'mh' | 'jfb';
+    sourceName: string; // "Matthew Henry" | "Jamieson-Fausset-Brown"
+    book: string;
+    chapter: number;
+    verse?: number | null; // null if chapter-wide or range
+    title?: string;
+    text: string; // formatted text/HTML
+}
+
+export interface DictionaryEntry {
+    id: string; // normalized term, e.g. "aaron"
+    term: string; // display term: "Aaron"
+    source: string; // "EAS" (Easton's)
+    definition: string;
+    scriptureRefs?: { reference: string; original: string }[];
+}
+
+export interface TopicalEntry {
+    id: string; // normalized topic slug e.g. "aaron", "faith"
+    topic: string; // display topic "Aaron", "Faith"
+    category?: string;
+    subtopics: {
+        title: string;
+        refs: string[]; // array of verse references e.g. ["EXO 6:16-20", "PSA 77:20"]
+    }[];
+}

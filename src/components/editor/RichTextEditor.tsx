@@ -16,6 +16,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import CharacterCount from '@tiptap/extension-character-count';
 import { ScriptureExtension } from './extensions/ScriptureExtension';
+import { ScriptureQuoteExtension } from './extensions/ScriptureQuoteExtension';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { VoiceNotePlayer } from '@/components/voice/VoiceNotePlayer';
 import { RotateCcw, LogOut, Share2, Folder } from 'lucide-react';
@@ -32,6 +33,7 @@ import { YjsService } from '@/lib/sync/YjsService';
 import { ImageResizer } from './extensions/ImageResizer';
 import { useSyncStore } from '@/stores/syncStore';
 import { ShareNoteModal } from './ShareNoteModal';
+import { PulpitMode } from './PulpitMode';
 
 interface RichTextEditorProps {
     activeRoom: string | null;
@@ -263,6 +265,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             }),
             CharacterCount,
             ScriptureExtension,
+            ScriptureQuoteExtension,
             FocusExtension,
             EnterKeyExtension,
             TextCaseExtension,
@@ -498,6 +501,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
     };
 
     if (!currentNote) return null;
+
+    if (pulpitMode && editor) {
+        return <PulpitMode editor={editor} title={title} onExit={togglePulpitMode} />;
+    }
 
     return (
         <div className="flex-1 flex flex-col h-full bg-white dark:bg-dark-surface overflow-hidden">

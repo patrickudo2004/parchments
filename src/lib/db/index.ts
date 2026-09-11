@@ -1,5 +1,20 @@
 import Dexie, { type Table } from 'dexie';
-import type { Note, Folder, User, BibleVersion, BibleVerse, ChapterSummary, StrongsEntry, BibleCrossRef, ReadingPlan, ReadingPlanHistory } from '@/types/database';
+import type {
+    Note,
+    Folder,
+    User,
+    BibleVersion,
+    BibleVerse,
+    ChapterSummary,
+    StrongsEntry,
+    BibleCrossRef,
+    ReadingPlan,
+    ReadingPlanHistory,
+    TSKEntry,
+    CommentaryEntry,
+    DictionaryEntry,
+    TopicalEntry
+} from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ParchmentsDatabase extends Dexie {
@@ -16,6 +31,10 @@ export class ParchmentsDatabase extends Dexie {
     bibleVectors!: Table<{ id: string; versionId: string; book: string; chapter: number; verse: number; vector: Float32Array }>;
     readingPlans!: Table<ReadingPlan>;
     readingPlanHistory!: Table<ReadingPlanHistory>;
+    tskRefs!: Table<TSKEntry>;
+    commentaries!: Table<CommentaryEntry>;
+    dictionary!: Table<DictionaryEntry>;
+    topicalIndex!: Table<TopicalEntry>;
 
     constructor() {
         super('ParchmentsDB');
@@ -52,6 +71,27 @@ export class ParchmentsDatabase extends Dexie {
             bibleVectors: 'id, versionId, [versionId+book+chapter]',
             readingPlans: 'id, name, status, startDate, endDate',
             readingPlanHistory: 'id, planId, completedAt'
+        });
+
+        // Version 10: Add Reference Datasets (TSK, Commentaries, Dictionary, Topical Index)
+        this.version(10).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]',
+            strongsEntries: 'id',
+            strongsConcordance: 'verseId',
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
+            vectors: 'id, noteId, lastIndexed',
+            bibleVectors: 'id, versionId, [versionId+book+chapter]',
+            readingPlans: 'id, name, status, startDate, endDate',
+            readingPlanHistory: 'id, planId, completedAt',
+            tskRefs: 'verseId',
+            commentaries: 'id, source, book, [book+chapter], [source+book+chapter]',
+            dictionary: 'id, term',
+            topicalIndex: 'id, topic'
         });
     }
 }
@@ -219,6 +259,77 @@ export const dbHelpers = {
 
         if (uiSettings) {
             localStorage.setItem('parchments-ui', JSON.stringify(uiSettings));
+        }
+    },
+
+    // Reference Datasets Helpers
+    getTSKRefs: async (verseId: string) => {
+        try {
+            const entry = await db.tskRefs.get(verseId.toLowerCase());
+            return entry ? entry.refs : [];
+        } catch (error) {
+            console.error('[dbHelpers] getTSKRefs error:', error);
+            return [];
+        }
+    },
+
+    getCommentaries: async (book: string, chapter: number, source?: 'mh' | 'jfb') => {
+        try {
+            if (source) {
+                return await db.commentaries
+                    .where('[source+book+chapter]')
+                    .equals([source, book, chapter])
+                    .toArray();
+            }
+            return await db.commentaries
+                .where('[book+chapter]')
+                .equals([book, chapter])
+                .toArray();
+        } catch (error) {
+            console.error('[dbHelpers] getCommentaries error:', error);
+            return [];
+        }
+    },
+
+    getDictionaryEntry: async (term: string) => {
+        try {
+            const lower = term.toLowerCase().trim();
+            const direct = await db.dictionary.get(lower);
+            if (direct) return direct;
+            return await db.dictionary
+                .filter(d => d.term.toLowerCase() === lower || d.id === lower)
+                .first();
+        } catch (error) {
+            console.error('[dbHelpers] getDictionaryEntry error:', error);
+            return null;
+        }
+    },
+
+    searchDictionary: async (query: string, limit = 20) => {
+        if (!query.trim()) return [];
+        const lower = query.toLowerCase().trim();
+        try {
+            return await db.dictionary
+                .filter(d => d.term.toLowerCase().includes(lower) || d.id.includes(lower))
+                .limit(limit)
+                .toArray();
+        } catch (error) {
+            console.error('[dbHelpers] searchDictionary error:', error);
+            return [];
+        }
+    },
+
+    searchTopicalIndex: async (query: string, limit = 30) => {
+        if (!query.trim()) return [];
+        const lower = query.toLowerCase().trim();
+        try {
+            return await db.topicalIndex
+                .filter(t => t.topic.toLowerCase().includes(lower) || t.id.includes(lower))
+                .limit(limit)
+                .toArray();
+        } catch (error) {
+            console.error('[dbHelpers] searchTopicalIndex error:', error);
+            return [];
         }
     }
 };

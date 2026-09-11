@@ -98,21 +98,33 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                             <Pin size={12} />
                         </button>
 
-                        <div className="inline-block text-lg leading-relaxed font-serif text-light-text-main dark:text-dark-text-main">
-                            {!v ? (
-                                <span className="text-light-text-disabled italic text-sm">Text not available</span>
-                            ) : (
-                                interlinearEnabled && v.interlinear ? (
-                                    <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2">
-                                        {v.interlinear.map((word, idx) => (
-                                            <InterlinearWord key={idx} word={word} />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    v.text
-                                )
-                            )}
-                        </div>
+                        {(() => {
+                            const isHebrew = vid === 'wlc';
+                            const isGreek = vid === 'tr' || vid === 'lxx';
+
+                            return (
+                                <div
+                                    dir={isHebrew ? 'rtl' : 'ltr'}
+                                    className={`inline-block text-lg leading-relaxed font-serif ${isHebrew ? 'text-right text-xl leading-loose font-serif' : isGreek ? 'font-serif' : ''} text-light-text-main dark:text-dark-text-main`}
+                                >
+                                    {!v ? (
+                                        <span className="text-light-text-disabled italic text-xs">
+                                            {isHebrew ? 'Text not in Old Testament' : vid === 'tr' ? 'Text not in New Testament' : vid === 'lxx' ? 'Text not in Septuagint' : 'Text not available'}
+                                        </span>
+                                    ) : (
+                                        interlinearEnabled && v.interlinear ? (
+                                            <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2">
+                                                {v.interlinear.map((word, idx) => (
+                                                    <InterlinearWord key={idx} word={word} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            v.text
+                                        )
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* Version Sub-tag for clarity in parallel view */}
                         {versions.length > 1 && (

@@ -352,21 +352,55 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Parallel Selector Popover */}
             {isAddParallelOpen && (
-                <div className="absolute top-16 left-4 z-[100] bg-white dark:bg-dark-surface shadow-2xl rounded-xl border border-light-border dark:border-dark-border p-2 min-w-[200px]">
-                    <div className="p-2 text-[10px] font-black uppercase text-light-text-disabled border-b border-light-border dark:border-dark-border mb-1">Add Parallel View</div>
-                    {installedVersions.filter(v => !activeVersions.includes(v.id)).map(v => (
-                        <button
-                            key={v.id}
-                            onClick={() => {
-                                addParallelVersion(v.id);
-                                setIsAddParallelOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm font-bold hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex justify-between items-center"
-                        >
-                            {v.name}
-                            <span className="text-[10px] opacity-50 uppercase">{v.abbreviation}</span>
-                        </button>
-                    ))}
+                <div className="absolute top-16 left-4 z-[100] bg-white dark:bg-dark-surface shadow-2xl rounded-2xl border border-light-border dark:border-dark-border p-2 min-w-[280px] max-h-80 overflow-y-auto custom-scrollbar">
+                    <div className="p-2 text-[10px] font-black uppercase tracking-wider text-light-text-disabled border-b border-light-border dark:border-dark-border mb-1">
+                        Add Parallel Translation
+                    </div>
+                    {installedVersions.filter(v => !activeVersions.includes(v.id)).map(v => {
+                        const isHebrew = v.id === 'wlc' || v.language === 'hbo';
+                        const isGreek = v.id === 'tr' || v.id === 'lxx' || v.language === 'grc';
+                        const badgeLabel = isHebrew
+                            ? 'עִבְרִית • OT'
+                            : v.id === 'tr'
+                                ? 'Ἑλληνικά • NT'
+                                : v.id === 'lxx'
+                                    ? 'Ἑλληνικά • LXX'
+                                    : v.abbreviation;
+
+                        return (
+                            <button
+                                key={v.id}
+                                onClick={() => {
+                                    addParallelVersion(v.id);
+                                    setIsAddParallelOpen(false);
+                                }}
+                                className="w-full text-left px-3 py-2.5 hover:bg-primary/10 rounded-xl transition-all flex items-center justify-between gap-3 group"
+                            >
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors truncate">
+                                        {v.name}
+                                    </span>
+                                    {(isHebrew || isGreek) && (
+                                        <span className="text-[10px] text-light-text-disabled truncate">
+                                            {isHebrew
+                                                ? 'Hebrew Old Testament (RTL)'
+                                                : v.id === 'tr'
+                                                    ? 'Greek New Testament'
+                                                    : 'Brenton Greek Septuagint'}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-md ${isHebrew
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                    : isGreek
+                                        ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                                        : 'bg-light-background dark:bg-dark-background/60 text-light-text-secondary dark:text-dark-text-secondary'
+                                    }`}>
+                                    {badgeLabel}
+                                </span>
+                            </button>
+                        );
+                    })}
                     {installedVersions.length <= activeVersions.length && (
                         <div className="p-4 text-center">
                             <p className="text-xs text-light-text-disabled italic mb-2">No other bibles found.</p>

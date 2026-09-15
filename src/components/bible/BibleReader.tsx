@@ -163,7 +163,10 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
             return;
         }
 
-        const combinedText = rangeVerses.map(v => `<sup class="text-[10px] opacity-50 mr-1">${v.verse}</sup>${v.text}`).join(' ');
+        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+        const decryptedVerses = await decryptVerses(rangeVerses);
+
+        const combinedText = decryptedVerses.map(v => `<sup class="text-[10px] opacity-50 mr-1">${v.verse}</sup>${v.text}`).join(' ');
         const ref = `${book} ${chapter}:${start}${start !== end ? `-${end}` : ''} (${mainVersion.toUpperCase()})`;
         const id = `range-${book}-${chapter}-${start}-${end}-${mainVersion}`;
 

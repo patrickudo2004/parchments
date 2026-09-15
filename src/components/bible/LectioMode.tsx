@@ -201,7 +201,9 @@ export const LectioMode: React.FC = () => {
                         }
                     }
                 }
-                setVerses(allVerses);
+                const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                const decryptedAll = await decryptVerses(allVerses);
+                setVerses(decryptedAll);
             } catch (err) {
                 console.error('Failed to load Lectio scriptures:', err);
                 showToast('Failed to load daily scriptures.', 'error');
@@ -1149,7 +1151,9 @@ const PipContextDrawer: React.FC<PipContextDrawerProps> = ({ scripture, versionI
                     .where('[versionId+book+chapter]')
                     .equals([versionId, scripture.book, scripture.chapter])
                     .sortBy('verse');
-                setVerses(res);
+                const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                const decryptedRes = await decryptVerses(res);
+                setVerses(decryptedRes);
 
                 // Auto Scroll to selected verse inside PiP drawer
                 setTimeout(() => {

@@ -26,12 +26,17 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
     const firstVerse = Object.values(versesByVersion)[0];
     const verseId = firstVerse ? `${firstVerse.book.toLowerCase()}-${firstVerse.chapter}-${firstVerse.verse}` : null;
 
-    // Check for references
-    const hasRefsCount = useLiveQuery(
-        () => verseId ? db.crossReferences.where('sourceVerseId').equals(verseId).count() : 0,
+    // Check for references (both user linked notes and Treasury of Scripture Knowledge)
+    const hasRefs = useLiveQuery(
+        async () => {
+            if (!verseId) return false;
+            const userCount = await db.crossReferences.where('sourceVerseId').equals(verseId).count();
+            if (userCount > 0) return true;
+            const tskEntry = await db.tskRefs.get(verseId);
+            return !!(tskEntry && tskEntry.refs && tskEntry.refs.length > 0);
+        },
         [verseId]
-    ) || 0;
-    const hasRefs = hasRefsCount > 0;
+    ) || false;
 
     const isSelected = selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end);
 

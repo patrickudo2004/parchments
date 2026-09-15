@@ -51,15 +51,35 @@ const GlobalScriptureListener: React.FC = () => {
                         if (v) verses = [v];
                     }
 
+                    // Fallback to KJV if not found in active translation
+                    let activeVersionDisplay = mainVersion.toUpperCase();
+                    if (verses.length === 0 && versionId !== 'kjv') {
+                        if (verseEnd && verseEnd > verse) {
+                            verses = await db.bibleVerses
+                                .where('[versionId+book+chapter+verse]')
+                                .between(['kjv', book, chapter, verse], ['kjv', book, chapter, verseEnd], true, true)
+                                .toArray();
+                        } else {
+                            const v = await db.bibleVerses.get(`kjv-${book}-${chapter}-${verse}`.toLowerCase());
+                            if (v) verses = [v];
+                        }
+                        if (verses.length > 0) {
+                            activeVersionDisplay = 'KJV';
+                        }
+                    }
+
                     if (verses.length > 0) {
+                        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+                        const decrypted = await decryptVerses(verses);
+
                         const refString = verseEnd && verseEnd > verse
                             ? `${book} ${chapter}:${verse}-${verseEnd}`
                             : `${book} ${chapter}:${verse}`;
 
                         setContent({
                             ref: refString,
-                            verses: verses,
-                            version: mainVersion
+                            verses: decrypted,
+                            version: activeVersionDisplay
                         });
 
                         const rect = target.getBoundingClientRect();

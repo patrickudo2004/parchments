@@ -27,7 +27,7 @@ export const RightActivityBar: React.FC = () => {
         { id: 'bible', icon: BookOpen, label: 'Bible' },
         { id: 'commentary', icon: BookMarked, label: 'Commentary' },
         { id: 'dictionary', icon: Book, label: 'Dictionary' },
-        { id: 'crossrefs', icon: GitBranch, label: 'References' },
+        { id: 'crossrefs', icon: GitBranch, label: 'TSK References' },
         { id: 'lexicon', icon: Search, label: 'Lexicon' },
         { id: 'pins', icon: Pin, label: 'Pins' },
     ];

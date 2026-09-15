@@ -13,10 +13,15 @@ import { referenceDataService } from '@/lib/bible/ReferenceDataService';
 import { parseScriptureReference } from '@/lib/scriptureParser';
 
 export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
-    const { selectedVerseId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, activeEditor } = useUIStore();
-    const { setBibleFocus, mainVersion } = useBibleStore();
+    const { selectedVerseId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, activeEditor, openCrossRefs } = useUIStore();
+    const { setBibleFocus, mainVersion, bibleFocus } = useBibleStore();
+
+    // Fallback to active reading verse if no specific verse number was clicked
+    const effectiveVerseId = selectedVerseId || (bibleFocus?.book ? `${bibleFocus.book.toLowerCase()}-${bibleFocus.chapter}-${bibleFocus.verse || 1}` : 'john-1-1');
+
     const [isPickingNote, setIsPickingNote] = useState(false);
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
+    const [verseSearchInput, setVerseSearchInput] = useState('');
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -34,19 +39,15 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
     // --- Insert-to-note loading state ---
     const [insertingIdx, setInsertingIdx] = useState<number | null>(null);
 
-    // Fetch cross references for the selected verse
+    // Fetch cross references for the effective verse
     const crossRefs = useLiveQuery(
-        () => selectedVerseId ? db.crossReferences.where('sourceVerseId').equals(selectedVerseId).toArray() : [],
-        [selectedVerseId]
+        () => db.crossReferences.where('sourceVerseId').equals(effectiveVerseId).toArray(),
+        [effectiveVerseId]
     ) || [];
 
     // Load actual Treasury of Scripture Knowledge cross-references
     useEffect(() => {
         let isMounted = true;
-        if (!selectedVerseId) {
-            setRealTskRefs([]);
-            return;
-        }
 
         // Reset expansion when verse changes
         setExpandedIdx(null);
@@ -59,7 +60,7 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                 if (!installed) {
                     await referenceDataService.installTSK();
                 }
-                const refs = await referenceDataService.getTSKRefs(selectedVerseId);
+                const refs = await referenceDataService.getTSKRefs(effectiveVerseId);
                 if (isMounted) {
                     setRealTskRefs(refs);
                 }
@@ -72,7 +73,23 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
 
         loadTsk();
         return () => { isMounted = false; };
-    }, [selectedVerseId]);
+    }, [effectiveVerseId]);
+
+    const handleLookupSubmit = useCallback((query?: string) => {
+        const q = (query || verseSearchInput).trim();
+        if (!q) return;
+        const parsed = parseScriptureReference(q);
+        if (parsed) {
+            const vid = `${parsed.book.toLowerCase()}-${parsed.chapter}-${parsed.verse || 1}`;
+            setBibleFocus({
+                book: parsed.book,
+                chapter: parsed.chapter,
+                verse: parsed.verse
+            });
+            openCrossRefs(vid);
+            setVerseSearchInput('');
+        }
+    }, [verseSearchInput, setBibleFocus, openCrossRefs]);
 
     /** Navigate to a TSK reference verse, saving the current verse for back-navigation. */
     const handleNavigateToRef = useCallback((item: TSKReferenceItem) => {
@@ -252,9 +269,9 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                             <Link2 size={16} />
                         </div>
                         <div>
-                            <h2 className="text-[10px] font-black uppercase tracking-widest text-primary leading-none mb-1">Cross References</h2>
+                            <h2 className="text-[10px] font-black uppercase tracking-widest text-primary leading-none mb-1">Cross References (TSK)</h2>
                             <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary truncate max-w-[150px]">
-                                {selectedVerseId ? formatVerseIdDisplay(selectedVerseId) : 'Select a Verse'}
+                                {formatVerseIdDisplay(effectiveVerseId)}
                             </p>
                         </div>
                     </div>
@@ -270,9 +287,7 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                         )}
                         <button
                             onClick={() => {
-                                popoutService.open('bible'); // For now, cross-refs pop out with bible context or similar
-                                // Actually, should we have a special 'references' popout? 
-                                // Let's just have it pop out 'bible' which is the primary context.
+                                popoutService.open('bible');
                                 if (!isIndependent) closeRightSidebar();
                             }}
                             className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-light-text-disabled hover:text-primary"
@@ -284,29 +299,45 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-8">
-                {!selectedVerseId ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
-                        <div className="w-16 h-16 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center mb-4 border border-light-border dark:border-dark-border">
-                            <BookOpen size={24} className="text-light-text-disabled" />
-                        </div>
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-light-text-primary mb-2">No Verse Selected</h3>
-                        <p className="text-xs text-light-text-secondary leading-relaxed max-w-[200px]">
-                            Click on a verse number in the Bible reader to view its cross-references.
-                        </p>
+            {/* Quick Verse Lookup Bar */}
+            <div className="px-4 py-2 bg-light-background/50 dark:bg-dark-background/30 border-b border-light-border/50 dark:border-dark-border/50">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleLookupSubmit();
+                    }}
+                    className="flex items-center gap-1.5"
+                >
+                    <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-light-text-disabled" size={12} />
+                        <input
+                            type="text"
+                            placeholder="Lookup verse (e.g. John 3:16, Rom 8:28)..."
+                            value={verseSearchInput}
+                            onChange={(e) => setVerseSearchInput(e.target.value)}
+                            className="w-full bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg pl-7 pr-2 py-1 text-xs text-light-text-primary dark:text-dark-text-primary placeholder:text-light-text-disabled focus:outline-none focus:border-primary"
+                        />
                     </div>
-                ) : (
-                    <>
-                        {/* Back Breadcrumb */}
-                        {previousVerseId && (
-                            <button
-                                onClick={handleNavigateBack}
-                                className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors -mt-2 mb-2"
-                            >
-                                <ArrowLeft size={13} />
-                                Back to {formatVerseIdDisplay(previousVerseId)}
-                            </button>
-                        )}
+                    <button
+                        type="submit"
+                        className="px-2.5 py-1 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors shrink-0"
+                    >
+                        Go
+                    </button>
+                </form>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-8">
+                {/* Back Breadcrumb */}
+                {previousVerseId && (
+                    <button
+                        onClick={handleNavigateBack}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors -mt-2 mb-2"
+                    >
+                        <ArrowLeft size={13} />
+                        Back to {formatVerseIdDisplay(previousVerseId)}
+                    </button>
+                )}
 
                         {/* User Linked Notes */}
                         <section className="space-y-4">
@@ -452,20 +483,34 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                                         ))}
                                     </div>
                                 ) : isLoadingTsk ? (
-                                    <div className="p-8 text-center">
-                                        <Loader2 size={20} className="animate-spin text-primary mx-auto mb-2" />
-                                        <p className="text-[11px] text-light-text-disabled">Loading cross-references...</p>
+                                    <div className="p-8 text-center bg-primary/5 rounded-2xl border border-primary/20">
+                                        <Loader2 size={24} className="animate-spin text-primary mx-auto mb-3" />
+                                        <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary mb-1">Loading Treasury of Scripture Knowledge...</p>
+                                        <p className="text-[11px] text-light-text-secondary">Indexing 340,000+ cross references for offline use. This takes a few moments on first run.</p>
                                     </div>
                                 ) : (
-                                    <div className="p-8 text-center rounded-xl border border-dashed border-light-border dark:border-dark-border">
-                                        <BookOpen size={16} className="text-light-text-disabled mx-auto mb-2 opacity-50" />
-                                        <p className="text-[11px] text-light-text-disabled">No TSK cross-references found for this verse.</p>
+                                    <div className="p-6 text-center rounded-xl border border-dashed border-light-border dark:border-dark-border space-y-3">
+                                        <BookOpen size={20} className="text-light-text-disabled mx-auto opacity-50" />
+                                        <p className="text-xs font-medium text-light-text-secondary">
+                                            No TSK cross-references found for <strong className="text-light-text-primary dark:text-dark-text-primary">{formatVerseIdDisplay(effectiveVerseId)}</strong>.
+                                        </p>
+                                        <p className="text-[11px] text-light-text-disabled">Try selecting a verse in the reader or try one of these:</p>
+                                        <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                                            {['John 3:16', 'Genesis 1:1', 'Romans 8:28', 'Psalms 23:1'].map((v) => (
+                                                <button
+                                                    key={v}
+                                                    type="button"
+                                                    onClick={() => handleLookupSubmit(v)}
+                                                    className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                                >
+                                                    {v}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         </section>
-                    </>
-                )}
             </div>
 
             <AlertModal

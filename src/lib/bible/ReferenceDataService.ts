@@ -49,8 +49,13 @@ class ReferenceDataServiceClass {
                 refs
             }));
 
-            onProgress?.(50, `Indexing ${entries.length} verse reference sets...`);
-            await db.tskRefs.bulkPut(entries);
+            const CHUNK_SIZE = 2500;
+            for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+                const chunk = entries.slice(i, i + CHUNK_SIZE);
+                await db.tskRefs.bulkPut(chunk);
+                const pct = Math.min(99, 40 + Math.round(((i + chunk.length) / entries.length) * 58));
+                onProgress?.(pct, `Indexing references (${i + chunk.length}/${entries.length})...`);
+            }
             onProgress?.(100, 'TSK Cross-References installed successfully!');
             return true;
         } catch (err: any) {

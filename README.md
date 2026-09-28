@@ -15,9 +15,9 @@ To get started with the Parchments Beta, download the installer for your operati
 
 | Platform | Download Link | File Type |
 | :--- | :--- | :--- |
-| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_x64_en-US.msi) | `.msi` Installer |
-| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_universal.dmg) | `.dmg` (Universal) |
-| **Linux** | [**Download .deb**](https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.0_amd64.deb) or [**.AppImage**](https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.0_amd64.AppImage) | `.deb` / `.AppImage` |
+| **Windows** | [**Download for Windows**](https://github.com/patrickudo2004/parchments/releases/latest) | `.msi` / `.exe` Setup |
+| **macOS** | [**Download for macOS**](https://github.com/patrickudo2004/parchments/releases/latest) | `.dmg` (Universal) |
+| **Linux** | [**Download Linux Binaries**](https://github.com/patrickudo2004/parchments/releases/latest) | `.AppImage` / `.deb` |
 | **Android** | [**Download APK**](https://github.com/patrickudo2004/parchments/releases/latest/download/parchments-android.apk) | `.apk` Package |
 | **iOS (PWA)** | [**Access Web App**](https://parchments.vercel.app) | Safari Web PWA |
 

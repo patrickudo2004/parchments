@@ -89,7 +89,7 @@ export const LandingPage: React.FC = () => {
                         <div id="download" className="flex flex-col items-center justify-center gap-6 pt-4">
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.1_x64_en-US.msi"
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_x64_en-US.msi`}
                                     className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
@@ -108,19 +108,25 @@ export const LandingPage: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-center gap-3 text-xs pt-2">
                                 <span className="text-white/30 font-bold uppercase tracking-wider text-[10px] mr-1">Other Platforms:</span>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/Parchments_0.1.1_universal.dmg"
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_universal.dmg`}
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                 >
                                     <span> macOS</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments_0.1.1_amd64.deb"
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_amd64.AppImage`}
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    <span>🐧 Linux</span>
+                                    <span>🐧 Linux (.AppImage)</span>
                                 </a>
                                 <a
-                                    href="https://github.com/patrickudo2004/parchments/releases/latest/download/parchments-android.apk"
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/parchments_${APP_VERSION}_amd64.deb`}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                                >
+                                    <span>🐧 Linux (.deb)</span>
+                                </a>
+                                <a
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/parchments-android.apk`}
                                     className="px-4 py-2 bg-white/5 hover:bg-primary/20 text-white border border-primary/20 hover:border-primary/40 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                     title="Download Android Release APK"
                                 >
@@ -132,6 +138,16 @@ export const LandingPage: React.FC = () => {
                                 >
                                     <span>📱 iOS (PWA Setup)</span>
                                 </button>
+                            </div>
+                            <div className="pt-1">
+                                <a
+                                    href="https://github.com/patrickudo2004/parchments/releases"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] text-white/40 hover:text-primary transition-colors underline"
+                                >
+                                    View all releases & assets on GitHub &rarr;
+                                </a>
                             </div>
                         </div>
                     </motion.div>

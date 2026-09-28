@@ -47,7 +47,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Parchments ${{ github.ref_name }}"
           releaseBody: "Automated release from GitHub Actions"
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
 
@@ -94,7 +94,7 @@ jobs:
         with:
           files: android/app/build/outputs/apk/release/parchments-android.apk
           tag_name: ${{ github.ref_name }}
-          draft: true
+          draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

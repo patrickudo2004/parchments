@@ -15,9 +15,84 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.1.5 (Beta)",
+        date: "October 2, 2026",
+        isLatest: true,
+        description: "Interactive Scripture Tooltips with multi-verse previewing, reliable compound index querying, hover debounce protection, and automated multi-platform release publishing.",
+        features: [
+            "Interactive Scripture Tooltip: Hover over any linked scriptural reference or inline tag to preview decrypted passage text instantly without losing your study position.",
+            "Multi-Verse & Nested Markup Previews: Preview single verses and scripture spans (e.g., John 3:16-17) smoothly, even when references contain bold, italic, or custom formatting.",
+            "Automated GitHub Releases: Multi-platform desktop builds (Windows MSI/EXE, macOS DMG, Linux AppImage/deb) and Android APKs now publish directly as public GitHub releases."
+        ],
+        improvements: [
+            "Compound Index Querying: Robust Dexie compound index lookups for multi-word books (Song of Solomon, 1 John, 1 Samuel) resolving complex passage names accurately.",
+            "Tooltip Hover Debounce: 200ms grace window allows moving the cursor into the tooltip popup to read, select, or copy passage text without premature closing.",
+            "Active Fetch Race Guard: Prevents out-of-order text popups when quickly moving the cursor across multiple references."
+        ],
+        fixes: [
+            "Scripture reference target selection inside nested rich text elements (closest .scripture-ref).",
+            "Automated release workflow draft flag configuration for instant public availability."
+        ]
+    },
+    {
+        version: "v0.1.4 (Beta)",
+        date: "September 11, 2026",
+        isLatest: false,
+        description: "Expanded biblical corpus with 7 new translations & original languages, comprehensive study commentaries, Treasury of Scripture Knowledge cross-references, Easton's Bible Dictionary, and Pulpit mode.",
+        features: [
+            "7 New Biblical Texts: Hebrew WLC (with full RTL support), Greek Textus Receptus, Greek Septuagint (LXX), ASV, Young's Literal Translation (YLT), Darby, and Douay-Rheims (DRC).",
+            "TSK Cross-References: Over 31,000 cross-reference entries with chunked Dexie ingestion to explore scriptural connections.",
+            "Matthew Henry & JFB Commentaries: Verse-by-verse commentary drawers integrated into the study sidebar.",
+            "Easton's Bible Dictionary: Rich definitions and historical context for biblical terms, names, and places.",
+            "Pulpit Teleprompter Mode: High-contrast, distraction-free sermon delivery view with adjustable pacing and font scaling.",
+            "Double-Bracket Scripture Quoting: Type [[John 3:16]] in the editor to automatically insert decrypted scripture blocks."
+        ],
+        improvements: [
+            "Chunked Background Ingestion: High-volume dataset imports run asynchronously with non-blocking progress indicators.",
+            "RTL Typography: Specialized right-to-left layout and Hebrew font support for original text study."
+        ],
+        fixes: [
+            "Contextual fallback for study sidebars to automatically display the active reading passage when no verse is explicitly focused."
+        ]
+    },
+    {
+        version: "v0.1.3 (Beta)",
+        date: "September 8, 2026",
+        isLatest: false,
+        description: "Expository sermon outlining enhancements, workspace persistence & stability, and refined scripture navigation.",
+        features: [
+            "Expository Outliner: Structured tree navigation for sermon points and sub-points linked to biblical passages.",
+            "Quick Reference Lookup: Direct verse jump input with suggestion pills in study sidebars."
+        ],
+        improvements: [
+            "Workspace Persistence: Automatic local caching and state recovery across app restarts.",
+            "Reader Caching: Improved IndexedDB reader query performance."
+        ],
+        fixes: [
+            "Dexie database connection pooling and transaction lifecycle stability."
+        ]
+    },
+    {
+        version: "v0.1.2 (Beta)",
+        date: "July 25, 2026",
+        isLatest: false,
+        description: "AES-GCM Scripture encryption, mobile UI action sheet, PWA manifest, and copyright cleanliness.",
+        features: [
+            "AES-GCM Scripture Encryption: Offline database verses encrypted at rest with authenticated encryption (ENC::v1::).",
+            "Progressive Web App (PWA): Standalone mobile installation support with offline caching."
+        ],
+        improvements: [
+            "Mobile UI Action Sheet: Bottom sheet navigation tailored for touch devices.",
+            "Optimized font rendering across high-DPI displays."
+        ],
+        fixes: [
+            "Cleaned legacy metadata and standardized licensing."
+        ]
+    },
+    {
         version: "v0.1.1 (Beta)",
         date: "June 3, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Mobile sandbox database isolation, recursive note synchronization, scroll state stabilization, and desktop update center.",
         features: [
             "Desktop Auto-Updater: Direct signature updates from GitHub Releases right in the settings panel.",

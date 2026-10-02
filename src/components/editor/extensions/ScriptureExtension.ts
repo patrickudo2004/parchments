@@ -94,20 +94,21 @@ export const ScriptureExtension = Mark.create({
                         const { tr, schema } = state;
                         let modified = false;
 
-                        // Iterate through all nodes to find text
+                        // Iterate through textblocks to scan full content across inline nodes
                         state.doc.descendants((node, pos) => {
-                            if (!node.isText || !node.text) return;
+                            if (!node.isTextblock) return;
+                            const text = node.textContent;
+                            if (!text) return;
 
-                            const matches = scanScriptureReferences(node.text);
+                            const matches = scanScriptureReferences(text);
+                            if (matches.length === 0) return;
 
                             matches.forEach((match) => {
-                                const from = pos + match.startIndex;
-                                const to = pos + match.endIndex;
+                                const from = pos + 1 + match.startIndex;
+                                const to = pos + 1 + match.endIndex;
 
-                                // Check if range already has this mark to avoid duplicates
-                                if (state.doc.rangeHasMark(from, to, schema.marks.scripture)) {
-                                    return;
-                                }
+                                // Remove any partial/outdated marks on this range
+                                tr.removeMark(from, to, schema.marks.scripture);
 
                                 const segmentsStr = match.ref.segments && match.ref.segments.length > 1
                                     ? match.ref.segments.map(s => s.verseEnd ? `${s.verse}-${s.verseEnd}` : `${s.verse}`).join(',')
@@ -139,6 +140,63 @@ export const ScriptureExtension = Mark.create({
 
     addInputRules() {
         return [
+            // Compound chained references typed in one go: "Gen 6:13; 7:4 " or "Gen 6:13;7:4 "
+            new InputRule({
+                find: new RegExp(`(${SCRIPTURE_REGEX.source})\\s*;\\s*(\\d+:[\\d\\s,–—-]+)\\s$`, 'i'),
+                handler: ({ state, range, match }) => {
+                    const fullMatch = match[0];
+                    const ref1Text = match[1];
+                    const continuationText = match[match.length - 1]?.trim();
+                    if (!ref1Text || !continuationText) return null;
+
+                    const parsed1 = parseScriptureReference(ref1Text);
+                    if (!parsed1 || parsed1.verse === null) return null;
+
+                    const parsed2 = parseScriptureReference(`${parsed1.book} ${continuationText}`);
+                    if (!parsed2 || parsed2.verse === null) return null;
+
+                    const ref1Index = fullMatch.indexOf(ref1Text);
+                    const contIndex = fullMatch.lastIndexOf(continuationText);
+                    const delimiter = fullMatch.substring(ref1Index + ref1Text.length, contIndex);
+
+                    const { tr } = state;
+                    tr.delete(range.from, range.to);
+
+                    const seg1Str = parsed1.segments && parsed1.segments.length > 1
+                        ? parsed1.segments.map(s => s.verseEnd ? `${s.verse}-${s.verseEnd}` : `${s.verse}`).join(',')
+                        : null;
+                    const mark1 = state.schema.marks.scripture.create({
+                        book: parsed1.book,
+                        chapter: parsed1.chapter,
+                        verse: parsed1.verse,
+                        verseEnd: parsed1.verseEnd,
+                        segments: seg1Str,
+                    });
+
+                    const seg2Str = parsed2.segments && parsed2.segments.length > 1
+                        ? parsed2.segments.map(s => s.verseEnd ? `${s.verse}-${s.verseEnd}` : `${s.verse}`).join(',')
+                        : null;
+                    const mark2 = state.schema.marks.scripture.create({
+                        book: parsed2.book,
+                        chapter: parsed2.chapter,
+                        verse: parsed2.verse,
+                        verseEnd: parsed2.verseEnd,
+                        segments: seg2Str,
+                    });
+
+                    let insertPos = range.from;
+                    tr.insert(insertPos, state.schema.text(ref1Text, [mark1]));
+                    insertPos += ref1Text.length;
+
+                    tr.insert(insertPos, state.schema.text(delimiter));
+                    insertPos += delimiter.length;
+
+                    tr.insert(insertPos, state.schema.text(continuationText, [mark2]));
+                    insertPos += continuationText.length;
+
+                    tr.insert(insertPos, state.schema.text(' '));
+                },
+            }),
             // Standard and discontinuous references: "John 3:16 ", "1 Cor 14:4, 14-15 "
             new InputRule({
                 find: new RegExp(`(${SCRIPTURE_REGEX.source})\\s$`, 'i'),
@@ -189,6 +247,15 @@ export const ScriptureExtension = Mark.create({
                             precedingBook = scriptureMark.attrs.book;
                         }
                     });
+
+                    // If not found in a mark, inspect the raw text before the semicolon
+                    if (!precedingBook) {
+                        const textBefore = state.doc.textBetween(searchStart, range.from);
+                        const matches = scanScriptureReferences(textBefore);
+                        if (matches.length > 0) {
+                            precedingBook = matches[matches.length - 1].ref.book;
+                        }
+                    }
 
                     if (!precedingBook) return null;
 

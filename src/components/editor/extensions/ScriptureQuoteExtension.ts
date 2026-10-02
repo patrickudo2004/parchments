@@ -39,30 +39,46 @@ export const ScriptureQuoteExtension = Extension.create({
                     setTimeout(async () => {
                         try {
                             const version = useBibleStore.getState().mainVersion || 'kjv';
-                            let verseText = await dbHelpers.getVerseText(
-                                version,
-                                parsed.book,
-                                parsed.chapter,
-                                verseNum,
-                                parsed.verseEnd
-                            );
+                            const segments = parsed.segments && parsed.segments.length > 0
+                                ? parsed.segments
+                                : [{ verse: verseNum, verseEnd: parsed.verseEnd }];
 
-                            // Fallback to KJV if not found in current translation
-                            if (!verseText && version !== 'kjv') {
-                                verseText = await dbHelpers.getVerseText(
-                                    'kjv',
+                            const segmentTexts: string[] = [];
+
+                            for (const seg of segments) {
+                                let text = await dbHelpers.getVerseText(
+                                    version,
                                     parsed.book,
                                     parsed.chapter,
-                                    verseNum,
-                                    parsed.verseEnd
+                                    seg.verse,
+                                    seg.verseEnd
                                 );
+
+                                // Fallback to KJV if not found in current translation
+                                if (!text && version !== 'kjv') {
+                                    text = await dbHelpers.getVerseText(
+                                        'kjv',
+                                        parsed.book,
+                                        parsed.chapter,
+                                        seg.verse,
+                                        seg.verseEnd
+                                    );
+                                }
+
+                                if (text) {
+                                    segmentTexts.push(text);
+                                }
                             }
 
-                            const refLabel = `${parsed.book} ${parsed.chapter}:${parsed.verse}${parsed.verseEnd ? `-${parsed.verseEnd}` : ''}`;
+                            const formattedSegments = segments
+                                .map(s => s.verseEnd ? `${s.verse}–${s.verseEnd}` : `${s.verse}`)
+                                .join(', ');
+                            const refLabel = `${parsed.book} ${parsed.chapter}:${formattedSegments}`;
                             const citation = `${refLabel} (${version.toUpperCase()})`;
 
-                            if (verseText) {
-                                const quoteHtml = `<blockquote><p>${verseText}</p><p><em>— ${citation}</em></p></blockquote><p></p>`;
+                            if (segmentTexts.length > 0) {
+                                const fullQuote = segmentTexts.join(' <em>[...]</em> ');
+                                const quoteHtml = `<blockquote><p>${fullQuote}</p><p><em>— ${citation}</em></p></blockquote><p></p>`;
                                 editor.chain().focus().insertContentAt(insertPos, quoteHtml).run();
                             } else {
                                 const fallbackHtml = `<blockquote><p><em>[Scripture: ${citation}]</em></p></blockquote><p></p>`;

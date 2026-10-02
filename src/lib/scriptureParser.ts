@@ -1,8 +1,21 @@
+export interface VerseSegment {
+    verse: number;
+    verseEnd: number | null;
+}
+
 export interface BibleReference {
     book: string;
     chapter: number;
     verse: number | null;
     verseEnd: number | null;
+    segments?: VerseSegment[];
+}
+
+export interface ExtractedReference {
+    text: string;
+    startIndex: number;
+    endIndex: number;
+    ref: BibleReference;
 }
 
 // Map of common abbreviations to full book names
@@ -76,6 +89,26 @@ const BOOK_ABBREVIATIONS: { [key: string]: string } = {
 };
 
 /**
+ * Parses comma-separated verse specifications into structured segments.
+ * e.g., "4, 14-15" -> [{ verse: 4, verseEnd: null }, { verse: 14, verseEnd: 15 }]
+ */
+export const parseVerseSegments = (rawVerses: string): VerseSegment[] => {
+    const rawParts = rawVerses.split(',').map(s => s.trim()).filter(Boolean);
+    const segments: VerseSegment[] = [];
+
+    for (const part of rawParts) {
+        const rangeMatch = part.match(/^(\d+)(?:[-–—](\d+))?$/);
+        if (rangeMatch) {
+            const verse = parseInt(rangeMatch[1], 10);
+            const verseEnd = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : null;
+            segments.push({ verse, verseEnd });
+        }
+    }
+
+    return segments;
+};
+
+/**
  * Regex explanation:
  * \b: Word boundary start
  * ((?:1|2|3|I|II|III)\s*)? : Optional number prefix (e.g., "1 ", "2 ")
@@ -83,18 +116,17 @@ const BOOK_ABBREVIATIONS: { [key: string]: string } = {
  * \s+ : Space between book and chapter
  * (\d+) : Chapter number
  * : : Separator
- * (\d+) : Verse number
- * (?:-(\d+))? : Optional hyphen and ending verse
+ * (\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*) : Full verse specification with optional commas/ranges
  * \b : Word boundary end
  */
-export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+)(?:[-–—](\d+))?\b/i;
+export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*)\b/i;
 
 export const parseScriptureReference = (text: string): BibleReference | null => {
     const match = text.match(SCRIPTURE_REGEX);
 
     if (!match) return null;
 
-    const [_, prefix, bookName, chapter, verseStart, verseEnd] = match;
+    const [_, prefix, bookName, chapter, verseSpec] = match;
 
     // Normalize book name
     let cleanBookName = bookName.trim().toLowerCase();
@@ -106,7 +138,6 @@ export const parseScriptureReference = (text: string): BibleReference | null => 
     }
 
     // Lookup full name
-    // We try to match variations like "1john", "1 john"
     let fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
 
     if (!fullBookName && prefix) {
@@ -116,13 +147,102 @@ export const parseScriptureReference = (text: string): BibleReference | null => 
         fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
     }
 
-    // If still no match, and no prefix, maybe it's just the book name directly (less likely with the abbr map)
     if (!fullBookName) return null;
+
+    const segments = parseVerseSegments(verseSpec);
+    if (segments.length === 0) return null;
 
     return {
         book: fullBookName,
-        chapter: parseInt(chapter),
-        verse: parseInt(verseStart),
-        verseEnd: verseEnd ? parseInt(verseEnd) : null,
+        chapter: parseInt(chapter, 10),
+        verse: segments[0].verse,
+        verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
+        segments: segments,
     };
+};
+
+/**
+ * Scans a full text block, detecting both standard references and chained
+ * chapter continuations across semicolons (e.g. "Gen 6:13; 7:4").
+ */
+export const scanScriptureReferences = (text: string): ExtractedReference[] => {
+    const results: ExtractedReference[] = [];
+
+    // Pattern matches:
+    // Case 1: Full reference: (Prefix)?(Book) Chapter:VerseSpec
+    // Case 2: Continuation: ; followed by Chapter:VerseSpec
+    const combinedPattern = /(?:((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*))|(?:\s*;\s*(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*))/gi;
+
+    let match: RegExpExecArray | null;
+    let currentBook: string | null = null;
+
+    while ((match = combinedPattern.exec(text)) !== null) {
+        const fullMatchText = match[0];
+        const matchIndex = match.index;
+
+        if (match[3] !== undefined && match[4] !== undefined) {
+            // Full reference
+            const prefix = match[1];
+            const bookName = match[2];
+            const chapter = match[3];
+            const verseSpec = match[4];
+
+            let cleanBookName = bookName.trim().toLowerCase();
+            if (prefix) {
+                const cleanPrefix = prefix.trim().replace('I', '1').replace('II', '2').replace('III', '3');
+                cleanBookName = `${cleanPrefix}${cleanBookName}`;
+            }
+
+            let fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
+            if (!fullBookName && prefix) {
+                const cleanPrefix = prefix.trim().replace('I', '1').replace('II', '2').replace('III', '3');
+                cleanBookName = `${cleanPrefix} ${bookName.trim().toLowerCase()}`;
+                fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
+            }
+
+            if (fullBookName) {
+                currentBook = fullBookName;
+                const segments = parseVerseSegments(verseSpec);
+                results.push({
+                    text: fullMatchText.trim(),
+                    startIndex: matchIndex,
+                    endIndex: matchIndex + fullMatchText.length,
+                    ref: {
+                        book: fullBookName,
+                        chapter: parseInt(chapter, 10),
+                        verse: segments[0].verse,
+                        verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
+                        segments: segments,
+                    },
+                });
+            } else {
+                currentBook = null;
+            }
+        } else if (match[5] !== undefined && match[6] !== undefined && currentBook) {
+            // Chained chapter continuation: ; 7:4
+            const chapter = match[5];
+            const verseSpec = match[6];
+            const segments = parseVerseSegments(verseSpec);
+
+            // Find start of the continuation digits (skip leading ; and whitespace)
+            const digitsMatch = fullMatchText.match(/(\d+:[\d\s,–—-]+)/);
+            const digitsText = digitsMatch ? digitsMatch[1].trim() : fullMatchText.trim();
+            const offset = fullMatchText.indexOf(digitsText);
+
+            results.push({
+                text: digitsText,
+                startIndex: matchIndex + offset,
+                endIndex: matchIndex + offset + digitsText.length,
+                ref: {
+                    book: currentBook,
+                    chapter: parseInt(chapter, 10),
+                    verse: segments[0].verse,
+                    verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
+                    segments: segments,
+                },
+            });
+        }
+    }
+
+    return results;
 };

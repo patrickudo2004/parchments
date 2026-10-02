@@ -18,7 +18,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
     versions,
     versesByVersion
 }) => {
-    const { interlinearEnabled, selectionRange, setSelectionRange } = useBibleStore();
+    const { interlinearEnabled, selectionRange, setSelectionRange, bibleFocus } = useBibleStore();
     const { openCrossRefs, selectedVerseId } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
 
@@ -38,7 +38,21 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
         [verseId]
     ) || false;
 
-    const isSelected = selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end);
+    const isFocused = Boolean(
+        bibleFocus &&
+        firstVerse &&
+        bibleFocus.book.toLowerCase() === firstVerse.book.toLowerCase() &&
+        bibleFocus.chapter === firstVerse.chapter &&
+        (
+            bibleFocus.segments && bibleFocus.segments.length > 0
+                ? bibleFocus.segments.some(seg => verseNum >= seg.verse && verseNum <= (seg.verseEnd || seg.verse))
+                : bibleFocus.verse !== null
+                    ? verseNum >= bibleFocus.verse && verseNum <= (bibleFocus.verseEnd || bibleFocus.verse)
+                    : false
+        )
+    );
+
+    const isSelected = isFocused || (selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end));
 
     const { isMobile } = useUIStore();
 

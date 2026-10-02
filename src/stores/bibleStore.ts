@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { db } from '@/lib/db';
+import type { VerseSegment } from '@/lib/scriptureParser';
 
 interface BibleFocus {
     book: string;
     chapter: number;
     verse: number | null;
     verseEnd?: number | null;
+    segments?: VerseSegment[];
 }
 
 interface BibleStore {

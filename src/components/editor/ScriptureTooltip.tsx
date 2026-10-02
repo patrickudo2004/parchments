@@ -21,11 +21,16 @@ export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ chil
     );
 };
 
+interface VerseSegmentGroup {
+    verses: BibleVerse[];
+    omittedBeforeNotice?: string | null;
+}
+
 const GlobalScriptureListener: React.FC = () => {
     const { mainVersion } = useBibleStore();
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [content, setContent] = useState<{ ref: string; verses: BibleVerse[]; version: string } | null>(null);
+    const [content, setContent] = useState<{ ref: string; segmentGroups: VerseSegmentGroup[]; version: string } | null>(null);
 
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentTargetRef = useRef<HTMLElement | null>(null);
@@ -51,72 +56,102 @@ const GlobalScriptureListener: React.FC = () => {
             const chapter = parseInt(target.getAttribute('data-chapter') || '0');
             const verse = parseInt(target.getAttribute('data-verse') || '0');
             const verseEnd = parseInt(target.getAttribute('data-verse-end') || '0');
+            const rawSegments = target.getAttribute('data-segments');
 
             if (book && chapter && verse) {
                 const fetchId = ++activeFetchRef.current;
                 const versionId = mainVersion.toLowerCase();
 
                 try {
-                    // Fetch from DB using composite index for robust resolution
-                    let verses: BibleVerse[] = [];
-                    if (verseEnd && verseEnd > verse) {
-                        verses = await db.bibleVerses
-                            .where('[versionId+book+chapter]')
-                            .equals([versionId, book, chapter])
-                            .and(v => v.verse >= verse && v.verse <= verseEnd)
-                            .sortBy('verse');
-                    } else {
-                        const v = await db.bibleVerses
-                            .where('[versionId+book+chapter+verse]')
-                            .equals([versionId, book, chapter, verse])
-                            .first();
-                        if (v) verses = [v];
-                    }
+                    const { parseVerseSegments } = await import('@/lib/scriptureParser');
+                    const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
 
-                    // Fallback to KJV if not found in active translation
+                    const segments = rawSegments
+                        ? parseVerseSegments(rawSegments)
+                        : [{ verse, verseEnd: verseEnd && verseEnd > verse ? verseEnd : null }];
+
                     let activeVersionDisplay = mainVersion.toUpperCase();
-                    if (verses.length === 0 && versionId !== 'kjv') {
-                        if (verseEnd && verseEnd > verse) {
-                            verses = await db.bibleVerses
+                    const segmentGroups: Array<{ verses: BibleVerse[]; omittedBeforeNotice?: string | null }> = [];
+
+                    for (let idx = 0; idx < segments.length; idx++) {
+                        const seg = segments[idx];
+                        let omittedBeforeNotice: string | null = null;
+
+                        if (idx > 0) {
+                            const prevEnd = segments[idx - 1].verseEnd || segments[idx - 1].verse;
+                            const currentStart = seg.verse;
+                            if (currentStart > prevEnd + 1) {
+                                if (currentStart === prevEnd + 2) {
+                                    omittedBeforeNotice = `v. ${prevEnd + 1} omitted`;
+                                } else {
+                                    omittedBeforeNotice = `vv. ${prevEnd + 1}–${currentStart - 1} omitted`;
+                                }
+                            }
+                        }
+
+                        let segVerses: BibleVerse[] = [];
+                        if (seg.verseEnd && seg.verseEnd > seg.verse) {
+                            segVerses = await db.bibleVerses
                                 .where('[versionId+book+chapter]')
-                                .equals(['kjv', book, chapter])
-                                .and(v => v.verse >= verse && v.verse <= verseEnd)
+                                .equals([versionId, book, chapter])
+                                .and(v => v.verse >= seg.verse && v.verse <= seg.verseEnd!)
                                 .sortBy('verse');
                         } else {
                             const v = await db.bibleVerses
                                 .where('[versionId+book+chapter+verse]')
-                                .equals(['kjv', book, chapter, verse])
+                                .equals([versionId, book, chapter, seg.verse])
                                 .first();
-                            if (v) verses = [v];
+                            if (v) segVerses = [v];
                         }
-                        if (verses.length > 0) {
-                            activeVersionDisplay = 'KJV';
+
+                        // Fallback to KJV if not found in active translation
+                        if (segVerses.length === 0 && versionId !== 'kjv') {
+                            if (seg.verseEnd && seg.verseEnd > seg.verse) {
+                                segVerses = await db.bibleVerses
+                                    .where('[versionId+book+chapter]')
+                                    .equals(['kjv', book, chapter])
+                                    .and(v => v.verse >= seg.verse && v.verse <= seg.verseEnd!)
+                                    .sortBy('verse');
+                            } else {
+                                const v = await db.bibleVerses
+                                    .where('[versionId+book+chapter+verse]')
+                                    .equals(['kjv', book, chapter, seg.verse])
+                                    .first();
+                                if (v) segVerses = [v];
+                            }
+                            if (segVerses.length > 0) {
+                                activeVersionDisplay = 'KJV';
+                            }
+                        }
+
+                        if (segVerses.length > 0) {
+                            const decrypted = await decryptVerses(segVerses);
+                            segmentGroups.push({
+                                verses: decrypted,
+                                omittedBeforeNotice,
+                            });
                         }
                     }
 
                     // Guard against race conditions: abort if another hover started
                     if (fetchId !== activeFetchRef.current) return;
 
-                    if (verses.length > 0) {
-                        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
-                        const decrypted = await decryptVerses(verses);
-
-                        if (fetchId !== activeFetchRef.current) return;
-
-                        const refString = verseEnd && verseEnd > verse
-                            ? `${book} ${chapter}:${verse}-${verseEnd}`
-                            : `${book} ${chapter}:${verse}`;
+                    if (segmentGroups.length > 0) {
+                        const formattedSegments = segments
+                            .map(s => s.verseEnd && s.verseEnd > s.verse ? `${s.verse}–${s.verseEnd}` : `${s.verse}`)
+                            .join(', ');
+                        const refString = `${book} ${chapter}:${formattedSegments}`;
 
                         setContent({
                             ref: refString,
-                            verses: decrypted,
-                            version: activeVersionDisplay
+                            segmentGroups,
+                            version: activeVersionDisplay,
                         });
 
                         const rect = target.getBoundingClientRect();
                         setPosition({
                             x: rect.left + rect.width / 2,
-                            y: rect.top
+                            y: rect.top,
                         });
                         setOpen(true);
                     }
@@ -202,11 +237,26 @@ const GlobalScriptureListener: React.FC = () => {
                         <span className="bg-white/10 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tight">{content.version}</span>
                     </div>
                     <div className="font-serif italic text-gray-200 leading-snug max-h-60 overflow-y-auto pr-1">
-                        {content.verses.map((v, i) => (
-                            <span key={i}>
-                                <span className="text-[10px] align-top text-primary font-bold mr-1 select-none opacity-70 relative top-[2px]">{v.verse}</span>
-                                {v.text}{' '}
-                            </span>
+                        {content.segmentGroups.map((group, groupIdx) => (
+                            <React.Fragment key={groupIdx}>
+                                {group.omittedBeforeNotice && (
+                                    <div className="flex items-center justify-center my-2.5 select-none not-italic font-sans">
+                                        <div className="h-px bg-white/10 flex-1" />
+                                        <span className="text-[9px] font-mono uppercase tracking-wider text-white/40 px-2">
+                                            ••• {group.omittedBeforeNotice} •••
+                                        </span>
+                                        <div className="h-px bg-white/10 flex-1" />
+                                    </div>
+                                )}
+                                <div>
+                                    {group.verses.map((v, i) => (
+                                        <span key={i}>
+                                            <span className="text-[10px] align-top text-primary font-bold mr-1 select-none opacity-70 relative top-[2px] font-sans not-italic">{v.verse}</span>
+                                            {v.text}{' '}
+                                        </span>
+                                    ))}
+                                </div>
+                            </React.Fragment>
                         ))}
                     </div>
                     <Tooltip.Arrow className="fill-gray-900/95" />

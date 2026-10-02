@@ -15,9 +15,31 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
-        version: "v0.1.5 (Beta)",
+        version: "v0.1.6 (Beta)",
         date: "October 2, 2026",
         isLatest: true,
+        description: "Advanced scripture reference parsing with discontinuous verse groups, semicolon chained chapter references, unified tooltip cards with omission dividers, and multi-verse reader highlighting.",
+        features: [
+            "Discontinuous Verse Groups: Type references like '1 Cor 14:4, 14-15' and Parchments will parse, display, and highlight each verse segment individually — with omission dividers between gaps.",
+            "Chained Chapter References: Semicolon syntax (e.g. 'Gen 6:13; 7:4') creates independent, clickable anchors for each chapter segment, inheriting the book context automatically.",
+            "Unified Tooltip Card with Omission Dividers: Hovering over a multi-segment reference shows a single card with passage groups separated by '••• vv. X–Y omitted •••' notices (Logos-style).",
+            "Multi-Verse Reader Highlighting: Opening a multi-segment reference highlights all matching verses across the Bible reader simultaneously.",
+            "Multi-Segment [[...]] Blockquote Quoting: Double-bracket quoting inserts all verse segments joined with '[...]' dividers for clean formatted excerpts."
+        ],
+        improvements: [
+            "Compound input rule for chained references processes the entire 'Book Chapter:Verses; Chapter:Verses' pattern in a single pass.",
+            "Block-level scanner (scanScriptureReferences) now traverses full paragraph content for reliable auto-marking of existing notes.",
+            "Enhanced continuation rule with raw-text fallback to reliably inherit book context for semicolon-chained references."
+        ],
+        fixes: [
+            "Chained references (Gen 6:13; 7:4) were silently dropped because the semicolon blocked the standard space-trigger rule. Fixed via compound input rule placed first in the rule array.",
+            "Block scanner now correctly computes node offsets using pos+1 to avoid off-by-one mark placement errors."
+        ]
+    },
+    {
+        version: "v0.1.5 (Beta)",
+        date: "October 2, 2026",
+        isLatest: false,
         description: "Interactive Scripture Tooltips with multi-verse previewing, reliable compound index querying, hover debounce protection, and automated multi-platform release publishing.",
         features: [
             "Interactive Scripture Tooltip: Hover over any linked scriptural reference or inline tag to preview decrypted passage text instantly without losing your study position.",

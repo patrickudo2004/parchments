@@ -14,10 +14,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                 <nav className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <img src="/logo.png" alt="Parchments Logo" className="w-10 h-10 object-contain" />
-                        <div>
-                            <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
-                            <span className="block text-[10px] uppercase tracking-[0.2em] font-bold text-primary opacity-80 -mt-1">Beta v{APP_VERSION}</span>
-                        </div>
+                        <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
                     </a>
 
                     <div className="hidden md:flex items-center gap-8">

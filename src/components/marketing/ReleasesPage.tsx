@@ -15,9 +15,32 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.1.7 (Beta)",
+        date: "October 3, 2026",
+        isLatest: true,
+        description: "Zero-server local Wi-Fi & hotspot collaboration, embedded Rust WebSocket relay, host knock-to-join approval, Co-Editor vs. Presentation Follower modes, and Markdown frontmatter properties.",
+        features: [
+            "Zero-Server Local Wi-Fi Sync: Completely replaced external third-party signaling servers (Deno/Fly.dev) with an embedded Rust WebSocket server (tokio-tungstenite) running on port 48921.",
+            "Cross-Platform Multi-Device Sync: Real-time note sharing between Windows, macOS, Linux, Android, and iOS across local Wi-Fi or mobile hotspots with zero internet connection required.",
+            "Host Knock-to-Join Security: QR code contains a 32-character cryptographic session token. Connecting devices require explicit Host 'Allow / Deny' authorization before note data is exchanged.",
+            "Co-Editor & Presentation Follower Modes: Joining devices choose between full bidirectional CRDT editing or a read-only presentation follower view (ideal for teleprompters and preaching).",
+            "Document Frontmatter Properties: Interactive document properties card supporting Speaker, Series, Date, Scripture, and custom key-value metadata with bidirectional Markdown round-tripping.",
+            "Offline Resilient Reconnection: 3-second heartbeat with exponential backoff auto-reconnect and automatic Yjs state vector synchronization."
+        ],
+        improvements: [
+            "Retired all external signaling URLs (wss://parchments-signaling.patrickudo2004.deno.net, wss://signaling.yjs.dev, wss://y-webrtc.fly.dev).",
+            "LAN IP discovery using zero-packet UDP socket allocation without leaking external network traffic.",
+            "Persistent top-right toast overlay ensures hosts never miss a connection knock regardless of active panel."
+        ],
+        fixes: [
+            "Eliminated dependency on third-party Deno signaling infrastructure for study and sermon collaboration.",
+            "Preserved Markdown frontmatter and custom document properties during loose file import and export."
+        ]
+    },
+    {
         version: "v0.1.6 (Beta)",
         date: "October 2, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Advanced scripture reference parsing with discontinuous verse groups, semicolon chained chapter references, unified tooltip cards with omission dividers, and multi-verse reader highlighting.",
         features: [
             "Discontinuous Verse Groups: Type references like '1 Cor 14:4, 14-15' and Parchments will parse, display, and highlight each verse segment individually — with omission dividers between gaps.",

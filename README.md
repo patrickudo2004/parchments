@@ -61,6 +61,9 @@ To get started with the Parchments Beta, download the installer for your operati
 - **Research Bench**: Persistently pin scriptures and cross-references across sessions.
 - **Study Spaces**: Real-time folder-level collaboration with **Host-Dictatorship** sync for pastoral teams.
 - **Voice-to-Text**: High-accuracy real-time transcription for capturing oral reflections and sermon ideas.
+- **Zero-Server Local Wi-Fi Sync**: Real-time collaboration over local Wi-Fi and mobile hotspots powered by an embedded Rust WebSocket server (tokio-tungstenite) with QR code pairing, host knock-to-join security, and Co-Editor vs. Presentation Follower modes.
+- **Markdown & Frontmatter Properties**: Interactive document properties card (Speaker, Series, Date, Scripture, Tags) with seamless bidirectional HTML↔Markdown conversion and loose `.md` file opening.
+- **Discontinuous Scripture Parsing**: Type compound references like `1 Cor 14:4, 14-15` or chained chapters `Gen 6:13; 7:4` with unified tooltip cards and Logos-style omission dividers.
 - **Local-First & Multi-Workspace Architecture**: Your data stays on your machine. Access physical local files directly on Desktop & Mobile (Capacitor native wrappers write documents straight to your device `Documents/Parchments` folder), and fall back cleanly to IndexedDB virtual folders on browser PWAs.
 - **Unified Switcher Dropdown**: Easily swap between physical local directories and sandboxed browser databases with a glassmorphic switcher at the top of the sidebar.
 
@@ -125,14 +128,15 @@ To build, synchronize, or test mobile platform structures locally:
 
 ---
 
-*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.2.0-beta.1`.*
+*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.1.7`.*
 
-## 🆕 What's New in Beta 2.0 (The Immersive Zen Release)
-- **Immersive "Lectio Mode"**: Launch daily schedules inside beautiful 50/50 reading split-panes.
-- **Zen Scrolling vs. Tap-to-Turn**: Settings toggle to choose between vertical reading stacks or classical paginated swiping.
-- **P2P Progress Sharing**: Reading plans and cursor offsets automatically sync across paired mobile and desktop devices.
-- **UK GDPR & PECR Privacy Compliance**: Transparent on-device consent notices and privacy pages protecting user data.
-- **Stability Fixes**: Raised popover menu z-indexes and resolved dark mode text selection contrast overrides.
+## 🆕 What's New in v0.1.7 (Zero-Server Local Wi-Fi Sync & Markdown Frontmatter)
+- **Zero-Server Local Wi-Fi Sync**: Replaced third-party Deno signaling servers with an embedded Rust WebSocket server (`tokio-tungstenite`) on port 48921.
+- **Cross-Platform Multi-Device Collaboration**: Real-time cross-OS note sharing between Windows, macOS, Linux, Android, and iOS on local Wi-Fi or mobile hotspots with zero internet connection required.
+- **Host Security Knock-to-Join**: QR codes with 32-character cryptographic tokens and manual 6-digit codes. Hosts approve each incoming connection via Allow/Deny prompts.
+- **Co-Editor & Presentation Follower Modes**: Joining devices choose between full bidirectional CRDT editing or a read-only presentation follower view (ideal for teleprompters and preaching).
+- **Markdown Frontmatter & Properties**: Interactive document properties card (Speaker, Series, Date, Scripture, Tags) with seamless bidirectional HTML↔Markdown conversion.
+- **Discontinuous Verse Reference Parsing**: Complete support for discontinuous references (e.g. `1 Cor 14:4, 14-15`), chained chapters (`Gen 6:13; 7:4`), and Logos-style omission cards.
 
 ---
 

@@ -34,6 +34,7 @@ import { ImageResizer } from './extensions/ImageResizer';
 import { useSyncStore } from '@/stores/syncStore';
 import { ShareNoteModal } from './ShareNoteModal';
 import { PulpitMode } from './PulpitMode';
+import { FrontmatterPanel } from './FrontmatterPanel';
 
 interface RichTextEditorProps {
     activeRoom: string | null;
@@ -42,7 +43,7 @@ interface RichTextEditorProps {
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, identity, shouldSync }) => {
-    const { currentNote, saveCurrentNote, saveLocalAsset } = useNoteStore();
+    const { currentNote, saveCurrentNote, saveLocalAsset, updateCurrentNoteMetadata } = useNoteStore();
     const titleRef = React.useRef<HTMLTextAreaElement>(null);
     const {
         writingLayout,
@@ -490,6 +491,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         const newTitle = e.target.value.replace(/\n/g, ''); // Prevent newlines in title
         setTitle(newTitle);
 
+        if (currentNote?.metadata && currentNote.metadata.title !== undefined) {
+            updateCurrentNoteMetadata({ title: newTitle });
+        }
+
         // Sync title to Yjs metadata for collaboration
         if (shouldSync && currentNote) {
             YjsService.setMetadata(currentNote.id, 'title', newTitle);
@@ -675,6 +680,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             </button>
                         </div>
                     </div>
+
+                    {/* Document Properties / YAML Frontmatter */}
+                    <FrontmatterPanel
+                        pulpitMode={pulpitMode}
+                        onMetadataChange={() => {
+                            if (currentNote) {
+                                debouncedSave(title, editor?.getHTML() || currentNote.content);
+                            }
+                        }}
+                    />
 
                     {/* Voice Note Player (Inline) */}
                     {currentNote.type === 'voice' && (

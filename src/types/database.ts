@@ -14,6 +14,7 @@ export interface Note {
     audioBlob?: Blob; // Offline storage
     duration?: number; // In seconds
     transcript?: string; // Voice note transcript from Web Speech API
+    metadata?: Record<string, any>; // Sermon & document frontmatter (series, speaker, scripture)
 }
 
 export interface Folder {

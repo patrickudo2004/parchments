@@ -1,11 +1,11 @@
 import { saveAs } from 'file-saver';
-import TurndownService from 'turndown';
 // @ts-ignore
 import html2pdf from 'html2pdf.js/src/index.js';
 // @ts-ignore
 import htmlToDocx from 'html-to-docx';
 import { parseScriptureReference } from '@/lib/scriptureParser';
 import { dbHelpers } from '@/lib/db';
+import { MarkdownService } from '@/lib/markdown/MarkdownService';
 
 export interface ExportOptions {
     includeScripture?: boolean;
@@ -14,14 +14,6 @@ export interface ExportOptions {
 }
 
 export class ExportService {
-    private turndownService: TurndownService;
-
-    constructor() {
-        this.turndownService = new TurndownService({
-            headingStyle: 'atx',
-            codeBlockStyle: 'fenced'
-        });
-    }
 
     /**
      * Enrich HTML content with scripture verse text
@@ -235,10 +227,13 @@ export class ExportService {
             htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
         }
         try {
-            const markdown = this.turndownService.turndown(htmlContent);
-            // Add a title header
-            const finalContent = `# ${title}\n\n${markdown}`;
-            const blob = new Blob([finalContent], { type: 'text/markdown;charset=utf-8' });
+            const frontmatter: Record<string, any> = {
+                title,
+                date: new Date().toISOString().split('T')[0],
+                ...(options?.author ? { author: options.author } : {})
+            };
+            const markdown = MarkdownService.htmlToMarkdown(htmlContent, frontmatter);
+            const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
             saveAs(blob, `${title}.md`);
         } catch (error) {
             console.error('Markdown Export Failed:', error);

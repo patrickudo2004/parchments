@@ -23,7 +23,7 @@ export const MenuBar: React.FC = () => {
         editorFontSize,
         toggleFocusMode
     } = useUIStore();
-    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder } = useNoteStore();
+    const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder, openLooseFile } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +41,9 @@ export const MenuBar: React.FC = () => {
                     createNote(null);
                 }
                 break;
+            case 'Open File...':
+                openLooseFile();
+                break;
             case 'New Folder':
                 createFolder('New Folder', null);
                 break;
@@ -50,6 +53,7 @@ export const MenuBar: React.FC = () => {
                     showToast('Note saved!', 'success');
                 }
                 break;
+            case 'Export to Markdown': openExportModal('md'); break;
             case 'Export to PDF': openExportModal('pdf'); break;
             case 'Export to Word': openExportModal('docx'); break;
             case 'Settings':
@@ -138,9 +142,11 @@ export const MenuBar: React.FC = () => {
             label: 'File',
             items: [
                 { label: 'New Note', shortcut: 'Ctrl+N' },
+                { label: 'Open File...', shortcut: 'Ctrl+O' },
                 { label: 'New Folder', shortcut: 'Ctrl+Shift+N' },
                 { label: 'Quick Save', shortcut: 'Ctrl+S' },
                 { type: 'separator' },
+                { label: 'Export to Markdown', shortcut: '' },
                 { label: 'Export to PDF', shortcut: 'Ctrl+E' },
                 { label: 'Export to Word', shortcut: 'Ctrl+Shift+E' },
                 { label: 'Print', shortcut: 'Ctrl+P' },

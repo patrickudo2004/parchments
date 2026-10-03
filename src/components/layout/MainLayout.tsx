@@ -78,7 +78,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setRightSidebarPosition,
         mobileBibleState
     } = useUIStore();
-    const { hasStudyspace, openLocalFolder, createNote } = useNoteStore();
+    const { hasStudyspace, openLocalFolder, createNote, openLooseFile } = useNoteStore();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
@@ -169,11 +169,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     createNote(null);
                 }
             }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault();
+                openLooseFile();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toggleSearchModal, hasStudyspace, createNote]);
+    }, [toggleSearchModal, hasStudyspace, createNote, openLooseFile]);
 
     return (
         <ErrorBoundary>

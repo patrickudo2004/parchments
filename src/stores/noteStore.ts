@@ -4,6 +4,7 @@ import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
+import { MarkdownService } from '@/lib/markdown/MarkdownService';
 
 
 export const UNTITLED_NOTE = 'Untitled Note';
@@ -123,6 +124,7 @@ interface NoteStore {
     renameNote: (id: string, newName: string) => Promise<void>;
     renameFolder: (id: string, newName: string) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
+    updateCurrentNoteMetadata: (metadata: Record<string, any>) => void;
     setNotes: (notes: Note[]) => void;
 
     // Global Selection State
@@ -138,6 +140,7 @@ interface NoteStore {
     refreshLocalFiles: (handle?: FileSystemDirectoryHandle) => Promise<void>;
     openLocalFolder: () => Promise<void>;
     openLocalFile: (item: LocalItem) => Promise<void>;
+    openLooseFile: () => Promise<void>;
     // Local Creation Actions
     saveCurrentNote: (title: string, content: string) => Promise<void>;
     setLocalMode: (enabled: boolean) => void;
@@ -610,6 +613,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
     setNotes: (notes) => set({ notes }),
+    updateCurrentNoteMetadata: (metadata: Record<string, any>) => {
+        const { currentNote } = get();
+        if (!currentNote) return;
+        set({
+            currentNote: {
+                ...currentNote,
+                metadata: {
+                    ...(currentNote.metadata || {}),
+                    ...metadata
+                },
+                updatedAt: Date.now()
+            }
+        });
+    },
 
     openLocalFolder: async () => {
         try {
@@ -637,6 +654,53 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
+    openLooseFile: async () => {
+        try {
+            const fileHandle = await fileSystem.openFile();
+            if (!fileHandle) return;
+
+            const fileId = fileHandle.path || `loose-${Date.now()}-${fileHandle.name}`;
+            const item: LocalItem = {
+                id: fileId,
+                name: fileHandle.name,
+                kind: 'file',
+                handle: fileHandle,
+                parentId: null
+            };
+
+            let parentDirHandle: FileSystemDirectoryHandle | null = get().localDirectoryHandle;
+            if (fileHandle.path) {
+                const lastSlash = Math.max(fileHandle.path.lastIndexOf('/'), fileHandle.path.lastIndexOf('\\'));
+                if (lastSlash > 0) {
+                    const parentPath = fileHandle.path.substring(0, lastSlash);
+                    parentDirHandle = {
+                        kind: 'directory',
+                        name: parentPath.split(/[/\\]/).pop() || 'Folder',
+                        path: parentPath
+                    };
+                }
+            }
+
+            // Switch to local mode so the editor can save directly to this file
+            set({
+                isLocalMode: true,
+                hasStudyspace: true,
+                ...(parentDirHandle ? { localDirectoryHandle: parentDirHandle } : {})
+            });
+
+            // If the loose file isn't in localFiles, add it so the explorer can show it
+            const currentFiles = get().localFiles;
+            if (!currentFiles.some(f => f.id === fileId)) {
+                set({ localFiles: [item, ...currentFiles] });
+            }
+
+            await get().openLocalFile(item);
+        } catch (error) {
+            if ((error as any)?.message?.includes('No file selected')) return;
+            console.error('Failed to open loose file:', error);
+        }
+    },
+
     refreshLocalFiles: async () => {
         const { localDirectoryHandle } = get();
         if (!localDirectoryHandle) return;
@@ -647,7 +711,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // 1. Map to LocalItem structure while parsing/injecting canonical UUIDs
             const mappedFiles: LocalItem[] = [];
             for (const f of rawFiles) {
-                if (f.kind === 'file' && f.name.endsWith('.html')) {
+                if (f.kind === 'file' && (MarkdownService.isHtmlFile(f.name) || MarkdownService.isMarkdownFile(f.name) || f.name.endsWith('.txt'))) {
                     try {
                         const fileHandle = f.handle as FileSystemFileHandle;
                         const rawContent = await fileSystem.readFile(fileHandle) as string;
@@ -878,6 +942,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             let audioBlob: Blob | undefined;
             let noteType: 'text' | 'voice' = 'text';
             let targetHandle = fileHandle;
+            let parsedFrontmatter: Record<string, any> = {};
 
             if (isAudio) {
                 // Read as Blob directly
@@ -907,7 +972,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             } else {
                 const rawContent = await fileSystem.readFile(fileHandle) as string;
-                content = await get().hydrateAssets(rawContent);
+                let editorContent = rawContent;
+                if (MarkdownService.isMarkdownFile(item.name)) {
+                    const parsed = MarkdownService.markdownToHtml(rawContent);
+                    editorContent = parsed.html;
+                    parsedFrontmatter = parsed.frontmatter;
+                }
+                content = await get().hydrateAssets(editorContent);
 
                 // Check for linked audio metadata: <!-- audio-link: filename.webm -->
                 const audioLinkMatch = content.match(/<!--\s*audio-link:\s*(.*?)\s*-->/);
@@ -967,6 +1038,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 transcript: transcript, // Add parsed transcript
                 createdAt: createdAt,
                 updatedAt: Date.now(),
+                ...(Object.keys(parsedFrontmatter).length > 0 ? { metadata: parsedFrontmatter } : {}),
             };
             set({ currentNote: tempNote, currentFileHandle: targetHandle });
         } catch (error) {
@@ -988,17 +1060,35 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
 
+            // Sanitize filename to ensure Windows and other OS compatibility (remove : / \ * ? " < > |)
+            const sanitizedFileName = fileName.replace(/[:/\\*?"<>|]/g, '-');
+            let name = sanitizedFileName;
+            if (!MarkdownService.isMarkdownFile(name) && !MarkdownService.isHtmlFile(name) && !name.endsWith('.txt')) {
+                name = `${name}.md`;
+            }
+
+            let initialContent = content;
+            if (MarkdownService.isMarkdownFile(name)) {
+                if (content && content.includes('<')) {
+                    initialContent = MarkdownService.htmlToMarkdown(content);
+                }
+                if (!initialContent.trimStart().startsWith('---')) {
+                    const cleanTitle = name.replace(/\.(md|markdown|mdown|mkdn)$/i, '');
+                    const defaultFm: Record<string, any> = {
+                        title: cleanTitle,
+                        date: new Date().toISOString().split('T')[0]
+                    };
+                    initialContent = MarkdownService.serializeFrontmatter(defaultFm) + initialContent;
+                }
+            }
+
             const fileId = forceId || crypto.randomUUID();
             const meta = {
                 id: fileId,
                 createdAt: Date.now()
             };
             const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
-            const finalContent = content + metaTag;
-
-            // Sanitize filename to ensure Windows and other OS compatibility (remove : / \ * ? " < > |)
-            const sanitizedFileName = fileName.replace(/[:/\\*?"<>|]/g, '-');
-            const name = sanitizedFileName.endsWith('.html') ? sanitizedFileName : `${sanitizedFileName}.html`;
+            const finalContent = initialContent + metaTag;
             const handle = await fileSystem.createFile(parentHandle, name, finalContent);
 
             // Open the new file (construct a LocalItem)
@@ -1157,7 +1247,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         if (isLocalMode && currentFileHandle) {
             // File System Mode
             try {
-                let fsContent = get().dehydrateAssets(portableContent);
+                let diskContent = portableContent;
+                if (MarkdownService.isMarkdownFile(currentFileHandle.name)) {
+                    diskContent = MarkdownService.htmlToMarkdown(portableContent, currentNote.metadata);
+                }
+
+                let fsContent = get().dehydrateAssets(diskContent);
                 await fileSystem.writeFile(currentFileHandle, fsContent);
                 // Update store state to reflect changes
                 set({
@@ -1176,7 +1271,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         createdAt: currentNote.createdAt,
                         folderId: null,
                         tags: [],
-                        type: currentNote.type
+                        type: currentNote.type,
+                        metadata: currentNote.metadata
                     });
                     
                     const existingBuffer = get().lockedNotesBuffer;
@@ -1202,11 +1298,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     title: finalTitle,
                     content: portableContent,
                     updatedAt: Date.now(),
+                    metadata: currentNote.metadata
                 });
 
                 const updatedNotes = notes.map(n =>
                     n.id === currentNote.id
-                        ? { ...n, title: finalTitle, content: portableContent, updatedAt: Date.now() }
+                        ? { ...n, title: finalTitle, content: portableContent, updatedAt: Date.now(), metadata: currentNote.metadata }
                         : n
                 );
                 set({ notes: updatedNotes, currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() } });

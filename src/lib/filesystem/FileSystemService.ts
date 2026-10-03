@@ -93,6 +93,60 @@ export class FileSystemService {
     }
 
     /**
+     * Opens a file picker and returns a handle for a single loose file.
+     */
+    async openFile(): Promise<FileSystemFileHandle> {
+        if (isTauri) {
+            const { open } = await import('@tauri-apps/plugin-dialog');
+            const selected = await open({
+                directory: false,
+                multiple: false,
+                filters: [
+                    { name: 'Parchments & Markdown Documents', extensions: ['md', 'markdown', 'html', 'txt'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ]
+            });
+
+            if (selected) {
+                const path = typeof selected === 'string' ? selected : selected[0];
+                const name = path.split(/[/\\]/).pop() || 'Untitled.md';
+                return {
+                    kind: 'file',
+                    name,
+                    path
+                };
+            }
+            throw new Error('No file selected');
+        }
+
+        // Browser fallback
+        if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+            // @ts-ignore
+            const [handle] = await (window as any).showOpenFilePicker({
+                types: [
+                    {
+                        description: 'Markdown & Text Documents',
+                        accept: {
+                            'text/markdown': ['.md', '.markdown'],
+                            'text/html': ['.html', '.htm'],
+                            'text/plain': ['.txt']
+                        }
+                    }
+                ],
+                multiple: false
+            });
+
+            return {
+                kind: 'file',
+                name: handle.name,
+                rawHandle: handle
+            };
+        }
+
+        throw new Error('File picker not supported in this environment');
+    }
+
+    /**
      * Reads entries from a directory handle.
      */
     async readDirectory(handle: FileSystemDirectoryHandle): Promise<FileSystemHandle[]> {

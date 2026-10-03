@@ -196,7 +196,8 @@ function _connectProvider(ydoc: Doc, wsUrl: string): void {
     WebSocketPolyfill: WebSocket,
   });
 
-  _provider.on('status', ({ status }: { status: string }) => {
+  _provider.on('status', (event: any) => {
+    const status = event?.status;
     if (status === 'connected') {
       _reconnectAttempts = 0;
       _onStatusChange?.('connected');

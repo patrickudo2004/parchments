@@ -49,7 +49,7 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
-          (decodedText) => {
+          (decodedText: string) => {
             // Stop scanner and connect
             scanner.stop().catch(() => {});
             isScanningRef.current = false;

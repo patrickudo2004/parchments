@@ -69,21 +69,28 @@ export class YjsService {
         const persistence = new IndexeddbPersistence(`note-${id}`, doc);
 
         // 2. Enable P2P Connectivity (WebRTC)
-        const signalingServers = [
-            'wss://parchments-signaling.patrickudo2004.deno.net',
-            'wss://signaling.yjs.dev',
-            'wss://y-webrtc.fly.dev',
-        ];
+        // NOTE: External Deno/Fly.dev signaling servers have been retired.
+        // Real-time sync is now handled by the embedded Rust WebSocket server
+        // via LocalSyncService (startLocalServer / joinLocalServer).
+        // WebRTC is kept here for eventual LAN mDNS discovery — when no local
+        // sync session is active the WebrtcProvider runs with an empty signaling
+        // list so it degrades gracefully (no errors, no external calls).
+        const { isLocalSyncActive } = useSyncStore.getState();
+
+        const signalingServers: string[] = isLocalSyncActive
+            ? []   // local sync mode: no external signaling needed
+            : [];   // cloud mode: add your own relay here when needed
 
         const webrtcProvider = new WebrtcProvider(expectedRoomName, doc, {
-            signaling: signalingServers
+            signaling: signalingServers,
         });
 
         this.providers.set(id, [persistence, webrtcProvider]);
 
         // 3. Link connectivity to store
         const updateConnectivity = () => {
-            const { setConnected } = useSyncStore.getState();
+            const { setConnected, isLocalSyncActive: localActive } = useSyncStore.getState();
+            if (localActive) return; // connectivity driven by LocalSyncService
             // @ts-ignore
             setConnected(webrtcProvider.connected);
         };
@@ -95,6 +102,7 @@ export class YjsService {
 
         return doc;
     }
+
 
     /**
      * Returns the webrtc provider for a specific note.
@@ -176,3 +184,7 @@ export class YjsService {
     }
 }
 
+/**
+ * Convenience shorthand — import { getYDoc } from '@/lib/sync/YjsService'
+ */
+export const getYDoc = (id: string): Y.Doc => YjsService.getDoc(id);

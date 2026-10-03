@@ -19,6 +19,17 @@ interface SyncState {
     joinedRooms: JoinedRoom[];
     deviceName: string;
 
+    // ---- Local Wi-Fi sync session ----
+    isLocalSyncActive: boolean;
+    localSyncIp: string | null;
+    localSyncPort: number | null;
+    localSyncToken: string | null;
+    localSyncCode: string | null;
+    localSyncWsUrl: string | null;
+    localSyncPeers: import('@/lib/sync/LocalSyncService').SyncPeer[];
+    localSyncStatus: 'idle' | 'hosting' | 'joining' | 'connected' | 'reconnecting' | 'disconnected';
+    pendingConnectionRequests: import('@/lib/sync/LocalSyncService').PendingPeer[];
+
     // Actions
     initializeIdentity: () => Promise<void>;
     updateSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'offline') => void;
@@ -30,7 +41,17 @@ interface SyncState {
     updateRoomTitle: (hash: string, title: string) => void;
     removeJoinedRoom: (hash: string) => void;
     updateDeviceName: (name: string) => void;
+
+    // Local sync actions
+    setLocalSyncSession: (info: import('@/lib/sync/LocalSyncService').SyncServerInfo) => void;
+    setLocalSyncStatus: (status: SyncState['localSyncStatus']) => void;
+    addLocalPeer: (peer: import('@/lib/sync/LocalSyncService').SyncPeer) => void;
+    removeLocalPeer: (addr: string) => void;
+    addPendingRequest: (peer: import('@/lib/sync/LocalSyncService').PendingPeer) => void;
+    removePendingRequest: (addr: string) => void;
+    clearLocalSyncSession: () => void;
 }
+
 
 const getFriendlyDeviceName = () => {
     if (typeof window === 'undefined') return 'Parchments Device';
@@ -54,6 +75,17 @@ export const useSyncStore = create<SyncState>()(
             isConnected: false,
             joinedRooms: [],
             deviceName: getFriendlyDeviceName(),
+
+            // Local Wi-Fi sync
+            isLocalSyncActive: false,
+            localSyncIp: null,
+            localSyncPort: null,
+            localSyncToken: null,
+            localSyncCode: null,
+            localSyncWsUrl: null,
+            localSyncPeers: [],
+            localSyncStatus: 'idle',
+            pendingConnectionRequests: [],
 
             initializeIdentity: async () => {
                 if (get().identity) {
@@ -137,6 +169,52 @@ export const useSyncStore = create<SyncState>()(
             },
 
             updateDeviceName: (name) => set({ deviceName: name }),
+
+            // ---- Local sync actions ----
+            setLocalSyncSession: (info) => set({
+                isLocalSyncActive: true,
+                localSyncIp: info.ip,
+                localSyncPort: info.port,
+                localSyncToken: info.token,
+                localSyncCode: info.code,
+                localSyncWsUrl: info.wsUrl,
+                localSyncStatus: 'hosting',
+                localSyncPeers: [],
+                pendingConnectionRequests: [],
+            }),
+
+            setLocalSyncStatus: (status) => set({ localSyncStatus: status }),
+
+            addLocalPeer: (peer) => set((state) => ({
+                localSyncPeers: [...state.localSyncPeers.filter(p => p.addr !== peer.addr), peer],
+            })),
+
+            removeLocalPeer: (addr) => set((state) => ({
+                localSyncPeers: state.localSyncPeers.filter(p => p.addr !== addr),
+            })),
+
+            addPendingRequest: (peer) => set((state) => ({
+                pendingConnectionRequests: [
+                    ...state.pendingConnectionRequests.filter(p => p.addr !== peer.addr),
+                    peer,
+                ],
+            })),
+
+            removePendingRequest: (addr) => set((state) => ({
+                pendingConnectionRequests: state.pendingConnectionRequests.filter(p => p.addr !== addr),
+            })),
+
+            clearLocalSyncSession: () => set({
+                isLocalSyncActive: false,
+                localSyncIp: null,
+                localSyncPort: null,
+                localSyncToken: null,
+                localSyncCode: null,
+                localSyncWsUrl: null,
+                localSyncPeers: [],
+                localSyncStatus: 'idle',
+                pendingConnectionRequests: [],
+            }),
         }),
         {
             name: 'parchments-sync',

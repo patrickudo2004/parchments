@@ -33,6 +33,8 @@ import { storagePersistence } from '@/lib/utils/storagePersistence';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { UpdateBanner, VersionLockModal } from './VersioningUI';
 import { LectioMode } from '@/components/bible/LectioMode';
+import { HostApprovalToast } from '@/components/sync/HostApprovalToast';
+
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -399,6 +401,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {/* Global Modals */}
             <LectioMode />
             <PairingModal />
+            <HostApprovalToast />
             <CommandPalette
                 isOpen={isSearchModalOpen}
                 initialQuery={searchQuery}

@@ -15,9 +15,34 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.1.8 (Beta)",
+        date: "October 4, 2026",
+        isLatest: true,
+        description: "Mobile UX overhaul: Pulpit Mode is now fully accessible on touch devices, Lectio Mode is reachable from the mobile action sheet, and iOS home indicator clipping is fixed.",
+        features: [
+            "Pulpit Mode Touch Exit: Swipe down anywhere on the Pulpit Mode overlay to exit — no keyboard required on mobile.",
+            "Lectio Mode in Mobile Action Sheet: Lectio Study Center is now accessible from the '+' action sheet on the mobile navigation bar.",
+            "Dedicated Mobile Pulpit Controls: A full-width mobile control strip (Scroll/Paginate, Auto-Scroll toggle, Page nav, A-/A+ font) replaces the hidden desktop toolbar on small screens.",
+        ],
+        improvements: [
+            "Pulpit Mode z-index raised to z-[90] so it correctly overlays the MobileNav bar (was z-50, below z-[70]).",
+            "Removed root-level `select-none` from Pulpit Mode which was suppressing touch events on all control buttons.",
+            "All Pulpit Mode timer and page navigation buttons now meet the 36–40px minimum touch target size.",
+            "Exit button in Pulpit Mode is always visible and prominently labelled on mobile ('Exit Pulpit' instead of icon-only).",
+            "MobileNav safe-area inset now uses `env(safe-area-inset-bottom)` instead of an undefined CSS variable — fixes home indicator overlap on iOS.",
+            "Removed dead code `pulpitMode` banner branch in RichTextEditor that was never rendered (early return at PulpitMode component level).",
+            "Swipe hint pill shown at the top of Pulpit Mode on mobile for discoverability.",
+        ],
+        fixes: [
+            "Pulpit Mode Exit button was inaccessible on all mobile devices (no touch gesture, keyboard Escape only).",
+            "Lectio Mode had no entry point on mobile — TopBar (where the button lived) is hidden on mobile.",
+            "Safe area padding on MobileNav resolved to 0px on all devices due to undefined CSS variable.",
+        ]
+    },
+    {
         version: "v0.1.7 (Beta)",
         date: "October 3, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Zero-server local Wi-Fi & hotspot collaboration, embedded Rust WebSocket relay, host knock-to-join approval, Co-Editor vs. Presentation Follower modes, and Markdown frontmatter properties.",
         features: [
             "Zero-Server Local Wi-Fi Sync: Completely replaced external third-party signaling servers (Deno/Fly.dev) with an embedded Rust WebSocket server (tokio-tungstenite) running on port 48921.",

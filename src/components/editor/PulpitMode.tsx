@@ -7,8 +7,8 @@ import {
     RotateCcw,
     ChevronUp,
     ChevronDown,
-    X,
-    Clock
+    Clock,
+    LogOut
 } from 'lucide-react';
 
 interface PulpitModeProps {
@@ -26,7 +26,8 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         pulpitFontSize,
         setPulpitFontSize,
         pulpitHighContrast,
-        setPulpitHighContrast
+        setPulpitHighContrast,
+        isMobile
     } = useUIStore();
 
     // Timer State (Silent Timer)
@@ -42,6 +43,24 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    // Mobile swipe-down-to-exit gesture
+    const touchStartY = useRef<number>(0);
+    const touchStartX = useRef<number>(0);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        touchStartY.current = e.touches[0].clientY;
+        touchStartX.current = e.touches[0].clientX;
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        const diffY = e.changedTouches[0].clientY - touchStartY.current;
+        const diffX = Math.abs(e.changedTouches[0].clientX - touchStartX.current);
+        // Swipe down ≥ 80px, horizontal drift < 40px → exit
+        if (diffY > 80 && diffX < 40) {
+            onExit();
+        }
+    }, [onExit]);
 
     // Real-time Wall Clock ticker
     useEffect(() => {
@@ -194,30 +213,42 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         : 'bg-white/90 dark:bg-[#121316]/90 border-light-border dark:border-dark-border backdrop-blur-md';
 
     return (
-        <div className={`fixed inset-0 z-50 flex flex-col ${bgClass} select-none overflow-hidden`}>
+        <div
+            className={`fixed inset-0 z-[90] flex flex-col ${bgClass} overflow-hidden`}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
+            {/* Mobile swipe-down hint strip */}
+            {isMobile && (
+                <div className="flex items-center justify-center gap-2 py-2 shrink-0 opacity-50">
+                    <div className="w-10 h-1 rounded-full bg-current" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Swipe down to exit</span>
+                </div>
+            )}
+
             {/* Top Control Bar */}
-            <header className={`h-16 px-6 border-b flex items-center justify-between shrink-0 ${headerBgClass} transition-colors duration-300`}>
+            <header className={`h-16 px-3 sm:px-6 border-b flex items-center justify-between shrink-0 ${headerBgClass} transition-colors duration-300`}>
                 {/* Left: Preaching Timer & Wall Clock */}
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 sm:gap-6">
                     {/* Silent Preaching Timer */}
-                    <div className="flex items-center gap-3 bg-neutral-900/10 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-black/5 dark:border-white/10">
+                    <div className="flex items-center gap-2 bg-neutral-900/10 dark:bg-white/5 px-2 py-1.5 rounded-xl border border-black/5 dark:border-white/10">
                         <div className="flex items-center gap-1.5">
                             <Clock size={16} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                            <span className="font-mono text-xl font-black tracking-tight">
+                            <span className="font-mono text-lg sm:text-xl font-black tracking-tight select-none">
                                 {formatTimer(elapsedSeconds)}
                             </span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
                             <button
                                 onClick={() => setIsTimerRunning(prev => !prev)}
-                                className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs transition-colors"
+                                className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title={isTimerRunning ? "Pause Timer" : "Start Timer"}
                             >
                                 {isTimerRunning ? <Pause size={13} /> : <Play size={13} />}
                             </button>
                             <button
                                 onClick={() => setElapsedSeconds(0)}
-                                className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs transition-colors"
+                                className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Reset Timer"
                             >
                                 <RotateCcw size={13} />
@@ -231,8 +262,8 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                     </div>
                 </div>
 
-                {/* Center: Mode Toggle & Speed/Page Controls */}
-                <div className="flex items-center gap-3">
+                {/* Center: Mode Toggle & Speed/Page Controls — hidden on mobile */}
+                <div className="hidden sm:flex items-center gap-3">
                     {/* Mode Toggle: Scroll vs Paginate */}
                     <div className="flex bg-black/10 dark:bg-white/10 p-1 rounded-xl border border-black/5 dark:border-white/10">
                         <button
@@ -279,17 +310,17 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                             <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 px-2 py-1 rounded-xl text-xs">
                                 <button
                                     onClick={() => setPulpitScrollSpeed(Math.max(20, pulpitScrollSpeed - 15))}
-                                    className="px-1 font-black opacity-70 hover:opacity-100"
+                                    className="px-2 py-1.5 font-black opacity-70 hover:opacity-100 min-w-[32px] min-h-[32px] flex items-center justify-center"
                                     title="Slower scroll"
                                 >
                                     -
                                 </button>
-                                <span className="font-mono text-[11px] font-bold w-12 text-center">
+                                <span className="font-mono text-[11px] font-bold w-12 text-center select-none">
                                     {Math.round(pulpitScrollSpeed / 10)}x
                                 </span>
                                 <button
                                     onClick={() => setPulpitScrollSpeed(Math.min(250, pulpitScrollSpeed + 15))}
-                                    className="px-1 font-black opacity-70 hover:opacity-100"
+                                    className="px-2 py-1.5 font-black opacity-70 hover:opacity-100 min-w-[32px] min-h-[32px] flex items-center justify-center"
                                     title="Faster scroll"
                                 >
                                     +
@@ -303,17 +334,17 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={handlePrevPage}
-                                className="p-1.5 bg-black/5 dark:bg-white/10 hover:bg-black/10 rounded-lg text-xs"
+                                className="p-2 bg-black/5 dark:bg-white/10 hover:bg-black/10 rounded-lg text-xs min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Previous Page (PageUp)"
                             >
                                 <ChevronUp size={16} />
                             </button>
-                            <span className="font-mono text-xs font-bold opacity-80 min-w-[60px] text-center">
+                            <span className="font-mono text-xs font-bold opacity-80 min-w-[60px] text-center select-none">
                                 {currentPage} / {totalPages}
                             </span>
                             <button
                                 onClick={handleNextPage}
-                                className="p-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs"
+                                className="p-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Next Page (PageDown / Space)"
                             >
                                 <ChevronDown size={16} />
@@ -322,10 +353,10 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                     )}
                 </div>
 
-                {/* Right: Font Size, Contrast, Exit */}
-                <div className="flex items-center gap-3">
-                    {/* Font Size A- / A+ */}
-                    <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
+                {/* Right: Font Size (hidden on mobile), Contrast (hidden on mobile), Exit */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Font Size A- / A+ — hidden on mobile */}
+                    <div className="hidden sm:flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
                         <button
                             onClick={() => setPulpitFontSize(Math.max(20, pulpitFontSize - 3))}
                             className="px-2 py-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-xs font-bold"
@@ -333,7 +364,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         >
                             A-
                         </button>
-                        <span className="font-mono text-xs font-bold px-1">{pulpitFontSize}</span>
+                        <span className="font-mono text-xs font-bold px-1 select-none">{pulpitFontSize}</span>
                         <button
                             onClick={() => setPulpitFontSize(Math.min(60, pulpitFontSize + 3))}
                             className="px-2 py-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-xs font-bold"
@@ -343,10 +374,10 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         </button>
                     </div>
 
-                    {/* High Contrast Toggle */}
+                    {/* High Contrast Toggle — hidden on mobile */}
                     <button
                         onClick={() => setPulpitHighContrast(!pulpitHighContrast)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${pulpitHighContrast
+                        className={`hidden sm:block px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${pulpitHighContrast
                             ? 'bg-yellow-400 text-black border-yellow-400 font-black'
                             : 'border-black/10 dark:border-white/10 opacity-70 hover:opacity-100'
                             }`}
@@ -355,17 +386,56 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         High Contrast
                     </button>
 
-                    {/* Exit Presentation */}
+                    {/* Exit Presentation — always visible, larger on mobile */}
                     <button
                         onClick={onExit}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white rounded-xl text-xs font-bold transition-all"
+                        className="flex items-center gap-1.5 px-3 py-2 sm:px-3 sm:py-1.5 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white rounded-xl text-xs font-bold transition-all min-h-[40px] active:scale-95"
                         title="Exit Pulpit Mode (Esc)"
                     >
-                        <X size={14} />
-                        <span>Exit</span>
+                        <LogOut size={15} />
+                        <span className="hidden sm:inline">Exit</span>
+                        <span className="sm:hidden font-black">Exit Pulpit</span>
                     </button>
                 </div>
             </header>
+
+            {/* Mobile scroll/paginate controls — shown below header on mobile only */}
+            {isMobile && (
+                <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-current/10 shrink-0 bg-black/5 dark:bg-white/5">
+                    <div className="flex bg-black/10 dark:bg-white/10 p-0.5 rounded-lg">
+                        <button
+                            onClick={() => { setPulpitModeType('scroll'); setIsAutoScrolling(false); }}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all min-h-[34px] ${pulpitModeType === 'scroll' ? 'bg-emerald-600 text-white' : 'opacity-60'}`}
+                        >Scroll</button>
+                        <button
+                            onClick={() => { setPulpitModeType('paginate'); setIsAutoScrolling(false); }}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all min-h-[34px] ${pulpitModeType === 'paginate' ? 'bg-emerald-600 text-white' : 'opacity-60'}`}
+                        >Pages</button>
+                    </div>
+
+                    {pulpitModeType === 'scroll' ? (
+                        <button
+                            onClick={() => setIsAutoScrolling(prev => !prev)}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all min-h-[40px] active:scale-95 ${isAutoScrolling ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white'}`}
+                        >
+                            {isAutoScrolling ? <Pause size={14} /> : <Play size={14} />}
+                            <span>{isAutoScrolling ? 'Pause' : 'Auto-Scroll'}</span>
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrevPage} className="p-3 bg-black/10 dark:bg-white/10 rounded-xl min-h-[40px] min-w-[40px] flex items-center justify-center active:scale-95"><ChevronUp size={18} /></button>
+                            <span className="font-mono text-xs font-bold opacity-80 select-none">{currentPage}/{totalPages}</span>
+                            <button onClick={handleNextPage} className="p-3 bg-emerald-600 text-white rounded-xl min-h-[40px] min-w-[40px] flex items-center justify-center active:scale-95"><ChevronDown size={18} /></button>
+                        </div>
+                    )}
+
+                    {/* Font size controls on mobile */}
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => setPulpitFontSize(Math.max(20, pulpitFontSize - 3))} className="p-2 rounded-lg bg-black/5 dark:bg-white/5 text-xs font-black min-h-[36px] min-w-[36px] flex items-center justify-center active:scale-95">A-</button>
+                        <button onClick={() => setPulpitFontSize(Math.min(60, pulpitFontSize + 3))} className="p-2 rounded-lg bg-black/5 dark:bg-white/5 text-xs font-black min-h-[36px] min-w-[36px] flex items-center justify-center active:scale-95">A+</button>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Presentation Viewport */}
             <main

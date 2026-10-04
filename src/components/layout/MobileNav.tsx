@@ -9,12 +9,14 @@ import {
     Download,
     Share2,
     BookMarked,
-    X
+    X,
+    BookText
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 export const MobileNav: React.FC = () => {
     const {
@@ -43,6 +45,11 @@ export const MobileNav: React.FC = () => {
             return;
         }
         toggleTemplateModal();
+    };
+
+    const handleLectioMode = () => {
+        setIsMenuOpen(false);
+        useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null });
     };
 
     const handleBibleTap = () => {
@@ -88,6 +95,16 @@ export const MobileNav: React.FC = () => {
                                         <PenTool size={16} />
                                     </div>
                                     <span>New Study</span>
+                                </button>
+
+                                <button
+                                    onClick={handleLectioMode}
+                                    className="flex items-center gap-3 p-3 bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 rounded-2xl transition-all font-bold text-xs"
+                                >
+                                    <div className="p-2 bg-violet-500/10 text-violet-500 rounded-xl">
+                                        <BookText size={16} />
+                                    </div>
+                                    <span>Lectio Mode</span>
                                 </button>
 
                                 {currentNote && (
@@ -138,8 +155,11 @@ export const MobileNav: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* Bottom Bar */}
-            <nav className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] pb-[var(--safe-area-bottom,0px)] shadow-2xl">
+            {/* Bottom Bar — safe-area-inset-bottom for iPhone home indicator */}
+            <nav
+                className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] shadow-2xl"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+            >
                 <button
                     onClick={() => toggleLeftSidebar('files')}
                     className={`flex flex-col items-center gap-1 p-2 transition-colors ${leftSidebarContent === 'files' ? 'text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary opacity-60'}`}

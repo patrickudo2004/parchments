@@ -44,6 +44,7 @@ interface UIStore {
     pulpitScrollSpeed: number;
     pulpitFontSize: number;
     pulpitHighContrast: boolean;
+    pulpitTheme: 'standard' | 'dark' | 'contrast';
     focusedHeadingPos: number | null;
     activeEditor: Editor | null;
     toast: { message: string, type: 'success' | 'error' | 'info' } | null;
@@ -102,6 +103,7 @@ interface UIStore {
     setPulpitScrollSpeed: (speed: number) => void;
     setPulpitFontSize: (size: number) => void;
     setPulpitHighContrast: (highContrast: boolean) => void;
+    setPulpitTheme: (theme: 'standard' | 'dark' | 'contrast') => void;
     setEditorStats: (words: number, characters: number) => void;
     setIsMobile: (isMobile: boolean) => void;
     setVersionStatus: (status: 'up-to-date' | 'outdated' | 'obsolete', info?: any) => void;
@@ -151,7 +153,8 @@ export const useUIStore = create<UIStore>()(
             pulpitModeType: 'scroll',
             pulpitScrollSpeed: 120,
             pulpitFontSize: 32,
-            pulpitHighContrast: true,
+            pulpitHighContrast: false,
+            pulpitTheme: 'standard',
             focusedHeadingPos: null,
             activeEditor: null,
             toast: null,
@@ -290,7 +293,14 @@ export const useUIStore = create<UIStore>()(
             setPulpitModeType: (mode) => set({ pulpitModeType: mode }),
             setPulpitScrollSpeed: (speed) => set({ pulpitScrollSpeed: speed }),
             setPulpitFontSize: (size) => set({ pulpitFontSize: size }),
-            setPulpitHighContrast: (highContrast) => set({ pulpitHighContrast: highContrast }),
+            setPulpitHighContrast: (highContrast) => set((state) => ({
+                pulpitHighContrast: highContrast,
+                pulpitTheme: highContrast ? 'contrast' : (state.pulpitTheme === 'contrast' ? 'standard' : state.pulpitTheme)
+            })),
+            setPulpitTheme: (theme) => set({
+                pulpitTheme: theme,
+                pulpitHighContrast: theme === 'contrast'
+            }),
 
             setTheme: (theme) =>
                 set(() => {
@@ -388,6 +398,10 @@ export const useUIStore = create<UIStore>()(
                 rightSidebarPosition: state.rightSidebarPosition,
                 focusedHeadingPos: null,
                 pulpitMode: state.pulpitMode,
+                pulpitTheme: state.pulpitTheme,
+                pulpitFontSize: state.pulpitFontSize,
+                pulpitScrollSpeed: state.pulpitScrollSpeed,
+                pulpitModeType: state.pulpitModeType,
             }),
             onRehydrateStorage: () => (state) => {
                 if (state && state.theme === 'dark') {

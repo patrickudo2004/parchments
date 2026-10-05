@@ -78,7 +78,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setLeftSidebarPosition,
         rightSidebarPosition,
         setRightSidebarPosition,
-        mobileBibleState
+        mobileBibleState,
+        pulpitMode
     } = useUIStore();
     const { hasStudyspace, openLocalFolder, createNote, openLooseFile } = useNoteStore();
 
@@ -184,7 +185,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     return (
         <ErrorBoundary>
-            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile ? 'pb-16' : ''}`}>
+            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode ? 'pb-16' : ''}`}>
                 <UpdateBanner />
                 <VersionLockModal />
                 {!isMobile && <TopBar />}
@@ -194,7 +195,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {/* ... rest of the component ... */}
                     {/* Mobile Backdrop */}
                     <AnimatePresence>
-                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && (
+                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -208,11 +209,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         )}
                     </AnimatePresence>
 
-                    {/* Activity Bar - Always visible unless focus mode or mobile */}
-                    {!isFocusMode && !isMobile && <ActivityBar />}
+                    {/* Activity Bar - Always visible unless focus mode or mobile or pulpit */}
+                    {!isFocusMode && !pulpitMode && !isMobile && <ActivityBar />}
 
                     {/* Left Sidebar - Explorer */}
-                    {!isFocusMode && isLeftSidebarOpen && (
+                    {!isFocusMode && !pulpitMode && isLeftSidebarOpen && (
                         <>
                             <motion.aside
                                 drag={isLeftSidebarFloating}
@@ -272,7 +273,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </main>
 
                     {/* Right Sidebar - Bible/Search */}
-                    {!isFocusMode && rightSidebarOpen && (
+                    {!isFocusMode && !pulpitMode && rightSidebarOpen && (
                         <>
                             {/* Right Resize Handle */}
                             {!isMobile && !isRightSidebarFloating && (
@@ -346,15 +347,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         </>
                     )}
 
-                    {/* Right Activity Bar - Always visible unless focus mode or mobile */}
-                    {!isFocusMode && !isMobile && <RightActivityBar />}
+                    {/* Right Activity Bar - Always visible unless focus mode or mobile or pulpit */}
+                    {!isFocusMode && !pulpitMode && !isMobile && <RightActivityBar />}
                 </div>
 
                 {/* Mobile Navigation */}
-                {isMobile && !isFocusMode && <MobileNav />}
+                {isMobile && !isFocusMode && !pulpitMode && <MobileNav />}
 
                 {/* Status Bar */}
-                {!isFocusMode && !isMobile && <StatusBar />}
+                {!isFocusMode && !pulpitMode && !isMobile && <StatusBar />}
 
                 {/* Floating Modals Container */}
                 <div className="fixed inset-0 pointer-events-none z-[60]">

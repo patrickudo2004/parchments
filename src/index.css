@@ -287,3 +287,102 @@ body.dark {
 .no-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
 }
+
+/* ==========================================================================
+   Pulpit Presentation Mode Typography & Theme Contrast Rules
+   Ensures dynamic font scaling (A- / A+) always works without Tailwind override
+   ========================================================================== */
+
+.pulpit-content,
+.pulpit-content p,
+.pulpit-content .tiptap,
+.pulpit-content .tiptap p,
+.pulpit-content .tiptap span {
+    font-size: inherit !important;
+    line-height: 1.85 !important;
+}
+
+.pulpit-content h1,
+.pulpit-content .tiptap h1 {
+    font-size: 1.85em !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    margin-top: 1.4em !important;
+    margin-bottom: 0.6em !important;
+    letter-spacing: -0.02em;
+}
+
+.pulpit-content h2,
+.pulpit-content .tiptap h2 {
+    font-size: 1.5em !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    margin-top: 1.25em !important;
+    margin-bottom: 0.5em !important;
+}
+
+.pulpit-content h3,
+.pulpit-content .tiptap h3 {
+    font-size: 1.25em !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    margin-top: 1.1em !important;
+    margin-bottom: 0.4em !important;
+}
+
+.pulpit-content blockquote,
+.pulpit-content .tiptap blockquote {
+    font-size: 1.05em !important;
+    font-style: italic !important;
+    border-left: 4px solid currentColor !important;
+    padding-left: 1.25rem !important;
+    margin-top: 1.25em !important;
+    margin-bottom: 1.25em !important;
+    opacity: 0.95;
+}
+
+.pulpit-content ul,
+.pulpit-content .tiptap ul {
+    list-style-type: disc !important;
+    padding-left: 2.25rem !important;
+    margin: 1em 0 !important;
+    font-size: inherit !important;
+}
+
+.pulpit-content ol,
+.pulpit-content .tiptap ol {
+    list-style-type: decimal !important;
+    padding-left: 2.25rem !important;
+    margin: 1em 0 !important;
+    font-size: inherit !important;
+}
+
+.pulpit-content li,
+.pulpit-content .tiptap li {
+    font-size: inherit !important;
+    line-height: 1.85 !important;
+    margin: 0.35em 0 !important;
+}
+
+.pulpit-content a,
+.pulpit-content .tiptap a,
+.pulpit-content .scripture-reference-node {
+    text-decoration: underline !important;
+    font-weight: 700 !important;
+}
+
+/* Pulpit Theme Contrast Variables */
+.pulpit-theme-standard {
+    background-color: #FBFBF4 !important;
+    color: #121212 !important;
+}
+
+.pulpit-theme-dark {
+    background-color: #121212 !important;
+    color: #F4F4F0 !important;
+}
+
+.pulpit-theme-contrast {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+}

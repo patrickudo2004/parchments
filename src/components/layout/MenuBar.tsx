@@ -21,7 +21,8 @@ export const MenuBar: React.FC = () => {
         activeEditor,
         updateSettings,
         editorFontSize,
-        toggleFocusMode
+        toggleFocusMode,
+        togglePulpitMode
     } = useUIStore();
     const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder, openLooseFile } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -70,6 +71,9 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Focus Mode':
                 toggleFocusMode();
+                break;
+            case 'Pulpit Presentation Mode':
+                togglePulpitMode();
                 break;
             case 'Zoom In':
                 updateSettings({ editorFontSize: Math.min(32, editorFontSize + 1) });
@@ -175,6 +179,7 @@ export const MenuBar: React.FC = () => {
                 { label: 'Toggle Sidebar', shortcut: 'Ctrl+B' },
                 { label: 'Toggle Bible Panel', shortcut: 'Ctrl+]' },
                 { type: 'separator' },
+                { label: 'Pulpit Presentation Mode', shortcut: 'F5' },
                 { label: 'Focus Mode', shortcut: 'F11' },
                 { type: 'separator' },
                 { label: 'Zoom In', shortcut: 'Ctrl++' },

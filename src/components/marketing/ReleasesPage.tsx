@@ -15,9 +15,31 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.1.9 (Beta)",
+        date: "October 5, 2026",
+        isLatest: true,
+        description: "Pulpit Mode swipe-to-reveal persistent controls, distraction-free concealment, mobile touch-button fixes, and Lectio swipe gesture hardening.",
+        features: [
+            "Pulpit Mode Persistent Tool Drawer: Swiping down on the top bar or pulling down at the top reveals the controls drawer and it stays down while reading. Swiping up on the drawer or tapping 'Conceal' hides it for complete distraction-free focus.",
+            "Touch-Friendly Editor Toolbar: Fixed a bug on Android WebViews where onMouseDown preventDefault suppressed button taps. All toolbar formatting buttons now respond immediately to touch.",
+            "Lectio Mode Verse Tap Conflict Resolution: Touch gesture handler in Lectio Study Mode now excludes scripture verse text spans with a minimum deliberate swipe duration, preventing accidental tab switching while selecting verses."
+        ],
+        improvements: [
+            "Pulpit Mode 2-row mobile control center with Auto-Scroll play/pause, speed controls, page navigator, font scaling (A-/A+), and high contrast toggle.",
+            "Dedicated 'Tools' / 'Hide Tools' button on mobile pulpit header for instant single-tap access alongside swipe gestures.",
+            "Enlarged touch targets across EditorToolbar and PulpitMode to meet 36-40px mobile ergonomics standards.",
+            "Local Sync Service platform guards preventing unhandled runtime exceptions on Capacitor Android when invoking desktop-only Rust APIs."
+        ],
+        fixes: [
+            "Pulpit Mode controls drawer would collapse immediately when scrolling notes down on mobile.",
+            "Formatting toolbar buttons (Bold, Italic, Save, Pulpit) were unresponsive on Android WebViews.",
+            "Tapping scripture verses in Lectio Mode intermittently switched between 'Read' and 'Journal' tabs."
+        ]
+    },
+    {
         version: "v0.1.8 (Beta)",
         date: "October 4, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Mobile UX overhaul: Pulpit Mode is now fully accessible on touch devices, Lectio Mode is reachable from the mobile action sheet, and iOS home indicator clipping is fixed.",
         features: [
             "Pulpit Mode Touch Exit: Swipe down anywhere on the Pulpit Mode overlay to exit — no keyboard required on mobile.",

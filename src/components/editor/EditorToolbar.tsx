@@ -62,10 +62,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const Button = ({ onClick, isActive, icon: Icon, title, disabled }: any) => (
         <button
             onClick={onClick}
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => {
+                if (!isMobile) e.preventDefault();
+            }}
             title={title}
             disabled={disabled}
-            className={`p-1.5 rounded transition-all flex items-center justify-center ${isActive ? 'bg-primary text-white shadow-md' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+            className={`p-1.5 rounded transition-all flex items-center justify-center min-w-[36px] min-h-[36px] ${isActive ? 'bg-primary text-white shadow-md' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
                 } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
         >
             <Icon size={18} />
@@ -176,9 +178,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
                     <button
                         onClick={handleSave}
-                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseDown={(e) => {
+                            if (!isMobile) e.preventDefault();
+                        }}
                         disabled={isSaving}
-                        className={`p-1.5 rounded transition-all flex items-center justify-center ${isSaving ? 'text-primary animate-spin' : 'text-primary hover:bg-primary/10'}`}
+                        className={`p-1.5 rounded transition-all flex items-center justify-center min-w-[36px] min-h-[36px] ${isSaving ? 'text-primary animate-spin' : 'text-primary hover:bg-primary/10'}`}
                         title="Save note now"
                     >
                         <Save size={18} />
@@ -249,8 +253,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 {isMobile ? (
                     <button
                         onClick={() => setShowAdvanced(!showAdvanced)}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className={`p-1.5 ml-auto rounded transition-all flex items-center justify-center shrink-0 ${showAdvanced ? 'bg-primary/20 text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
+                        onMouseDown={(e) => {
+                            if (!isMobile) e.preventDefault();
+                        }}
+                        className={`p-1.5 ml-auto rounded transition-all flex items-center justify-center shrink-0 min-w-[36px] min-h-[36px] ${showAdvanced ? 'bg-primary/20 text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
                         title="Advanced formatting tools"
                     >
                         {showAdvanced ? <ChevronUp size={18} /> : <MoreHorizontal size={18} />}
@@ -332,7 +338,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                             editor.chain().focus().uppercase().run();
                                             setIsCaseMenuExpanded(false);
                                         }}
-                                        onMouseDown={(e) => e.preventDefault()}
+                                        onMouseDown={(e) => {
+                                            if (!isMobile) e.preventDefault();
+                                        }}
                                         className="px-2 py-1 text-[10px] font-black uppercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                                     >
                                         UPPER
@@ -342,7 +350,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                             editor.chain().focus().lowercase().run();
                                             setIsCaseMenuExpanded(false);
                                         }}
-                                        onMouseDown={(e) => e.preventDefault()}
+                                        onMouseDown={(e) => {
+                                            if (!isMobile) e.preventDefault();
+                                        }}
                                         className="px-2 py-1 text-[10px] font-black lowercase tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                                     >
                                         lower
@@ -352,7 +362,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                             editor.chain().focus().capitalize().run();
                                             setIsCaseMenuExpanded(false);
                                         }}
-                                        onMouseDown={(e) => e.preventDefault()}
+                                        onMouseDown={(e) => {
+                                            if (!isMobile) e.preventDefault();
+                                        }}
                                         className="px-2 py-1 text-[10px] font-black capitalize tracking-tighter text-primary hover:bg-primary/10 rounded transition-colors"
                                     >
                                         Title
@@ -360,7 +372,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                     <div className="w-[1px] h-3 bg-primary/20 mx-1" />
                                     <button
                                         onClick={() => setIsCaseMenuExpanded(false)}
-                                        onMouseDown={(e) => e.preventDefault()}
+                                        onMouseDown={(e) => {
+                                            if (!isMobile) e.preventDefault();
+                                        }}
                                         className="p-1 text-light-text-disabled hover:text-primary transition-colors"
                                         title="Close"
                                     >
@@ -377,7 +391,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
                             <button
                                 onClick={togglePulpitMode}
-                                onMouseDown={(e) => e.preventDefault()}
+                                onMouseDown={(e) => {
+                                    if (!isMobile) e.preventDefault();
+                                }}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
                                 title="Pulpit Presentation Mode"
                             >
@@ -492,14 +508,16 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                         
                         {/* Text Case Menu */}
                         {isCaseMenuExpanded ? (
-                            <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded border border-primary/20 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-1.5 bg-light-background dark:bg-dark-background p-1 rounded-lg border border-primary/20 animate-in fade-in duration-200">
                                 <button
                                     onClick={() => {
                                         editor.chain().focus().uppercase().run();
                                         setIsCaseMenuExpanded(false);
                                     }}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase text-primary hover:bg-primary/10 rounded"
+                                    onMouseDown={(e) => {
+                                        if (!isMobile) e.preventDefault();
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-black uppercase text-primary hover:bg-primary/10 rounded-md min-h-[32px] flex items-center justify-center"
                                 >
                                     UP
                                 </button>
@@ -508,17 +526,21 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                         editor.chain().focus().lowercase().run();
                                         setIsCaseMenuExpanded(false);
                                     }}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    className="px-1.5 py-0.5 text-[8px] font-black lowercase text-primary hover:bg-primary/10 rounded"
+                                    onMouseDown={(e) => {
+                                        if (!isMobile) e.preventDefault();
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-black lowercase text-primary hover:bg-primary/10 rounded-md min-h-[32px] flex items-center justify-center"
                                 >
                                     low
                                 </button>
                                 <button
                                     onClick={() => setIsCaseMenuExpanded(false)}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    className="p-0.5 text-light-text-disabled hover:text-primary"
+                                    onMouseDown={(e) => {
+                                        if (!isMobile) e.preventDefault();
+                                    }}
+                                    className="p-1.5 text-light-text-disabled hover:text-primary min-w-[32px] min-h-[32px] flex items-center justify-center"
                                 >
-                                    <RotateCcw size={10} className="rotate-45" />
+                                    <RotateCcw size={12} className="rotate-45" />
                                 </button>
                             </div>
                         ) : (
@@ -531,10 +553,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
 
                         <button
                             onClick={togglePulpitMode}
-                            onMouseDown={(e) => e.preventDefault()}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
+                            onMouseDown={(e) => {
+                                if (!isMobile) e.preventDefault();
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shrink-0 min-h-[36px] ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
                         >
-                            <Play size={10} fill="currentColor" />
+                            <Play size={12} fill="currentColor" />
                             <span>Pulpit</span>
                         </button>
                     </div>

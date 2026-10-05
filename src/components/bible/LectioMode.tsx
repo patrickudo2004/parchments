@@ -94,6 +94,7 @@ export const LectioMode: React.FC = () => {
     const [activeMobileTab, setActiveMobileTab] = useState<'read' | 'journal'>('read');
     const touchStartX = useRef<number>(0);
     const touchStartY = useRef<number>(0);
+    const touchStartTime = useRef<number>(0);
 
     // 1. Initial Data Loading
     useEffect(() => {
@@ -264,7 +265,7 @@ export const LectioMode: React.FC = () => {
         }
     };
 
-    // Mobile Edge Swiping Gesture Handler (Excludes tip-tap rich editor block)
+    // Mobile Edge Swiping Gesture Handler (Excludes tip-tap rich editor block and verse text spans)
     const handleTouchStart = (e: React.TouchEvent) => {
         if (!isMobile) return;
         const target = e.target as HTMLElement;
@@ -273,12 +274,14 @@ export const LectioMode: React.FC = () => {
             target.closest('button') ||
             target.closest('input') ||
             target.closest('select') ||
-            target.closest('blockquote')
+            target.closest('blockquote') ||
+            target.closest('span')
         ) {
             return;
         }
         touchStartX.current = e.touches[0].clientX;
         touchStartY.current = e.touches[0].clientY;
+        touchStartTime.current = Date.now();
     };
 
     const handleTouchEnd = (e: React.TouchEvent) => {
@@ -289,18 +292,21 @@ export const LectioMode: React.FC = () => {
             target.closest('button') ||
             target.closest('input') ||
             target.closest('select') ||
-            target.closest('blockquote')
+            target.closest('blockquote') ||
+            target.closest('span')
         ) {
             return;
         }
 
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndY = e.changedTouches[0].clientY;
+        const duration = Date.now() - touchStartTime.current;
 
         const diffX = touchEndX - touchStartX.current;
         const diffY = touchEndY - touchStartY.current;
 
-        if (Math.abs(diffX) > 60 && Math.abs(diffY) < 30) {
+        // Require: ≥90px horizontal, vertical drift <35px, and a deliberate swipe (>150ms, not a tap)
+        if (Math.abs(diffX) > 90 && Math.abs(diffY) < 35 && duration > 150) {
             if (diffX > 0 && activeMobileTab === 'journal') {
                 setActiveMobileTab('read');
             } else if (diffX < 0 && activeMobileTab === 'read') {

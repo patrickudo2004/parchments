@@ -56,6 +56,10 @@ let _onStatusChange: ((status: 'connected' | 'connecting' | 'disconnected') => v
 // Host-side: start the embedded server
 // ---------------------------------------------------------------------------
 
+export function isTauriEnvironment(): boolean {
+  return typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+}
+
 /**
  * Start the embedded Rust WebSocket server for the given note.
  * Returns the session info needed to display the QR code and 6-digit code.
@@ -65,6 +69,10 @@ export async function startLocalServer(
   noteTitle: string,
   ydoc: Doc,
 ): Promise<SyncServerInfo> {
+  if (!isTauriEnvironment()) {
+    throw new Error('Local Wi-Fi hosting requires the Desktop version of Parchments. On mobile devices, you can join any hosted room using "Join Note" or scanning its QR code.');
+  }
+
   const info: SyncServerInfo = await invoke('start_sync_server', {
     noteId,
     noteTitle,
@@ -122,10 +130,12 @@ export async function stopLocalSync(): Promise<void> {
   _unlisteners.length = 0;
 
   // Tell Rust to stop the server (host only — safe to call on client too)
-  try {
-    await invoke('stop_sync_server');
-  } catch {
-    // client-side will get a benign error; ignore it
+  if (isTauriEnvironment()) {
+    try {
+      await invoke('stop_sync_server');
+    } catch {
+      // client-side will get a benign error; ignore it
+    }
   }
 
   _reconnectAttempts = 0;
@@ -136,18 +146,22 @@ export async function stopLocalSync(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function approvePeer(addr: string): Promise<void> {
+  if (!isTauriEnvironment()) return;
   await invoke('approve_connection', { addr });
 }
 
 export async function denyPeer(addr: string): Promise<void> {
+  if (!isTauriEnvironment()) return;
   await invoke('deny_connection', { addr });
 }
 
 export async function getPendingPeers(): Promise<PendingPeer[]> {
+  if (!isTauriEnvironment()) return [];
   return invoke('get_pending_connection_requests');
 }
 
 export async function getSessionInfo(): Promise<LocalSyncSession | null> {
+  if (!isTauriEnvironment()) return null;
   const session = await invoke<{
     port: number;
     code: string;
@@ -241,6 +255,7 @@ function _clearTimers(): void {
 }
 
 async function _registerEventListeners(): Promise<void> {
+  if (!isTauriEnvironment()) return;
   _unlisteners.push(
     await listen<PendingPeer>('sync:peer-requesting', (e) => {
       _onPeerRequesting?.(e.payload);

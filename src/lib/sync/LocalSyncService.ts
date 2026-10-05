@@ -198,31 +198,38 @@ export function onStatusChange(cb: (status: 'connected' | 'connecting' | 'discon
 // ---------------------------------------------------------------------------
 
 function _connectProvider(ydoc: Doc, wsUrl: string): void {
-  if (_provider) {
-    _provider.disconnect();
-    _provider.destroy();
-  }
-
-  _provider = new WebsocketProvider(wsUrl, 'parchments-sync', ydoc, {
-    connect: true,
-    // Disable y-websocket's built-in awareness if we're in follower mode
-    // (awareness is handled at the CRDT level; follower cannot push updates)
-    WebSocketPolyfill: WebSocket,
-  });
-
-  _provider.on('status', (event: any) => {
-    const status = event?.status;
-    if (status === 'connected') {
-      _reconnectAttempts = 0;
-      _onStatusChange?.('connected');
-      _startHeartbeat();
-    } else if (status === 'connecting') {
-      _onStatusChange?.('connecting');
-    } else if (status === 'disconnected') {
-      _onStatusChange?.('disconnected');
-      _scheduleReconnect(wsUrl, ydoc);
+  try {
+    if (_provider) {
+      _provider.disconnect();
+      _provider.destroy();
+      _provider = null;
     }
-  });
+
+    _provider = new WebsocketProvider(wsUrl, 'parchments-sync', ydoc, {
+      connect: true,
+      // Disable y-websocket's built-in awareness if we're in follower mode
+      // (awareness is handled at the CRDT level; follower cannot push updates)
+      WebSocketPolyfill: WebSocket,
+    });
+
+    _provider.on('status', (event: any) => {
+      const status = event?.status;
+      if (status === 'connected') {
+        _reconnectAttempts = 0;
+        _onStatusChange?.('connected');
+        _startHeartbeat();
+      } else if (status === 'connecting') {
+        _onStatusChange?.('connecting');
+      } else if (status === 'disconnected') {
+        _onStatusChange?.('disconnected');
+        _scheduleReconnect(wsUrl, ydoc);
+      }
+    });
+  } catch (err) {
+    console.warn('[LocalSync] Provider creation error:', err);
+    _onStatusChange?.('disconnected');
+    throw err;
+  }
 }
 
 function _startHeartbeat(): void {
@@ -245,7 +252,11 @@ function _scheduleReconnect(wsUrl: string, ydoc: Doc): void {
   _reconnectAttempts++;
   _reconnectTimer = setTimeout(() => {
     console.log(`[LocalSync] Reconnect attempt ${_reconnectAttempts}…`);
-    _connectProvider(ydoc, wsUrl);
+    try {
+      _connectProvider(ydoc, wsUrl);
+    } catch (e) {
+      console.warn('[LocalSync] Reconnect failed:', e);
+    }
   }, delay);
 }
 

@@ -16,10 +16,7 @@ import {
     Search,
     Shield,
     Zap,
-    Cloud,
-    Lock,
     Share2,
-    Key,
     Info,
     Copy,
     Check,
@@ -50,7 +47,6 @@ const TABS = [
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'bible', label: 'Bible Versions', icon: BookOpen },
     { id: 'editor', label: 'Editor', icon: Edit3 },
-    { id: 'sync', label: 'Sync & Collaboration', icon: Cloud },
     { id: 'storage', label: 'Data & Storage', icon: Database },
     { id: 'support', label: 'Support & About', icon: Info },
 ];
@@ -94,15 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     };
     const { mainVersion, setMainVersion, verseHoverPreviews, toggleVerseHoverPreviews } = useBibleStore();
 
-    const {
-        identity,
-        isInitialized: isSyncInitialized,
-        syncStatus,
-        initializeIdentity,
-        clearIdentity,
-        deviceName,
-        updateDeviceName
-    } = useSyncStore();
+    const { deviceName, updateDeviceName } = useSyncStore();
     const { updateSettings, setTheme, settingsTab } = settings;
     const [activeTab, setActiveTab] = useState<string>(settingsTab || 'appearance');
 
@@ -1253,129 +1241,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </>
                                     )}
 
-                                    {activeTab === 'sync' && (
-                                        <>
-                                            <section className="space-y-6">
-                                                {!isSyncInitialized ? (
-                                                    <div className="p-8 border-2 border-dashed border-light-border dark:border-dark-border rounded-2xl flex flex-col items-center text-center gap-6 bg-primary/5">
-                                                        <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-2xl flex items-center justify-center shadow-lg text-primary">
-                                                            <Cloud size={32} />
-                                                        </div>
-                                                        <div className="max-w-md">
-                                                            <h4 className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">Enable Sync & Collaboration</h4>
-                                                            <p className="text-sm text-light-text-secondary mt-2">
-                                                                Access your Studyspace across devices and work with others in real-time. Parchments uses <b>End-to-End Encryption</b> to keep your data private.
-                                                            </p>
-                                                        </div>
-                                                        <button
-                                                            onClick={initializeIdentity}
-                                                            className="px-8 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                                                        >
-                                                            <Lock size={18} /> Generate Secure Vault
-                                                        </button>
-                                                        <p className="text-[10px] text-light-text-disabled uppercase font-black">
-                                                            No email required. Your identity is unique to you.
-                                                        </p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-8">
-                                                        {/* Vault Header */}
-                                                        <div className="flex items-center gap-4 p-4 bg-light-background dark:bg-dark-background/40 rounded-xl border border-light-border dark:border-dark-border">
-                                                            <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
-                                                                <Shield size={24} />
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <h4 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Vault Active & Secure</h4>
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus === 'offline' ? 'bg-gray-400' : 'bg-green-500'}`} />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary">
-                                                                        {syncStatus.toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                onClick={clearIdentity}
-                                                                className="text-xs font-bold text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/5 transition-all"
-                                                            >
-                                                                Deactivate Vault
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Public Identity */}
-                                                        <section className="space-y-4">
-                                                            <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Your Public Handle</h4>
-                                                            <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl flex items-center justify-between">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">
-                                                                        {identity?.publicKey.slice(0, 2).toUpperCase()}
-                                                                    </div>
-                                                                    <div className="max-w-[200px] sm:max-w-xs">
-                                                                        <p className="text-xs font-bold break-all text-light-text-primary dark:text-dark-text-primary">{identity?.publicKey}</p>
-                                                                        <p className="text-[10px] text-light-text-disabled uppercase font-black">Share this key to be invited to Study Rooms</p>
-                                                                    </div>
-                                                                </div>
-                                                                <button
-                                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-primary"
-                                                                    onClick={() => {
-                                                                        navigator.clipboard.writeText(identity?.publicKey || '');
-                                                                        settings.showToast('Public key copied', 'success');
-                                                                    }}
-                                                                >
-                                                                    <Share2 size={18} />
-                                                                </button>
-                                                            </div>
-                                                        </section>
-
-                                                        {/* Local Device Name Setup */}
-                                                         <section className="space-y-4">
-                                                             <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Device Configuration</h4>
-                                                             <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl space-y-3">
-                                                                 <label className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary">Local Device Name</label>
-                                                                 <input
-                                                                     type="text"
-                                                                     value={deviceName}
-                                                                     onChange={(e) => updateDeviceName(e.target.value)}
-                                                                     placeholder="e.g., Patrick's Laptop"
-                                                                     className="w-full px-4 py-2.5 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary font-bold"
-                                                                 />
-                                                                 <p className="text-[10px] text-light-text-disabled uppercase font-black">This name will be visible to paired devices during connection handshakes.</p>
-                                                             </div>
-                                                         </section>
-
-                                                        <section className="grid grid-cols-1 gap-4">
-                                                            <div className="p-6 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl space-y-3">
-                                                                <Key size={24} className="text-primary" />
-                                                                <h5 className="font-bold text-sm text-light-text-primary dark:text-dark-text-primary">Recovery Phrase</h5>
-                                                                <p className="text-xs text-light-text-secondary leading-relaxed">Your "Master Key" to restore your vault on new devices.</p>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setAlertConfig({
-                                                                            isOpen: true,
-                                                                            title: 'Your Recovery Phrase',
-                                                                            message: identity?.mnemonic || 'No mnemonic available.',
-                                                                            type: 'info'
-                                                                        });
-                                                                    }}
-                                                                    className="w-full py-2 border border-light-border dark:border-dark-border rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-light-text-primary dark:text-dark-text-primary"
-                                                                >
-                                                                    View Safe Phrase
-                                                                </button>
-                                                            </div>
-                                                        </section>
-
-                                                        {/* Privacy Alert */}
-                                                        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl flex gap-3">
-                                                            <Lock size={18} className="text-amber-600 shrink-0" />
-                                                            <p className="text-[11px] text-amber-700/80 dark:text-amber-400/70 leading-relaxed">
-                                                                <b>Warning:</b> Parchments cannot reset your Vault Key. If you lose your Recovery Phrase AND all paired devices, your synced data will be permanently inaccessible.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </section>
-                                        </>
-                                    )}
-
                                     {activeTab === 'storage' && (
                                         <>
                                             <section className="grid grid-cols-2 gap-1.5 [&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
@@ -1498,6 +1363,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     >
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.highAccuracyTranscription ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
+                                                </div>
+                                            </section>
+
+                                            <section className="space-y-4 pt-6 border-t border-light-border dark:border-dark-border">
+                                                <div className="flex flex-col gap-3 p-4 bg-light-background dark:bg-dark-background rounded-xl border border-light-border dark:border-dark-border">
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">Device Configuration</h4>
+                                                        <p className="text-xs text-light-text-secondary mt-0.5">Identify this device during local Wi-Fi note collaboration.</p>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary">Local Device Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={deviceName}
+                                                            onChange={(e) => updateDeviceName(e.target.value)}
+                                                            placeholder="e.g., Patrick's Laptop"
+                                                            className="w-full px-4 py-2.5 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-light-text-primary dark:text-dark-text-primary font-bold"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </section>
 

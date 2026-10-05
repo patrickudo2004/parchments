@@ -8,7 +8,7 @@ import { useBibleStore } from '@/stores/bibleStore';
 import { AnimatePresence } from 'framer-motion';
 
 export const BibleModal: React.FC = () => {
-    const { isBibleModalOpen, toggleBibleModal } = useUIStore();
+    const { isBibleModalOpen, toggleBibleModal, isMobile } = useUIStore();
     const { isSearchOpen, setSearchOpen } = useBibleStore();
     const constraintsRef = useRef(null);
     const dragControls = useDragControls();
@@ -16,18 +16,18 @@ export const BibleModal: React.FC = () => {
     if (!isBibleModalOpen) return null;
 
     return (
-        <div ref={constraintsRef} className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center">
+        <div ref={constraintsRef} className={`fixed inset-0 z-[100] pointer-events-none flex justify-center ${isMobile ? 'items-end' : 'items-center'}`}>
             <motion.div
-                drag
+                drag={!isMobile}
                 dragListener={false}
                 dragControls={dragControls}
                 dragMomentum={false}
                 dragConstraints={constraintsRef}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="pointer-events-auto bg-light-surface dark:bg-dark-surface rounded-2xl shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden"
-                style={{ width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '400px', minHeight: '500px' }}
+                initial={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 0 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 0 }}
+                className={`pointer-events-auto bg-light-surface dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden ${isMobile ? 'w-full h-[90vh] max-h-[90vh] rounded-t-3xl border-b-0' : 'rounded-2xl'}`}
+                style={isMobile ? { width: '100vw', height: '90vh', maxWidth: '100vw' } : { width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '350px', maxWidth: '95vw', minHeight: '450px', maxHeight: '90vh' }}
             >
                 {/* Header (Drag Handle) */}
                 <div

@@ -31,6 +31,7 @@ import { useReadingPlanStore } from '@/stores/readingPlanStore';
 
 export const FilesSidebar: React.FC = () => {
     const {
+        currentNote,
         setCurrentNote, createNote, createVoiceNote, createFolder,
         notes, folders, deleteNote, deleteFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
@@ -418,7 +419,7 @@ export const FilesSidebar: React.FC = () => {
                                         });
                                     }
                                 }}
-                                                                className={`p-1 transition-all opacity-0 group-hover:opacity-100 ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
+                                className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded transition-all ${currentNote?.id === item.id ? 'opacity-90' : 'opacity-0 group-hover:opacity-100'} ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
                                 title="Pin to Research"
                             >
                                 <Pin size={12} />
@@ -431,7 +432,7 @@ export const FilesSidebar: React.FC = () => {
                                     setShareNoteId(item.id);
                                     setIsShareModalOpen(true);
                                 }}
-                                className="p-1 hover:text-primary transition-all opacity-0 group-hover:opacity-100 text-light-text-disabled hover:text-primary"
+                                className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-primary transition-all ${currentNote?.id === item.id ? 'opacity-90 text-primary' : 'opacity-0 group-hover:opacity-100 text-light-text-disabled hover:text-primary'}`}
                                 title="Share Note"
                             >
                                 <Share2 size={12} />
@@ -439,17 +440,17 @@ export const FilesSidebar: React.FC = () => {
                         )}
                         <button
                             onClick={(e) => handleRenameClick(e, item)}
-                            className="p-1 hover:text-primary transition-all opacity-0 group-hover:opacity-100"
+                            className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-primary transition-all ${currentNote?.id === item.id ? 'opacity-90 text-light-text-secondary' : 'opacity-0 group-hover:opacity-100'}`}
                             title="Rename"
                         >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                         </button>
                         <button
                             onClick={(e) => handleDeleteClick(e, item)}
-                            className="p-1 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+                            className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-red-500 transition-all ${currentNote?.id === item.id ? 'opacity-90 text-light-text-disabled' : 'opacity-0 group-hover:opacity-100'}`}
                             title="Delete"
                         >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                         </button>
                     </div>
                 </div>
@@ -489,8 +490,10 @@ export const FilesSidebar: React.FC = () => {
         }
 
         // 2. ACTIVE DRILL DOWN CALCULATION
+        const normalizePath = (p: string | null | undefined) => p ? p.replace(/\\/g, '/').replace(/\/+$/, '') : null;
+
         const currentFolder = isLocalMode
-            ? (localFiles.find(f => String(f.id) === String(selectedFolderId) && f.kind === 'directory') || folders.find(f => String(f.id) === String(selectedFolderId)))
+            ? (localFiles.find(f => (String(f.id) === String(selectedFolderId) || normalizePath(f.id) === normalizePath(selectedFolderId)) && f.kind === 'directory') || folders.find(f => String(f.id) === String(selectedFolderId)))
             : folders.find(f => String(f.id) === String(selectedFolderId));
         const parentFolderId = currentFolder 
             ? (currentFolder.parentId === activeWorkspaceId ? null : currentFolder.parentId) 
@@ -499,24 +502,24 @@ export const FilesSidebar: React.FC = () => {
         let activeSubfolders: any[] = [];
         if (isLocalMode) {
             const localDirs = localFiles
-                .filter(f => f.kind === 'directory' && (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : !f.parentId))
+                .filter(f => f.kind === 'directory' && (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || normalizePath(f.parentId) === normalizePath(selectedFolderId)) : (!f.parentId || f.parentId === '')))
                 .map(f => ({ ...f, type: 'folder' as const }));
             const dbFolders = folders
-                .filter(f => (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : f.parentId === null) && !localDirs.some(ld => String(ld.id) === String(f.id)))
+                .filter(f => (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || String(f.parentId) === String(currentFolder?.name)) : (f.parentId === null || f.parentId === activeWorkspaceId)) && !localDirs.some(ld => String(ld.id) === String(f.id)))
                 .map(f => ({ ...f, type: 'folder' as const }));
             activeSubfolders = [...localDirs, ...dbFolders];
         } else {
             activeSubfolders = folders.filter(f => 
                 selectedFolderId 
-                    ? String(f.parentId) === String(selectedFolderId) 
-                    : (String(f.parentId) === String(activeWorkspaceId) || (activeWorkspaceId === null && f.parentId === null))
+                    ? (String(f.parentId) === String(selectedFolderId) || String(f.parentId) === String(currentFolder?.name))
+                    : (String(f.parentId) === String(activeWorkspaceId) || f.parentId === null)
             ).map(f => ({ ...f, type: 'folder' as const }));
         }
 
         let activeNotes: any[] = [];
         if (isLocalMode) {
             const localNotesList = localFiles
-                .filter(f => f.kind === 'file' && (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : !f.parentId))
+                .filter(f => f.kind === 'file' && (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || normalizePath(f.parentId) === normalizePath(selectedFolderId)) : (!f.parentId || f.parentId === '')))
                 .map(f => ({
                     id: f.id,
                     title: f.name,
@@ -528,12 +531,12 @@ export const FilesSidebar: React.FC = () => {
                     kind: 'file' as const
                 }));
             const dbNotesList = notes
-                .filter(n => (selectedFolderId ? String(n.folderId) === String(selectedFolderId) : n.folderId === null) && !localNotesList.some(ln => String(ln.id) === String(n.id)));
+                .filter(n => (selectedFolderId ? (String(n.folderId) === String(selectedFolderId) || String(n.folderId) === String(currentFolder?.name)) : (n.folderId === null || n.folderId === activeWorkspaceId)) && !localNotesList.some(ln => String(ln.id) === String(n.id)));
             activeNotes = [...localNotesList, ...dbNotesList];
         } else {
             activeNotes = notes.filter(n => 
                 selectedFolderId 
-                    ? String(n.folderId) === String(selectedFolderId) 
+                    ? (String(n.folderId) === String(selectedFolderId) || String(n.folderId) === String(currentFolder?.name))
                     : (String(n.folderId) === String(activeWorkspaceId) || n.folderId === null || !folders.some(f => String(f.id) === String(n.folderId)))
             );
         }
@@ -624,9 +627,9 @@ export const FilesSidebar: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 {activeSubfolders.map(folder => {
                                     const noteCount = isLocalMode
-                                        ? (localFiles.filter(f => f.kind === 'file' && String(f.parentId) === String(folder.id)).length +
-                                           notes.filter(n => String(n.folderId) === String(folder.id)).length)
-                                        : notes.filter(n => String(n.folderId) === String(folder.id)).length;
+                                        ? (localFiles.filter(f => f.kind === 'file' && (String(f.parentId) === String(folder.id) || normalizePath(f.parentId) === normalizePath(folder.id))).length +
+                                           notes.filter(n => String(n.folderId) === String(folder.id) || String(n.folderId) === String(folder.name)).length)
+                                        : notes.filter(n => String(n.folderId) === String(folder.id) || String(n.folderId) === String(folder.name)).length;
                                     return (
                                         <div
                                             key={folder.id}

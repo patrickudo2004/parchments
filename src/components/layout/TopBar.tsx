@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool, Search, Moon, Sun, Settings, Download, Cloud, Share2, BookOpen } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download, Share2, BookOpen } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { useSyncStore } from '@/stores/syncStore';
 import { CollaborationList } from '@/components/editor/CollaborationList';
@@ -18,7 +18,7 @@ export const TopBar: React.FC = () => {
         isExportModalOpen, exportFormat, closeExportModal, openExportModal,
         toggleTemplateModal, toggleNoFolderModal
     } = useUIStore();
-    const { identity, isConnected } = useSyncStore();
+    const { identity } = useSyncStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
@@ -184,24 +184,6 @@ export const TopBar: React.FC = () => {
                     title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 >
                     {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-
-                {/* Sync Indicator */}
-                <button
-                    onClick={() => toggleSettingsModal('sync')}
-                    className="flex items-center gap-2 p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
-                    title={identity ? `Vault Active - ${isConnected ? 'Online' : 'Connecting...'}` : 'Sync Settings'}
-                >
-                    <div className="relative">
-                        <Cloud
-                            size={18}
-                            className={identity ? 'text-primary' : 'text-light-text-disabled'}
-                        />
-                        {identity && (
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-dark-surface animate-pulse transition-colors ${isConnected ? 'bg-green-500' : 'bg-amber-500'
-                                }`} />
-                        )}
-                    </div>
                 </button>
 
                 <button

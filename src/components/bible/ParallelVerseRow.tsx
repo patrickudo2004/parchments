@@ -62,7 +62,17 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
             onClick={(e) => {
                 if (e.shiftKey && selectionRange) {
                     setSelectionRange({ ...selectionRange, end: verseNum });
-                } else if (!e.shiftKey) {
+                } else if (selectionRange) {
+                    if (selectionRange.start === verseNum && selectionRange.end === verseNum) {
+                        setSelectionRange(null);
+                    } else if (selectionRange.start === selectionRange.end) {
+                        setSelectionRange({ start: selectionRange.start, end: verseNum });
+                    } else if (selectionRange.end === verseNum) {
+                        setSelectionRange({ start: selectionRange.start, end: selectionRange.start });
+                    } else {
+                        setSelectionRange({ ...selectionRange, end: verseNum });
+                    }
+                } else {
                     setSelectionRange({ start: verseNum, end: verseNum });
                 }
             }}
@@ -111,7 +121,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                                     });
                                 }
                             }}
-                            className={`inline-flex p-1 rounded transition-all opacity-0 group-hover:opacity-100 mr-2 ${isItemPinned(`${vid}-${verseId}`) ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-primary hover:bg-primary/5'}`}
+                            className={`inline-flex items-center justify-center p-1.5 min-w-[26px] min-h-[26px] rounded transition-all mr-2 ${isItemPinned(`${vid}-${verseId}`) || isSelected ? 'opacity-100' : 'opacity-40 hover:opacity-100 group-hover/verse:opacity-100'} ${isItemPinned(`${vid}-${verseId}`) ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-primary hover:bg-primary/5'}`}
                             title="Pin to Research"
                         >
                             <Pin size={12} />

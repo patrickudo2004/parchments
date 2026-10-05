@@ -291,11 +291,48 @@ export const ScriptureExtension = Mark.create({
         ];
     },
 
-    // Handle Double Click to Open Sidebar
+    // Handle Click and Double Click to Open Sidebar
     addProseMirrorPlugins() {
+        const openScripture = (attrs: any, event: MouseEvent) => {
+            const { book, chapter, verse, verseEnd, segments } = attrs;
+            event.preventDefault();
+            const { openRightSidebar } = useUIStore.getState();
+            const { setBibleFocus } = useBibleStore.getState();
+
+            openRightSidebar('bible');
+            setBibleFocus({
+                book,
+                chapter,
+                verse,
+                verseEnd,
+                segments: segments ? parseVerseSegments(segments) : undefined,
+            });
+        };
+
         return [
             new Plugin({
                 props: {
+                    handleClick: (view, pos, event) => {
+                        const isTouch = (typeof window !== 'undefined' && (
+                            window.matchMedia('(hover: none), (pointer: coarse)').matches ||
+                            'ontouchstart' in window
+                        )) || useUIStore.getState().isMobile;
+
+                        if (!isTouch && !event.ctrlKey && !event.metaKey) {
+                            return false;
+                        }
+
+                        const { doc } = view.state;
+                        const range = doc.resolve(pos);
+                        const marks = range.marks();
+                        const scriptureMark = marks.find(m => m.type.name === 'scripture');
+
+                        if (scriptureMark) {
+                            openScripture(scriptureMark.attrs, event);
+                            return true;
+                        }
+                        return false;
+                    },
                     handleDoubleClick: (view, pos, event) => {
                         const { doc } = view.state;
                         const range = doc.resolve(pos);
@@ -305,24 +342,7 @@ export const ScriptureExtension = Mark.create({
                         const scriptureMark = marks.find(m => m.type.name === 'scripture');
 
                         if (scriptureMark) {
-                            const { book, chapter, verse, verseEnd, segments } = scriptureMark.attrs;
-
-                            // Prevent default text selection
-                            event.preventDefault();
-
-                            // Use stores (direct access via getState to avoid hook rules in vanilla JS/plugin)
-                            const { openRightSidebar } = useUIStore.getState();
-                            const { setBibleFocus } = useBibleStore.getState();
-
-                            openRightSidebar('bible');
-                            setBibleFocus({
-                                book,
-                                chapter,
-                                verse,
-                                verseEnd,
-                                segments: segments ? parseVerseSegments(segments) : undefined,
-                            });
-
+                            openScripture(scriptureMark.attrs, event);
                             return true;
                         }
                         return false;

@@ -360,7 +360,7 @@ export const LectioMode: React.FC = () => {
     // Enforce local library studyspace is unlocked first
     if (isLocalMode && !hasStudyspace) {
         return (
-            <div className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col items-center justify-center select-none text-center animate-in fade-in zoom-in duration-300">
+            <div className="fixed inset-0 z-[150] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col items-center justify-center select-none text-center animate-in fade-in zoom-in duration-300">
                 <div className="max-w-md w-full p-8 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-3xl shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-primary/5 rounded-3xl blur-2xl animate-pulse" />
                     
@@ -402,10 +402,10 @@ export const LectioMode: React.FC = () => {
             <div
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
-                className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background flex flex-col overflow-hidden text-light-text-primary dark:text-dark-text-primary"
+                className="fixed inset-0 z-[150] bg-light-background dark:bg-dark-background flex flex-col overflow-hidden text-light-text-primary dark:text-dark-text-primary"
             >
                 {/* Immersive Session Header */}
-                <header className="h-14 border-b border-light-border dark:border-dark-border px-4 flex items-center justify-between bg-light-surface/80 dark:bg-dark-surface/80 backdrop-blur-md shrink-0 z-[90] relative">
+                <header className="h-14 border-b border-light-border dark:border-dark-border px-4 flex items-center justify-between bg-light-surface/80 dark:bg-dark-surface/80 backdrop-blur-md shrink-0 z-[160] relative">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => exitLectioMode()}
@@ -766,7 +766,7 @@ export const LectioMode: React.FC = () => {
 
     // RENDER CASE 2: Lectio Study Center Dashboard
     return (
-        <div className="fixed inset-0 z-[80] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col select-none">
+        <div className="fixed inset-0 z-[150] bg-light-background dark:bg-dark-background overflow-y-auto custom-scrollbar p-6 flex flex-col select-none">
             {/* Top Close Bar */}
             <div className="max-w-4xl w-full mx-auto flex items-center justify-between shrink-0 mb-4">
                 {/* Theme Toggle Button */}

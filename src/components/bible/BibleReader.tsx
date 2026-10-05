@@ -504,7 +504,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                                     {book} {chapter}:{Math.min(selectionRange.start, selectionRange.end)}{selectionRange.start !== selectionRange.end ? `-${Math.max(selectionRange.start, selectionRange.end)}` : ''}
                                 </span>
                                 <span className="text-[8px] opacity-50 font-medium">
-                                    {selectionRange.start === selectionRange.end ? '1 verse selected' : `${Math.abs(selectionRange.end - selectionRange.start) + 1} verses selected`}
+                                    {selectionRange.start === selectionRange.end ? '1 verse selected • Tap another to extend' : `${Math.abs(selectionRange.end - selectionRange.start) + 1} verses selected`}
                                 </span>
                             </div>
                         </div>

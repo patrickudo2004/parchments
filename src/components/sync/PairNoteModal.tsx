@@ -142,8 +142,14 @@ export const PairNoteModal: React.FC<PairNoteModalProps> = ({ isOpen, onClose })
 
         {/* Error */}
         {error && (
-          <div className="bg-red-900/40 border border-red-500/30 text-red-300 text-sm rounded-xl p-3">
-            {error}
+          <div className="bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs rounded-xl p-4 flex flex-col gap-3">
+            <p className="leading-relaxed">{error}</p>
+            <button
+              onClick={handleEndSession}
+              className="self-start px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-colors"
+            >
+              Close
+            </button>
           </div>
         )}
 

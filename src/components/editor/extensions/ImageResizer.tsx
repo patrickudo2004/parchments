@@ -19,7 +19,7 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
         }
     }, []);
 
-    const handleResizeStart = useCallback((corner: 'nw' | 'ne' | 'sw' | 'se') => (e: React.MouseEvent) => {
+    const handleResizeStart = useCallback((corner: 'nw' | 'ne' | 'sw' | 'se') => (e: React.PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -27,7 +27,7 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
         const startX = e.clientX;
         const startWidth = imgRef.current?.getBoundingClientRect().width || 0;
 
-        const onMouseMove = (moveEvent: MouseEvent) => {
+        const onPointerMove = (moveEvent: PointerEvent) => {
             const currentX = moveEvent.clientX;
             let diffX = currentX - startX;
 
@@ -41,14 +41,16 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
             updateAttributes({ width: `${Math.round(newWidth)}px` });
         };
 
-        const onMouseUp = () => {
+        const onPointerUp = () => {
             setIsResizing(false);
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
         };
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
     }, [updateAttributes]);
 
     return (
@@ -79,23 +81,31 @@ export const ImageResizer: React.FC<NodeViewProps> = (props) => {
                             </div>
                         )}
 
-                        {/* Resize Handles */}
+                        {/* Resize Handles (Touch-Accessible Hit Targets) */}
                         <div
-                            className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-sm hover:scale-125 transition-transform z-20"
-                            onMouseDown={handleResizeStart('se')}
-                        />
+                            className="absolute -bottom-2.5 -right-2.5 w-7 h-7 flex items-center justify-center cursor-nwse-resize z-20 touch-none group/handle select-none"
+                            onPointerDown={handleResizeStart('se')}
+                        >
+                            <div className="w-3.5 h-3.5 bg-primary border-2 border-white rounded-full shadow-md group-hover/handle:scale-125 transition-transform" />
+                        </div>
                         <div
-                            className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nesw-resize shadow-sm hover:scale-125 transition-transform z-20"
-                            onMouseDown={handleResizeStart('sw')}
-                        />
+                            className="absolute -bottom-2.5 -left-2.5 w-7 h-7 flex items-center justify-center cursor-nesw-resize z-20 touch-none group/handle select-none"
+                            onPointerDown={handleResizeStart('sw')}
+                        >
+                            <div className="w-3.5 h-3.5 bg-primary border-2 border-white rounded-full shadow-md group-hover/handle:scale-125 transition-transform" />
+                        </div>
                         <div
-                            className="absolute -top-1 -right-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nesw-resize shadow-sm hover:scale-125 transition-transform z-20"
-                            onMouseDown={handleResizeStart('ne')}
-                        />
+                            className="absolute -top-2.5 -right-2.5 w-7 h-7 flex items-center justify-center cursor-nesw-resize z-20 touch-none group/handle select-none"
+                            onPointerDown={handleResizeStart('ne')}
+                        >
+                            <div className="w-3.5 h-3.5 bg-primary border-2 border-white rounded-full shadow-md group-hover/handle:scale-125 transition-transform" />
+                        </div>
                         <div
-                            className="absolute -top-1 -left-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-sm hover:scale-125 transition-transform z-20"
-                            onMouseDown={handleResizeStart('nw')}
-                        />
+                            className="absolute -top-2.5 -left-2.5 w-7 h-7 flex items-center justify-center cursor-nwse-resize z-20 touch-none group/handle select-none"
+                            onPointerDown={handleResizeStart('nw')}
+                        >
+                            <div className="w-3.5 h-3.5 bg-primary border-2 border-white rounded-full shadow-md group-hover/handle:scale-125 transition-transform" />
+                        </div>
                     </>
                 )}
             </div>

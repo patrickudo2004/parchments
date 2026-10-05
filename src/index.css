@@ -366,9 +366,12 @@ body.dark {
 
 .pulpit-content a,
 .pulpit-content .tiptap a,
-.pulpit-content .scripture-reference-node {
+.pulpit-content .scripture-reference-node,
+.pulpit-content span[data-book] {
     text-decoration: underline !important;
+    text-decoration-thickness: 2px !important;
     font-weight: 700 !important;
+    color: inherit !important;
 }
 
 /* Pulpit Theme Contrast Variables */
@@ -385,4 +388,19 @@ body.dark {
 .pulpit-theme-contrast {
     background-color: #000000 !important;
     color: #FFFFFF !important;
+}
+
+.pulpit-theme-contrast mark {
+    background-color: #FFFF00 !important;
+    color: #000000 !important;
+}
+
+.pulpit-theme-dark mark {
+    background-color: #854D0E !important;
+    color: #FEF08A !important;
+}
+
+.pulpit-theme-standard mark {
+    background-color: #FEF08A !important;
+    color: #121212 !important;
 }

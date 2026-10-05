@@ -75,6 +75,9 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
     // Small delay so the DOM node is mounted
     const timer = setTimeout(async () => {
       if (isScanningRef.current) return;
+      const el = document.getElementById(QR_SCANNER_ID);
+      if (!el) return;
+
       try {
         const scanner = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
         scannerRef.current = scanner;
@@ -97,7 +100,7 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
       } catch (err: unknown) {
         if (!isCancelled) {
           const msg = err instanceof Error ? err.message : String(err);
-          setErrorMsg(`Camera error: ${msg}`);
+          setErrorMsg(`Camera access unavailable (${msg}). Please enter the host address manually.`);
           setStatus('error');
         }
       }
@@ -150,10 +153,18 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
 
       const ydoc = getYDoc(note?.id ?? 'join-temp');
 
-      // Build the full ws URL — raw might be just a code like "839-204"
-      const wsUrl = rawUrl.startsWith('ws://') ? rawUrl : resolveCodeToUrl(rawUrl);
+      // Build the full ws URL — raw might be just a code like "839-204" or IP:port
+      const wsUrl = rawUrl.startsWith('ws://') || rawUrl.startsWith('wss://') ? rawUrl : resolveCodeToUrl(rawUrl);
       if (!wsUrl) {
-        throw new Error('Invalid pairing code. Please enter the full address or scan the host QR code.');
+        throw new Error('Please enter a valid connection address (e.g. 192.168.1.5:8765) or scan the host QR code.');
+      }
+
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+      const isCapacitor = typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.());
+
+      if (isHttps && !isTauri && !isCapacitor && wsUrl.startsWith('ws://')) {
+        throw new Error('Browser security blocks insecure local Wi-Fi connections (ws://) from HTTPS web pages. To join notes over local Wi-Fi, please use the Parchments Desktop or Mobile application.');
       }
 
       await joinLocalServer(ydoc, wsUrl, deviceName, mode);
@@ -385,9 +396,15 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Resolve a 6-digit pairing code to a ws:// URL.
+// Resolve a connection code or address to a ws:// URL.
 // ---------------------------------------------------------------------------
 function resolveCodeToUrl(raw: string): string | null {
-  if (/^\d{3}-\d{3}$/.test(raw)) return null;
-  return raw.startsWith('ws://') || raw.startsWith('wss://') ? raw : null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('ws://') || trimmed.startsWith('wss://')) return trimmed;
+  // If user entered IP:PORT or host:port e.g. 192.168.1.5:8765
+  if (/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|localhost|[\w.-]+):\d+/.test(trimmed)) {
+    return trimmed.includes('/sync') ? `ws://${trimmed}` : `ws://${trimmed}/sync`;
+  }
+  return null;
 }

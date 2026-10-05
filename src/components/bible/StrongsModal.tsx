@@ -4,6 +4,7 @@ import { X, Volume2, BookOpen, Link2, Hash, Pin, BookmarkIcon, Search } from 'lu
 import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
 import { useResearchStore } from '@/stores/researchStore';
+import { useUIStore } from '@/stores/uiStore';
 
 interface StrongsModalProps {
     strongsId: string | null;
@@ -17,6 +18,7 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
     const constraintsRef = React.useRef(null);
     const dragControls = useDragControls();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
+    const { isMobile } = useUIStore();
 
     useEffect(() => {
         if (strongsId) {
@@ -46,18 +48,18 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
     };
 
     return (
-        <div ref={constraintsRef} className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center">
+        <div ref={constraintsRef} className={`fixed inset-0 z-[100] pointer-events-none flex justify-center ${isMobile ? 'items-end' : 'items-center'}`}>
             <motion.div
-                drag
+                drag={!isMobile}
                 dragListener={false}
                 dragControls={dragControls}
                 dragMomentum={false}
                 dragConstraints={constraintsRef}
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="pointer-events-auto relative w-full max-w-lg bg-white dark:bg-dark-surface rounded-2xl shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden"
-                style={{ width: '500px', height: '600px', resize: 'both', minWidth: '350px', minHeight: '400px' }}
+                exit={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 20 }}
+                className={`pointer-events-auto relative bg-white dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden ${isMobile ? 'w-full h-[85vh] max-h-[85vh] rounded-t-3xl border-b-0' : 'w-full max-w-lg rounded-2xl'}`}
+                style={isMobile ? { width: '100vw', height: '85vh', maxWidth: '100vw' } : { width: '500px', height: '600px', resize: 'both', minWidth: '320px', maxWidth: '95vw', minHeight: '380px', maxHeight: '90vh' }}
             >
                 {/* Header (Drag Handle) */}
                 <div

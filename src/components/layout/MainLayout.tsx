@@ -1,10 +1,11 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import { TopBar } from './TopBar';
 import { MenuBar } from './MenuBar';
 import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
+import { useReadingPlanStore } from '@/stores/readingPlanStore';
 import { MobileNav } from './MobileNav';
 
 import { BibleModal } from '@/components/bible/BibleModal';
@@ -12,7 +13,6 @@ import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { PairingModal } from '@/components/sync/PairingModal';
 import {
     Search as SearchIcon
 } from 'lucide-react';
@@ -81,7 +81,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         mobileBibleState,
         pulpitMode
     } = useUIStore();
+    const { isLectioModeActive } = useReadingPlanStore();
     const { hasStudyspace, openLocalFolder, createNote, openLooseFile } = useNoteStore();
+
+    const leftDragControls = useDragControls();
+    const rightDragControls = useDragControls();
 
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
@@ -99,13 +103,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         return () => window.removeEventListener('resize', checkMobile);
     }, [setIsMobile]);
 
-    const startResizingLeft = React.useCallback((e: React.MouseEvent) => {
+    const startResizingLeft = React.useCallback((e: React.PointerEvent) => {
         e.preventDefault();
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        } catch (_) {}
         setIsResizingLeft(true);
     }, []);
 
-    const startResizingRight = React.useCallback((e: React.MouseEvent) => {
+    const startResizingRight = React.useCallback((e: React.PointerEvent) => {
         e.preventDefault();
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        } catch (_) {}
         setIsResizingRight(true);
     }, []);
 
@@ -114,7 +124,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setIsResizingRight(false);
     }, []);
 
-    const resize = React.useCallback((e: MouseEvent) => {
+    const resize = React.useCallback((e: PointerEvent) => {
         if (isResizingLeft) {
             const newWidth = e.clientX;
             if (newWidth > 150 && newWidth < 600) {
@@ -131,15 +141,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     React.useEffect(() => {
         if (isResizingLeft || isResizingRight) {
-            window.addEventListener('mousemove', resize);
-            window.addEventListener('mouseup', stopResizing);
+            window.addEventListener('pointermove', resize);
+            window.addEventListener('pointerup', stopResizing);
+            window.addEventListener('pointercancel', stopResizing);
         } else {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            window.removeEventListener('pointermove', resize);
+            window.removeEventListener('pointerup', stopResizing);
+            window.removeEventListener('pointercancel', stopResizing);
         }
         return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            window.removeEventListener('pointermove', resize);
+            window.removeEventListener('pointerup', stopResizing);
+            window.removeEventListener('pointercancel', stopResizing);
         };
     }, [isResizingLeft, isResizingRight, resize, stopResizing]);
 
@@ -185,17 +198,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     return (
         <ErrorBoundary>
-            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode ? 'pb-16' : ''}`}>
+            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode && !isLectioModeActive ? 'pb-16' : ''}`}>
                 <UpdateBanner />
                 <VersionLockModal />
-                {!isMobile && <TopBar />}
-                {!isFocusMode && !isMobile && <MenuBar />}
+                {!isMobile && !isLectioModeActive && <TopBar />}
+                {!isFocusMode && !isMobile && !isLectioModeActive && !pulpitMode && <MenuBar />}
 
                 <div className={`flex-1 flex overflow-hidden relative ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'flex-col' : 'flex-row'}`}>
                     {/* ... rest of the component ... */}
                     {/* Mobile Backdrop */}
                     <AnimatePresence>
-                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && (
+                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && !isLectioModeActive && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -209,14 +222,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         )}
                     </AnimatePresence>
 
-                    {/* Activity Bar - Always visible unless focus mode or mobile or pulpit */}
-                    {!isFocusMode && !pulpitMode && !isMobile && <ActivityBar />}
+                    {/* Activity Bar - Always visible unless focus mode or mobile or pulpit or lectio */}
+                    {!isFocusMode && !pulpitMode && !isMobile && !isLectioModeActive && <ActivityBar />}
 
                     {/* Left Sidebar - Explorer */}
-                    {!isFocusMode && !pulpitMode && isLeftSidebarOpen && (
+                    {!isFocusMode && !pulpitMode && !isLectioModeActive && isLeftSidebarOpen && (
                         <>
                             <motion.aside
                                 drag={isLeftSidebarFloating}
+                                dragListener={false}
+                                dragControls={leftDragControls}
                                 dragMomentum={false}
                                 dragElastic={0}
                                 dragConstraints={{ left: 0, top: 0, right: window.innerWidth - leftSidebarWidth, bottom: window.innerHeight - 100 }}
@@ -238,10 +253,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     marginTop: isLeftSidebarFloating ? '64px' : '0'
                                 }}
                             >
-                                {/* Drag Handle */}
+                                {/* Drag Handle (isolated touch control) */}
                                 {isLeftSidebarFloating && (
-                                    <div className="h-6 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group">
-                                        <div className="w-12 h-1 rounded-full bg-light-border dark:border-dark-border group-hover:bg-primary/50 transition-colors" />
+                                    <div
+                                        onPointerDown={(e) => leftDragControls.start(e)}
+                                        className="h-7 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group touch-none select-none shrink-0"
+                                    >
+                                        <div className="w-12 h-1.5 rounded-full bg-light-border dark:border-dark-border group-hover:bg-primary/50 transition-colors" />
                                     </div>
                                 )}
                                 <div className="flex-1 overflow-hidden">
@@ -251,12 +269,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 </div>
                             </motion.aside>
 
-                            {/* Left Resize Handle */}
+                            {/* Left Resize Handle (Touch-Accessible Hit Target) */}
                             {!isMobile && !isLeftSidebarFloating && (
                                 <div
-                                    onMouseDown={startResizingLeft}
-                                    className="w-1 px-0.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
-                                />
+                                    onPointerDown={startResizingLeft}
+                                    className="w-2 -mx-0.5 hover:bg-primary/30 active:bg-primary/50 cursor-col-resize transition-colors z-20 shrink-0 touch-none flex items-center justify-center group"
+                                >
+                                    <div className="w-[1px] h-full bg-light-border dark:bg-dark-border group-hover:bg-primary/70 transition-colors" />
+                                </div>
                             )}
                         </>
                     )}
@@ -273,18 +293,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </main>
 
                     {/* Right Sidebar - Bible/Search */}
-                    {!isFocusMode && !pulpitMode && rightSidebarOpen && (
+                    {!isFocusMode && !pulpitMode && !isLectioModeActive && rightSidebarOpen && (
                         <>
-                            {/* Right Resize Handle */}
+                            {/* Right Resize Handle (Touch-Accessible Hit Target) */}
                             {!isMobile && !isRightSidebarFloating && (
                                 <div
-                                    onMouseDown={startResizingRight}
-                                    className="w-1.5 hover:bg-primary/30 cursor-col-resize transition-colors z-10 shrink-0"
-                                />
+                                    onPointerDown={startResizingRight}
+                                    className="w-2 -mx-0.5 hover:bg-primary/30 active:bg-primary/50 cursor-col-resize transition-colors z-20 shrink-0 touch-none flex items-center justify-center group"
+                                >
+                                    <div className="w-[1px] h-full bg-light-border dark:bg-dark-border group-hover:bg-primary/70 transition-colors" />
+                                </div>
                             )}
 
                             <motion.aside
                                 drag={!isMobile && isRightSidebarFloating}
+                                dragListener={false}
+                                dragControls={rightDragControls}
                                 dragMomentum={false}
                                 dragElastic={0}
                                 dragConstraints={{ left: -(window.innerWidth - rightSidebarWidth), top: 0, right: 0, bottom: window.innerHeight - 100 }}
@@ -314,10 +338,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     marginTop: isRightSidebarFloating ? '64px' : '0'
                                 }}
                             >
-                                {/* Drag Handle */}
+                                {/* Drag Handle (isolated touch control) */}
                                 {isRightSidebarFloating && (
-                                    <div className="h-6 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group">
-                                        <div className="w-12 h-1 rounded-full bg-light-border dark:border-dark-border group-hover:bg-primary/50 transition-colors" />
+                                    <div
+                                        onPointerDown={(e) => rightDragControls.start(e)}
+                                        className="h-7 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group touch-none select-none shrink-0"
+                                    >
+                                        <div className="w-12 h-1.5 rounded-full bg-light-border dark:border-dark-border group-hover:bg-primary/50 transition-colors" />
                                     </div>
                                 )}
                                 {/* Content */}
@@ -347,12 +374,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         </>
                     )}
 
-                    {/* Right Activity Bar - Always visible unless focus mode or mobile or pulpit */}
-                    {!isFocusMode && !pulpitMode && !isMobile && <RightActivityBar />}
+                    {/* Right Activity Bar - Always visible unless focus mode or mobile or pulpit or lectio */}
+                    {!isFocusMode && !pulpitMode && !isMobile && !isLectioModeActive && <RightActivityBar />}
                 </div>
 
                 {/* Mobile Navigation */}
-                {isMobile && !isFocusMode && !pulpitMode && <MobileNav />}
+                {isMobile && !isFocusMode && !pulpitMode && !isLectioModeActive && <MobileNav />}
 
                 {/* Status Bar */}
                 {!isFocusMode && !pulpitMode && !isMobile && <StatusBar />}
@@ -401,7 +428,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
             {/* Global Modals */}
             <LectioMode />
-            <PairingModal />
             <HostApprovalToast />
             <CommandPalette
                 isOpen={isSearchModalOpen}

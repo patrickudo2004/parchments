@@ -37,9 +37,10 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
         >
             <div
                 onPointerDown={(e) => controls.start(e)}
-                className="p-1 cursor-grab active:cursor-grabbing text-light-text-disabled hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1.5 min-w-[28px] min-h-[28px] flex items-center justify-center cursor-grab active:cursor-grabbing text-light-text-disabled hover:text-primary transition-colors opacity-40 hover:opacity-100 group-hover:opacity-100 touch-none select-none"
+                title="Drag to reorder"
             >
-                <GripVertical size={12} />
+                <GripVertical size={14} />
             </div>
 
             <button

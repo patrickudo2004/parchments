@@ -489,21 +489,54 @@ export const FilesSidebar: React.FC = () => {
         }
 
         // 2. ACTIVE DRILL DOWN CALCULATION
-        const currentFolder = folders.find(f => f.id === selectedFolderId);
+        const currentFolder = isLocalMode
+            ? (localFiles.find(f => String(f.id) === String(selectedFolderId) && f.kind === 'directory') || folders.find(f => String(f.id) === String(selectedFolderId)))
+            : folders.find(f => String(f.id) === String(selectedFolderId));
         const parentFolderId = currentFolder 
             ? (currentFolder.parentId === activeWorkspaceId ? null : currentFolder.parentId) 
             : null;
         
-        const activeSubfolders = folders.filter(f => 
-            selectedFolderId 
-                ? f.parentId === selectedFolderId 
-                : (isLocalMode ? f.parentId === null : (f.parentId === activeWorkspaceId || (activeWorkspaceId === null && f.parentId === null)))
-        );
-        const activeNotes = notes.filter(n => 
-            selectedFolderId 
-                ? n.folderId === selectedFolderId 
-                : (isLocalMode ? n.folderId === null : (n.folderId === activeWorkspaceId || n.folderId === null || !folders.some(f => f.id === n.folderId)))
-        );
+        let activeSubfolders: any[] = [];
+        if (isLocalMode) {
+            const localDirs = localFiles
+                .filter(f => f.kind === 'directory' && (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : !f.parentId))
+                .map(f => ({ ...f, type: 'folder' as const }));
+            const dbFolders = folders
+                .filter(f => (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : f.parentId === null) && !localDirs.some(ld => String(ld.id) === String(f.id)))
+                .map(f => ({ ...f, type: 'folder' as const }));
+            activeSubfolders = [...localDirs, ...dbFolders];
+        } else {
+            activeSubfolders = folders.filter(f => 
+                selectedFolderId 
+                    ? String(f.parentId) === String(selectedFolderId) 
+                    : (String(f.parentId) === String(activeWorkspaceId) || (activeWorkspaceId === null && f.parentId === null))
+            ).map(f => ({ ...f, type: 'folder' as const }));
+        }
+
+        let activeNotes: any[] = [];
+        if (isLocalMode) {
+            const localNotesList = localFiles
+                .filter(f => f.kind === 'file' && (selectedFolderId ? String(f.parentId) === String(selectedFolderId) : !f.parentId))
+                .map(f => ({
+                    id: f.id,
+                    title: f.name,
+                    name: f.name,
+                    content: '',
+                    type: 'file' as const,
+                    createdAt: Date.now(),
+                    fileHandle: f.handle,
+                    kind: 'file' as const
+                }));
+            const dbNotesList = notes
+                .filter(n => (selectedFolderId ? String(n.folderId) === String(selectedFolderId) : n.folderId === null) && !localNotesList.some(ln => String(ln.id) === String(n.id)));
+            activeNotes = [...localNotesList, ...dbNotesList];
+        } else {
+            activeNotes = notes.filter(n => 
+                selectedFolderId 
+                    ? String(n.folderId) === String(selectedFolderId) 
+                    : (String(n.folderId) === String(activeWorkspaceId) || n.folderId === null || !folders.some(f => String(f.id) === String(n.folderId)))
+            );
+        }
 
         return (
             <div className="flex flex-col h-full bg-light-surface dark:bg-dark-surface overflow-hidden">
@@ -557,7 +590,11 @@ export const FilesSidebar: React.FC = () => {
                                     defaultValue: 'New Folder',
                                     onConfirm: async (name) => {
                                         if (name) {
-                                            await createFolder(name, selectedFolderId);
+                                            if (isLocalMode) {
+                                                await createLocalFolder(name, selectedFolderId);
+                                            } else {
+                                                await createFolder(name, selectedFolderId);
+                                            }
                                         }
                                         setPromptConfig(prev => ({ ...prev, isOpen: false }));
                                     }
@@ -586,7 +623,10 @@ export const FilesSidebar: React.FC = () => {
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">Folders</h4>
                             <div className="grid grid-cols-2 gap-3">
                                 {activeSubfolders.map(folder => {
-                                    const noteCount = notes.filter(n => n.folderId === folder.id).length;
+                                    const noteCount = isLocalMode
+                                        ? (localFiles.filter(f => f.kind === 'file' && String(f.parentId) === String(folder.id)).length +
+                                           notes.filter(n => String(n.folderId) === String(folder.id)).length)
+                                        : notes.filter(n => String(n.folderId) === String(folder.id)).length;
                                     return (
                                         <div
                                             key={folder.id}
@@ -652,7 +692,12 @@ export const FilesSidebar: React.FC = () => {
                                         <div
                                             key={note.id}
                                             onClick={() => {
-                                                setCurrentNote(note);
+                                                if (isLocalMode && (note.kind === 'file' || note.type === 'file')) {
+                                                    openLocalFile(note);
+                                                } else {
+                                                    const found = notes.find(n => String(n.id) === String(note.id)) || note;
+                                                    setCurrentNote(found);
+                                                }
                                                 toggleLeftSidebar();
                                             }}
                                             className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl shadow-sm hover:border-primary/50 transition-all flex flex-col gap-2 relative group"
@@ -662,7 +707,7 @@ export const FilesSidebar: React.FC = () => {
                                                     <div className={`p-1.5 rounded-lg shrink-0 ${note.type === 'voice' ? 'bg-primary/10 text-primary' : 'bg-light-text-secondary/10 text-light-text-secondary dark:text-dark-text-secondary'}`}>
                                                         {note.type === 'voice' ? <Mic size={14} /> : <FileText size={14} />}
                                                     </div>
-                                                    <h5 className="font-bold text-xs truncate text-light-text-primary dark:text-dark-text-primary">{note.title}</h5>
+                                                    <h5 className="font-bold text-xs truncate text-light-text-primary dark:text-dark-text-primary">{note.title || note.name}</h5>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     <button
@@ -700,7 +745,7 @@ export const FilesSidebar: React.FC = () => {
                                                 {snippet || 'Empty note'}
                                             </p>
                                             <div className="flex items-center justify-between text-[8px] font-bold text-light-text-disabled uppercase mt-1">
-                                                <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+                                                <span>{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Note'}</span>
                                                 {note.type === 'voice' && note.duration && (
                                                     <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                                                         {Math.floor(note.duration / 60)}:{(note.duration % 60).toString().padStart(2, '0')}

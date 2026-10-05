@@ -15,9 +15,32 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
-        version: "v0.2.0 (Beta)",
+        version: "v0.2.1 (Beta)",
         date: "October 5, 2026",
         isLatest: true,
+        description: "Prominent Pulpit Mode access, responsive tablet & desktop toolbar wrapping without sliding, menu dropdown z-index fix, full local & sandbox file visibility on mobile, and installer version synchronization.",
+        features: [
+            "Prominent Front-Facing Pulpit Mode: Moved the Pulpit Mode button right to the front of the editor toolbar next to Save and Undo/Redo. It is now immediately visible and accessible on all screen sizes (desktop, tablet, mobile) with zero horizontal sliding.",
+            "Responsive Toolbar Wrapping: Eliminated the single-row horizontal clipping on tablet screens and resized desktop windows. The toolbar now cleanly wraps into two neat rows on viewports under 1200px, keeping all formatting and styling buttons in view.",
+            "Responsive Tablet & Mobile Pulpit Controls: Updated Pulpit Mode controls strip to adapt dynamically for tablet screens (< 1024px), displaying all auto-scroll, pagination, speed, and font size controls without clipping or overlapping.",
+            "Universal Mobile File & Folder Visibility: Mobile file explorer now displays both local file directory items and IndexedDB notes with string-safe ID resolution, ensuring notes inside folders always show correctly."
+        ],
+        improvements: [
+            "Menu Dropdown Z-Index & Overflow Fix: Resolved clipping where top MenuBar dropdowns were rendered behind the left panel by applying high stacking context and visible overflow.",
+            "Installer Version Synchronization: Synchronized version across package.json, tauri.conf.json, and Cargo.toml to ensure desktop installer binaries are correctly named Parchments_0.2.1_x64-setup.exe."
+        ],
+        fixes: [
+            "Pulpit Mode button required horizontal sliding/scrolling on desktop and tablet screens.",
+            "Toolbar buttons were cut off or hidden out of view in tablet mode.",
+            "MenuBar dropdown menus opened behind the left sidebar panel.",
+            "Notes and local files inside folders were not appearing in mobile mode.",
+            "Desktop installer filename was carrying v0.1.7 instead of the updated version."
+        ]
+    },
+    {
+        version: "v0.2.0 (Beta)",
+        date: "October 5, 2026",
+        isLatest: false,
         description: "Desktop window sizing and anti-overlap layout, Pulpit Mode permanently visible controls with distraction-free Focus toggle (swipe gestures removed), multi-camera QR scanner selection, Android file sandbox fix, and universal Collaborate buttons.",
         features: [
             "Permanently Visible Pulpit Mode Controls: Replaced confusing swipe gestures with clean, permanently visible controls on both desktop and mobile. Preachers can easily adjust auto-scroll speed, paginate, switch font size, or tap the new 'Focus' button for instant full-screen distraction-free reading.",

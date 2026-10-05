@@ -291,6 +291,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             
             if (migratedAny) {
                 folders = await db.folders.toArray();
+                const updatedNotes = await db.notes.toArray();
+                set({ notes: updatedNotes });
             }
             
             set({ activeWorkspaceId: activeId });

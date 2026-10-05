@@ -266,8 +266,8 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                             </div>
                         </div>
 
-                        {/* Center: Mode Toggle & Speed/Page Controls (Desktop & Wide screens) */}
-                        <div className="hidden sm:flex items-center gap-3">
+                        {/* Center: Mode Toggle & Speed/Page Controls (Desktop & Wide screens >= 1024px) */}
+                        <div className="hidden lg:flex items-center gap-3">
                             {/* Mode Toggle: Scroll vs Paginate */}
                             <div className="flex bg-black/10 dark:bg-white/10 p-1 rounded-xl border border-black/5 dark:border-white/10">
                                 <button
@@ -359,8 +359,8 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                         {/* Right: Font Size, Contrast, Focus Mode, Exit */}
                         <div className="flex items-center gap-1.5 sm:gap-3">
-                            {/* Font Size A- / A+ (Desktop) */}
-                            <div className="hidden sm:flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
+                            {/* Font Size A- / A+ (Wide Desktop >= 1024px) */}
+                            <div className="hidden lg:flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
                                 <button
                                     onClick={() => setPulpitFontSize(Math.max(20, pulpitFontSize - 3))}
                                     className="px-2 py-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-xs font-bold"
@@ -414,63 +414,61 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         </div>
                     </header>
 
-                    {/* Mobile Subheader Controls Strip — Always visible on mobile, no swiping needed */}
-                    {isMobile && (
-                        <div className={`px-3 py-2 border-b flex flex-wrap items-center justify-between gap-2 shrink-0 ${headerBgClass} transition-colors select-none`}>
-                            {/* Mode Selector */}
-                            <div className="flex bg-black/10 dark:bg-white/10 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shrink-0">
-                                <button
-                                    onClick={() => { setPulpitModeType('scroll'); setIsAutoScrolling(false); }}
-                                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${pulpitModeType === 'scroll' ? 'bg-emerald-600 text-white shadow-sm' : 'opacity-70'}`}
-                                >
-                                    Scroll
-                                </button>
-                                <button
-                                    onClick={() => { setPulpitModeType('paginate'); setIsAutoScrolling(false); }}
-                                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${pulpitModeType === 'paginate' ? 'bg-emerald-600 text-white shadow-sm' : 'opacity-70'}`}
-                                >
-                                    Pages
-                                </button>
-                            </div>
-
-                            {/* Scroll Controls or Paginate Controls */}
-                            {pulpitModeType === 'scroll' ? (
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        onClick={() => setIsAutoScrolling(prev => !prev)}
-                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${isAutoScrolling ? 'bg-amber-600 text-white animate-pulse' : 'bg-emerald-600 text-white'}`}
-                                    >
-                                        {isAutoScrolling ? <Pause size={13} /> : <Play size={13} />}
-                                        <span>{isAutoScrolling ? 'Pause' : 'Scroll'}</span>
-                                    </button>
-                                    <div className="flex items-center gap-0.5 bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded-lg text-xs">
-                                        <button onClick={() => setPulpitScrollSpeed(Math.max(20, pulpitScrollSpeed - 15))} className="px-1.5 py-0.5 font-black opacity-70 hover:opacity-100">-</button>
-                                        <span className="font-mono text-[11px] font-bold w-7 text-center">{Math.round(pulpitScrollSpeed / 10)}x</span>
-                                        <button onClick={() => setPulpitScrollSpeed(Math.min(250, pulpitScrollSpeed + 15))} className="px-1.5 py-0.5 font-black opacity-70 hover:opacity-100">+</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1.5">
-                                    <button onClick={handlePrevPage} className="p-1.5 bg-black/10 dark:bg-white/10 rounded-lg">
-                                        <ChevronUp size={16} />
-                                    </button>
-                                    <span className="font-mono text-xs font-bold opacity-80 min-w-[44px] text-center">
-                                        {currentPage}/{totalPages}
-                                    </span>
-                                    <button onClick={handleNextPage} className="p-1.5 bg-emerald-600 text-white rounded-lg">
-                                        <ChevronDown size={16} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Font size adjustments */}
-                            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-0.5 rounded-lg">
-                                <button onClick={() => setPulpitFontSize(Math.max(20, pulpitFontSize - 3))} className="px-2 py-0.5 text-xs font-black">A-</button>
-                                <span className="font-mono text-[11px] font-bold px-1">{pulpitFontSize}</span>
-                                <button onClick={() => setPulpitFontSize(Math.min(60, pulpitFontSize + 3))} className="px-2 py-0.5 text-xs font-black">A+</button>
-                            </div>
+                    {/* Tablet & Mobile Subheader Controls Strip — Always visible when screen < 1024px, no swiping needed */}
+                    <div className={`px-3 py-2 border-b flex flex-wrap items-center justify-between gap-2 shrink-0 ${headerBgClass} transition-colors select-none lg:hidden`}>
+                        {/* Mode Selector */}
+                        <div className="flex bg-black/10 dark:bg-white/10 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shrink-0">
+                            <button
+                                onClick={() => { setPulpitModeType('scroll'); setIsAutoScrolling(false); }}
+                                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${pulpitModeType === 'scroll' ? 'bg-emerald-600 text-white shadow-sm' : 'opacity-70'}`}
+                            >
+                                Scroll
+                            </button>
+                            <button
+                                onClick={() => { setPulpitModeType('paginate'); setIsAutoScrolling(false); }}
+                                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${pulpitModeType === 'paginate' ? 'bg-emerald-600 text-white shadow-sm' : 'opacity-70'}`}
+                            >
+                                Pages
+                            </button>
                         </div>
-                    )}
+
+                        {/* Scroll Controls or Paginate Controls */}
+                        {pulpitModeType === 'scroll' ? (
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setIsAutoScrolling(prev => !prev)}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${isAutoScrolling ? 'bg-amber-600 text-white animate-pulse' : 'bg-emerald-600 text-white'}`}
+                                >
+                                    {isAutoScrolling ? <Pause size={13} /> : <Play size={13} />}
+                                    <span>{isAutoScrolling ? 'Pause' : 'Scroll'}</span>
+                                </button>
+                                <div className="flex items-center gap-0.5 bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded-lg text-xs">
+                                    <button onClick={() => setPulpitScrollSpeed(Math.max(20, pulpitScrollSpeed - 15))} className="px-1.5 py-0.5 font-black opacity-70 hover:opacity-100">-</button>
+                                    <span className="font-mono text-[11px] font-bold w-7 text-center">{Math.round(pulpitScrollSpeed / 10)}x</span>
+                                    <button onClick={() => setPulpitScrollSpeed(Math.min(250, pulpitScrollSpeed + 15))} className="px-1.5 py-0.5 font-black opacity-70 hover:opacity-100">+</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={handlePrevPage} className="p-1.5 bg-black/10 dark:bg-white/10 rounded-lg">
+                                    <ChevronUp size={16} />
+                                </button>
+                                <span className="font-mono text-xs font-bold opacity-80 min-w-[44px] text-center">
+                                    {currentPage}/{totalPages}
+                                </span>
+                                <button onClick={handleNextPage} className="p-1.5 bg-emerald-600 text-white rounded-lg">
+                                    <ChevronDown size={16} />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Font size adjustments */}
+                        <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-0.5 rounded-lg">
+                            <button onClick={() => setPulpitFontSize(Math.max(20, pulpitFontSize - 3))} className="px-2 py-0.5 text-xs font-black">A-</button>
+                            <span className="font-mono text-[11px] font-bold px-1">{pulpitFontSize}</span>
+                            <button onClick={() => setPulpitFontSize(Math.min(60, pulpitFontSize + 3))} className="px-2 py-0.5 text-xs font-black">A+</button>
+                        </div>
+                    </div>
                 </>
             )}
 

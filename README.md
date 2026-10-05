@@ -128,15 +128,15 @@ To build, synchronize, or test mobile platform structures locally:
 
 ---
 
-*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.1.7`.*
+*Parchments is currently in **Phase 7: Public Launch & Marketing**. Verified stable release: `v0.2.1`.*
 
-## 🆕 What's New in v0.1.7 (Zero-Server Local Wi-Fi Sync & Markdown Frontmatter)
-- **Zero-Server Local Wi-Fi Sync**: Replaced third-party Deno signaling servers with an embedded Rust WebSocket server (`tokio-tungstenite`) on port 48921.
-- **Cross-Platform Multi-Device Collaboration**: Real-time cross-OS note sharing between Windows, macOS, Linux, Android, and iOS on local Wi-Fi or mobile hotspots with zero internet connection required.
-- **Host Security Knock-to-Join**: QR codes with 32-character cryptographic tokens and manual 6-digit codes. Hosts approve each incoming connection via Allow/Deny prompts.
-- **Co-Editor & Presentation Follower Modes**: Joining devices choose between full bidirectional CRDT editing or a read-only presentation follower view (ideal for teleprompters and preaching).
-- **Markdown Frontmatter & Properties**: Interactive document properties card (Speaker, Series, Date, Scripture, Tags) with seamless bidirectional HTML↔Markdown conversion.
-- **Discontinuous Verse Reference Parsing**: Complete support for discontinuous references (e.g. `1 Cor 14:4, 14-15`), chained chapters (`Gen 6:13; 7:4`), and Logos-style omission cards.
+## 🆕 What's New in v0.2.1 (Pulpit Controls, Tablet Responsiveness & Mobile Files)
+- **Prominent Front-Facing Pulpit Mode**: Quick, 1-click access to Pulpit Presentation Mode directly from the primary toolbar section without horizontal sliding.
+- **Responsive Tablet & Desktop Toolbar Wrapping**: Toolbar wraps into clean rows on viewports under 1200px so all editing tools remain accessible.
+- **Responsive Tablet Pulpit Controls**: Dedicated subheader control bar automatically adapts on screens < 1024px without overlapping or clipping.
+- **Full Mobile Folder & File Explorer**: Unified local file system and IndexedDB browser sandbox handling ensures notes inside folders always appear properly on mobile devices.
+- **Zero-Server Local Wi-Fi Sync**: Real-time multi-device note sharing between Windows, macOS, Linux, Android, and iOS on local Wi-Fi or mobile hotspots with QR code pairing and knock-to-join approval.
+- **Desktop Window Dimensions**: Standard 1280x800 desktop window dimensions with anti-overlap protection.
 
 ---
 

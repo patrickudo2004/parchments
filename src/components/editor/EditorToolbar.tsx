@@ -171,11 +171,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     };
 
     return (
-        <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 w-full max-w-full overflow-hidden ${isMobile && showAdvanced ? 'h-24' : 'h-12'}`}>
+        <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 w-full max-w-full ${isMobile ? (showAdvanced ? 'h-24' : 'h-12') : 'min-h-[48px] h-auto'}`}>
             {/* Primary Row */}
-            <div className="h-12 w-full flex items-center px-4 gap-1 overflow-x-auto no-scrollbar">
+            <div className={`w-full flex items-center px-3 gap-1 ${isMobile ? 'h-12 overflow-x-auto no-scrollbar' : 'min-h-[48px] py-1 flex-wrap'}`}>
                 {/* Save button */}
-                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
                     <button
                         onClick={handleSave}
                         onMouseDown={(e) => {
@@ -186,6 +186,22 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                         title="Save note now"
                     >
                         <Save size={18} />
+                    </button>
+                </div>
+
+                {/* Pulpit Presentation Mode Button - Prominently at the front, always visible on Desktop, Tablet & Mobile */}
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
+                    <button
+                        onClick={togglePulpitMode}
+                        onMouseDown={(e) => {
+                            if (!isMobile) e.preventDefault();
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all text-xs font-black uppercase tracking-wider shrink-0 shadow-sm active:scale-95 ${pulpitMode ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
+                        title="Pulpit Presentation Mode"
+                    >
+                        <Play size={12} fill="currentColor" />
+                        <span className="hidden sm:inline">Pulpit Mode</span>
+                        <span className="sm:hidden">Pulpit</span>
                     </button>
                 </div>
 
@@ -389,17 +405,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                 />
                             )}
 
-                            <button
-                                onClick={togglePulpitMode}
-                                onMouseDown={(e) => {
-                                    if (!isMobile) e.preventDefault();
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider shrink-0 ${pulpitMode ? 'bg-emerald-500 text-white' : ''}`}
-                                title="Pulpit Presentation Mode"
-                            >
-                                <Play size={12} fill="currentColor" />
-                                <span>Pulpit Mode</span>
-                            </button>
                             <Button
                                 onClick={handleScan}
                                 icon={Sparkles}

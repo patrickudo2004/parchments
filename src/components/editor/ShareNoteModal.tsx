@@ -1,14 +1,12 @@
 /**
- * ShareNoteModal — unified share sheet.
+ * ShareNoteModal — Unified local collaboration sheet.
  *
- * Tab 1 (default): Local Wi-Fi — opens PairNoteModal (QR / pairing code).
- * Tab 2: Join another host — opens JoinNoteModal.
- * Tab 3: Link Share (legacy Deno/WebRTC) — kept for users without shared Wi-Fi.
+ * Mode 1: Host on Local Wi-Fi (QR code & 6-digit PIN via PairNoteModal)
+ * Mode 2: Join a Shared Note (Camera QR scanner & manual PIN via JoinNoteModal)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Share2, Check, Wifi, Link2, LogIn } from 'lucide-react';
-import { useSyncStore } from '@/stores/syncStore';
+import { X, Share2, Wifi, LogIn } from 'lucide-react';
 import { useNoteStore } from '@/stores/noteStore';
 import { PairNoteModal } from '@/components/sync/PairNoteModal';
 import { JoinNoteModal } from '@/components/sync/JoinNoteModal';
@@ -16,49 +14,25 @@ import { JoinNoteModal } from '@/components/sync/JoinNoteModal';
 interface ShareNoteModalProps {
     isOpen: boolean;
     onClose: () => void;
-    noteId: string;
+    noteId?: string | null;
 }
 
 type Sheet = 'menu' | 'host' | 'join';
 
 export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose, noteId }) => {
-    const { identity } = useSyncStore();
     const { notes, currentNote } = useNoteStore();
-    const note = notes.find(n => n.id === noteId) || (currentNote?.id === noteId ? currentNote : null);
+    const effectiveNoteId = noteId || currentNote?.id;
+    const note = notes.find(n => n.id === effectiveNoteId) || (currentNote?.id === effectiveNoteId ? currentNote : null);
 
     const [sheet, setSheet] = useState<Sheet>('menu');
-    const [copiedLink, setCopiedLink] = useState(false);
-
-    // Legacy link-share
-    const encodedNoteId = encodeURIComponent(noteId);
-    const roomHash = identity
-        ? `p-${identity.vaultHash.slice(0, 8)}-${encodedNoteId}`
-        : `local-${encodedNoteId}`;
-    const shareUrl = `${window.location.origin}/join/${roomHash}${note?.title ? `?title=${encodeURIComponent(note.title)}` : ''}`;
-
-    const handleCopyLink = async () => {
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-        } catch {
-            const el = document.createElement('textarea');
-            el.value = shareUrl;
-            el.style.position = 'fixed';
-            el.style.left = '-999999px';
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-        }
-        setCopiedLink(true);
-        setTimeout(() => setCopiedLink(false), 2000);
-    };
 
     // Reset to menu when closed
-    React.useEffect(() => {
-        if (!isOpen) setTimeout(() => setSheet('menu'), 300);
+    useEffect(() => {
+        if (!isOpen) {
+            const timer = setTimeout(() => setSheet('menu'), 300);
+            return () => clearTimeout(timer);
+        }
     }, [isOpen]);
-
-    if (!note) return null;
 
     // Sub-modals render on top and are self-contained
     if (sheet === 'host') {
@@ -79,7 +53,7 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
         );
     }
 
-    // ── Main menu sheet ──────────────────────────────────────────────────────
+    // Main menu sheet
     return (
         <AnimatePresence>
             {isOpen && (
@@ -102,10 +76,10 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-light-text-primary dark:text-dark-text-primary">
-                                        Share Note
+                                        {note ? 'Share Note' : 'Collaborate'}
                                     </h3>
                                     <p className="text-light-text-secondary text-xs truncate max-w-[220px]">
-                                        {note.title || 'Untitled'}
+                                        {note ? (note.title || 'Untitled Note') : 'Local Wi-Fi Sync'}
                                     </p>
                                 </div>
                             </div>
@@ -118,12 +92,19 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
                         </div>
 
                         <div className="p-5 flex flex-col gap-3">
-                            {/* ── Option 1: Host local session ─────────────── */}
+                            {/* Option 1: Host local session */}
                             <button
-                                onClick={() => setSheet('host')}
-                                className="flex items-center gap-4 p-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-2xl transition-colors text-left group"
+                                onClick={() => {
+                                    if (note) setSheet('host');
+                                }}
+                                disabled={!note}
+                                className={`flex items-center gap-4 p-4 rounded-2xl border text-left transition-all ${
+                                    note
+                                        ? 'bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/20 active:scale-[0.98]'
+                                        : 'opacity-40 bg-gray-500/10 border-gray-500/20 cursor-not-allowed'
+                                }`}
                             >
-                                <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/30 transition-colors shrink-0">
+                                <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 shrink-0">
                                     <Wifi size={20} />
                                 </div>
                                 <div>
@@ -131,17 +112,19 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
                                         Share on Local Wi-Fi
                                     </p>
                                     <p className="text-light-text-secondary text-xs mt-0.5 leading-relaxed">
-                                        Host a session. Others scan your QR code to co-edit or follow — no internet needed.
+                                        {note
+                                            ? 'Host a session. Others scan your QR code to co-edit or follow without internet.'
+                                            : 'Open a study note first to host a sharing session.'}
                                     </p>
                                 </div>
                             </button>
 
-                            {/* ── Option 2: Join a host ────────────────────── */}
+                            {/* Option 2: Join a host */}
                             <button
                                 onClick={() => setSheet('join')}
-                                className="flex items-center gap-4 p-4 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-2xl transition-colors text-left group"
+                                className="flex items-center gap-4 p-4 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-2xl transition-all text-left active:scale-[0.98]"
                             >
-                                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400 group-hover:bg-purple-500/30 transition-colors shrink-0">
+                                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400 shrink-0">
                                     <LogIn size={20} />
                                 </div>
                                 <div>
@@ -153,34 +136,6 @@ export const ShareNoteModal: React.FC<ShareNoteModalProps> = ({ isOpen, onClose,
                                     </p>
                                 </div>
                             </button>
-
-                            {/* ── Divider ──────────────────────────────────── */}
-                            <div className="flex items-center gap-3 my-1">
-                                <div className="flex-1 h-px bg-light-border dark:bg-dark-border" />
-                                <span className="text-light-text-disabled text-xs">or share a link</span>
-                                <div className="flex-1 h-px bg-light-border dark:bg-dark-border" />
-                            </div>
-
-                            {/* ── Option 3: Legacy link share ──────────────── */}
-                            <div className="flex flex-col gap-2">
-                                <div className="p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-xs font-mono break-all text-light-text-secondary">
-                                    {shareUrl}
-                                </div>
-                                <button
-                                    onClick={handleCopyLink}
-                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-all ${
-                                        copiedLink
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-background'
-                                    }`}
-                                >
-                                    {copiedLink ? <Check size={14} /> : <Link2 size={14} />}
-                                    {copiedLink ? 'Link Copied!' : 'Copy Internet Share Link'}
-                                </button>
-                                <p className="text-[10px] text-light-text-disabled text-center leading-relaxed">
-                                    Requires both devices to be online. Uses an external signaling relay.
-                                </p>
-                            </div>
                         </div>
                     </motion.div>
                 </div>

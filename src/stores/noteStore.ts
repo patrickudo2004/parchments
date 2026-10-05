@@ -158,7 +158,7 @@ interface NoteStore {
 
 const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
-const autoSandbox = (isMobileViewport || !isFileSystemSupported) && !isCapacitor;
+const autoSandbox = isCapacitor || isMobileViewport || !isFileSystemSupported;
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,

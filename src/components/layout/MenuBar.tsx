@@ -227,9 +227,9 @@ export const MenuBar: React.FC = () => {
     }, []);
 
     return (
-        <div className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 shrink-0 relative z-40">
+        <div className="h-12 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 shrink-0 relative z-40 overflow-x-auto no-scrollbar gap-2">
             {/* Left: Traditional Menu */}
-            <div className="flex items-center gap-1" ref={menuRef}>
+            <div className="flex items-center gap-0.5 shrink-0" ref={menuRef}>
                 {MENU_STRUCTURE.map((menu) => (
                     <div key={menu.label} className="relative">
                         <button
@@ -237,7 +237,7 @@ export const MenuBar: React.FC = () => {
                             onMouseEnter={() => {
                                 if (activeMenu) setActiveMenu(menu.label);
                             }}
-                            className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${activeMenu === menu.label
+                            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${activeMenu === menu.label
                                 ? 'bg-light-sidebar dark:bg-dark-sidebar text-primary'
                                 : 'text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background'
                                 }`}
@@ -247,7 +247,7 @@ export const MenuBar: React.FC = () => {
 
                         {/* Dropdown */}
                         {activeMenu === menu.label && (
-                            <div className="absolute top-full left-0 mt-1 w-64 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded shadow-lg py-1 z-50">
+                            <div className="absolute top-full left-0 mt-1 w-64 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl shadow-xl py-1 z-50">
                                 {menu.items.map((item, index) => (
                                     'type' in item && item.type === 'separator' ? (
                                         <div key={index} className="h-[1px] bg-light-border dark:border-dark-border my-1" />
@@ -258,10 +258,10 @@ export const MenuBar: React.FC = () => {
                                                 const label = ('label' in item && typeof item.label === 'string') ? (item.label as string) : '';
                                                 handleItemClick(label);
                                             }}
-                                            className="w-full text-left px-4 py-2 text-sm text-light-text-primary dark:text-dark-text-primary hover:bg-primary hover:text-white flex justify-between items-center group"
+                                            className="w-full text-left px-4 py-2 text-xs text-light-text-primary dark:text-dark-text-primary hover:bg-primary hover:text-white flex justify-between items-center group"
                                         >
                                             <span>{'label' in item ? item.label : ''}</span>
-                                            <span className="text-light-text-disabled dark:text-dark-text-disabled text-xs group-hover:text-white/80">
+                                            <span className="text-light-text-disabled dark:text-dark-text-disabled text-[10px] group-hover:text-white/80">
                                                 {'shortcut' in item ? item.shortcut : ''}
                                             </span>
                                         </button>
@@ -273,8 +273,8 @@ export const MenuBar: React.FC = () => {
                 ))}
             </div>
 
-            {/* Right: Big Actions (Filled, Spacious) */}
-            <div className="flex items-center gap-3">
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1.5 shrink-0">
                 <Button
                     onClick={() => {
                         if (!hasStudyspace) {
@@ -284,7 +284,8 @@ export const MenuBar: React.FC = () => {
                         }
                     }}
                     variant="primary"
-                    icon={<Plus size={18} />}
+                    icon={<Plus size={15} />}
+                    className="text-xs py-1 px-2.5"
                 >
                     Note
                 </Button>
@@ -297,12 +298,13 @@ export const MenuBar: React.FC = () => {
                         }
                     }}
                     variant="primary"
-                    icon={<Mic size={18} />}
+                    icon={<Mic size={15} />}
+                    className="text-xs py-1 px-2.5"
                 >
                     Voice
                 </Button>
-                <Button onClick={toggleBibleModal} variant="primary" icon={<BookOpen size={18} />}>Bible</Button>
-                <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<Languages size={18} />}>Strong's</Button>
+                <Button onClick={toggleBibleModal} variant="primary" icon={<BookOpen size={15} />} className="text-xs py-1 px-2.5">Bible</Button>
+                <Button onClick={() => toggleStrongsModal()} variant="primary" icon={<Languages size={15} />} className="text-xs py-1 px-2.5">Strong's</Button>
             </div>
         </div>
     );

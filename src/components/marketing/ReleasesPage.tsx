@@ -15,9 +15,34 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
-        version: "v0.1.9 (Beta)",
+        version: "v0.2.0 (Beta)",
         date: "October 5, 2026",
         isLatest: true,
+        description: "Desktop window sizing and anti-overlap layout, Pulpit Mode permanently visible controls with distraction-free Focus toggle (swipe gestures removed), multi-camera QR scanner selection, Android file sandbox fix, and universal Collaborate buttons.",
+        features: [
+            "Permanently Visible Pulpit Mode Controls: Replaced confusing swipe gestures with clean, permanently visible controls on both desktop and mobile. Preachers can easily adjust auto-scroll speed, paginate, switch font size, or tap the new 'Focus' button for instant full-screen distraction-free reading.",
+            "Multi-Camera Selection in QR Scanner: The join scanner now discovers all connected cameras (rear, ultra-wide, front, USB webcams) with a convenient camera switcher dropdown.",
+            "Universal Collaborate Access: Added permanent Collaborate buttons on the top bar, left activity bar, and mobile navigation sheet, allowing users to join shared notes even without having an open file.",
+            "Android & Mobile Sandbox Storage Fix: Corrected sandbox detection so Capacitor Android and mobile web environments reliably display all IndexedDB notes and folders in the file explorer."
+        ],
+        improvements: [
+            "Desktop Window Dimensions & Anti-Overlap: Default Tauri desktop window size increased to 1280x800 (min 960x640) with flexible truncation to prevent header buttons from overlapping note titles.",
+            "Direct Note Sharing in File Explorer: Added Share buttons to mobile note cards and updated explorer join action to open the local sync sheet directly.",
+            "Removed Defunct Cloud Signaling: Completely eliminated broken external cloud links in favor of pure, private Local Wi-Fi & Hotspot sync.",
+            "Auto-Generated Note on Join: Joining a live session without an active note automatically creates and binds a Shared Note in the editor."
+        ],
+        fixes: [
+            "Windows desktop version opened in a cramped 800x600 window causing header items and buttons to overlap.",
+            "Pulpit Mode swipe-down gesture was unreliable and caused unexpected control behavior.",
+            "Capacitor Android app opened to 'Open Local Folder' prompt instead of showing saved notes and folders.",
+            "QR code scanner only used one default camera without allowing users to switch lenses.",
+            "Sharing was inaccessible on mobile without having an existing open note."
+        ]
+    },
+    {
+        version: "v0.1.9 (Beta)",
+        date: "October 5, 2026",
+        isLatest: false,
         description: "Pulpit Mode swipe-to-reveal persistent controls, distraction-free concealment, mobile touch-button fixes, and Lectio swipe gesture hardening.",
         features: [
             "Pulpit Mode Persistent Tool Drawer: Swiping down on the top bar or pulling down at the top reveals the controls drawer and it stays down while reading. Swiping up on the drawer or tapping 'Conceal' hides it for complete distraction-free focus.",

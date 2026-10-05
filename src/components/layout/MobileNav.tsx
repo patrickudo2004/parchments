@@ -14,9 +14,9 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
-import { useSyncStore } from '@/stores/syncStore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useReadingPlanStore } from '@/stores/readingPlanStore';
+import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 
 export const MobileNav: React.FC = () => {
     const {
@@ -34,9 +34,9 @@ export const MobileNav: React.FC = () => {
     } = useUIStore();
 
     const { hasStudyspace, currentNote } = useNoteStore();
-    const { identity } = useSyncStore();
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const handleNewStudy = () => {
         setIsMenuOpen(false);
@@ -122,20 +122,18 @@ export const MobileNav: React.FC = () => {
                                     </button>
                                 )}
 
-                                {currentNote && identity && (
-                                    <button
-                                        onClick={() => {
-                                            setIsMenuOpen(false);
-                                            toggleSettingsModal('sync');
-                                        }}
-                                        className="flex items-center gap-3 p-3 bg-light-background dark:bg-dark-background hover:opacity-80 rounded-2xl transition-all font-bold text-xs"
-                                    >
-                                        <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
-                                            <Share2 size={16} />
-                                        </div>
-                                        <span>Sync Room</span>
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        setIsShareModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-3 p-3 bg-light-background dark:bg-dark-background hover:opacity-80 rounded-2xl transition-all font-bold text-xs"
+                                >
+                                    <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                                        <Share2 size={16} />
+                                    </div>
+                                    <span>Collaborate</span>
+                                </button>
 
                                 <button
                                     onClick={() => {
@@ -207,6 +205,12 @@ export const MobileNav: React.FC = () => {
                     <span className="text-[9px] font-bold uppercase tracking-wider">Settings</span>
                 </button>
             </nav>
+
+            <ShareNoteModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                noteId={currentNote?.id}
+            />
         </>
     );
 };

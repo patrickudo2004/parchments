@@ -74,56 +74,58 @@ export const TopBar: React.FC = () => {
     };
 
     return (
-        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative pt-[var(--safe-area-top,0px)]">
-            {/* ... branding and note title ... */}
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4 group cursor-pointer" onClick={() => window.location.href = '/'}>
-                    <div className="w-10 h-10 flex items-center justify-center">
+        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-50 relative pt-[var(--safe-area-top,0px)] gap-2">
+            {/* Left: Branding & Quick Study / Lectio triggers */}
+            <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.location.href = '/'}>
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0">
                         <img src="/logo.png" alt="Parchments" className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform" />
                     </div>
-                    <span className="font-extrabold text-xl text-primary tracking-tight hidden sm:block">Parchments</span>
+                    <span className="font-extrabold text-lg sm:text-xl text-primary tracking-tight hidden md:block">Parchments</span>
                 </div>
 
                 <button
                     onClick={handleNewStudy}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95 shrink-0"
                 >
-                    <PenTool size={14} />
-                    <span>New Study</span>
+                    <PenTool size={13} />
+                    <span className="hidden sm:inline">New Study</span>
                 </button>
 
                 <button
                     onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-xs font-black uppercase tracking-widest rounded-full hover:bg-primary/20 transition-all active:scale-95 shrink-0"
                 >
-                    <BookOpen size={14} />
-                    <span>Lectio Mode</span>
+                    <BookOpen size={13} />
+                    <span className="hidden sm:inline">Lectio Mode</span>
                 </button>
             </div>
 
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-4">
-                <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[200px] block text-center">
+            {/* Center: Note Title & Collaboration badge (flex-1 so it truncates and NEVER overlaps buttons) */}
+            <div className="flex-1 min-w-0 flex items-center justify-center gap-2 px-2">
+                <span className="text-xs sm:text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary truncate max-w-[140px] sm:max-w-[240px] md:max-w-[320px] text-center">
                     {currentNote?.title || 'Home'}
                 </span>
                 {currentNote && (
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block shrink-0">
                         <CollaborationList noteId={currentNote.id} />
                     </div>
                 )}
             </div>
 
-            <div className="flex items-center gap-4">
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 {/* Search */}
                 <div
-                    className="relative hidden md:block cursor-pointer group"
+                    className="relative hidden xl:block cursor-pointer group"
                     onClick={() => toggleSearchModal()}
                 >
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-secondary dark:text-dark-text-secondary group-hover:text-primary transition-colors">
-                        <Search size={16} />
+                        <Search size={15} />
                     </div>
-                    <div className="pl-9 pr-4 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-sm text-light-text-disabled w-48 flex items-center justify-between transition-all hover:border-primary/50">
+                    <div className="pl-9 pr-3 py-1.5 rounded-full bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border text-xs text-light-text-disabled w-40 flex items-center justify-between transition-all hover:border-primary/50">
                         <span>Search...</span>
-                        <kbd className="text-[10px] font-bold opacity-50 px-1.5 py-0.5 rounded bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border shadow-sm">⌘K</kbd>
+                        <kbd className="text-[10px] font-bold opacity-50 px-1 py-0.5 rounded bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border shadow-sm">⌘K</kbd>
                     </div>
                 </div>
 
@@ -166,23 +168,14 @@ export const TopBar: React.FC = () => {
                     </div>
                 )}
 
-                {currentNote && identity && (
-                    <button
-                        onClick={() => setIsShareModalOpen(true)}
-                        className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-primary active:scale-95"
-                        title="Share Study Room"
-                    >
-                        <Share2 size={18} />
-                    </button>
-                )}
-
-                {/* Export Options Modal */}
-                <ExportOptionsModal
-                    isOpen={isExportModalOpen}
-                    format={exportFormat || 'docx'}
-                    onConfirm={handleExportConfirm}
-                    onCancel={closeExportModal}
-                />
+                {/* Collaborate / Share Button (ALWAYS VISIBLE!) */}
+                <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-primary active:scale-95"
+                    title={currentNote ? "Share / Collaborate on Note" : "Join a Shared Note"}
+                >
+                    <Share2 size={18} />
+                </button>
 
                 {/* Theme Toggle */}
                 <button
@@ -196,8 +189,8 @@ export const TopBar: React.FC = () => {
                 {/* Sync Indicator */}
                 <button
                     onClick={() => toggleSettingsModal('sync')}
-                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
-                    title={identity ? `Vault Active - ${isConnected ? 'Online' : 'Connecting...'}` : 'Enable Sync'}
+                    className="flex items-center gap-2 p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors group"
+                    title={identity ? `Vault Active - ${isConnected ? 'Online' : 'Connecting...'}` : 'Sync Settings'}
                 >
                     <div className="relative">
                         <Cloud
@@ -219,6 +212,14 @@ export const TopBar: React.FC = () => {
                     <Settings size={18} />
                 </button>
             </div>
+
+            <ExportOptionsModal
+                isOpen={isExportModalOpen}
+                format={exportFormat || 'docx'}
+                onConfirm={handleExportConfirm}
+                onCancel={closeExportModal}
+            />
+
             <AlertModal
                 isOpen={isAlertOpen}
                 title="Export Error"
@@ -226,14 +227,12 @@ export const TopBar: React.FC = () => {
                 type="error"
                 onClose={() => setIsAlertOpen(false)}
             />
-            {currentNote && (
-                <ShareNoteModal
-                    key={`share-${currentNote.id}`}
-                    isOpen={isShareModalOpen}
-                    onClose={() => setIsShareModalOpen(false)}
-                    noteId={currentNote.id}
-                />
-            )}
-        </header >
+
+            <ShareNoteModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                noteId={currentNote?.id}
+            />
+        </header>
     );
 };

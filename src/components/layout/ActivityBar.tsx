@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
+import { useNoteStore } from '@/stores/noteStore';
 import {
     Files,
     LayoutList,
@@ -8,9 +9,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Maximize2,
-    Minimize2
+    Minimize2,
+    Share2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 
 export const ActivityBar: React.FC = () => {
     const {
@@ -24,6 +27,9 @@ export const ActivityBar: React.FC = () => {
         isLeftSidebarFloating,
         toggleLeftSidebarFloating
     } = useUIStore();
+
+    const currentNote = useNoteStore(s => s.currentNote);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const items = [
         { id: 'files', icon: Files, label: 'Explorer' },
@@ -73,6 +79,18 @@ export const ActivityBar: React.FC = () => {
                         </button>
                     );
                 })}
+
+                {/* Permanent Collaborate / Share Button */}
+                <button
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="group relative flex items-center justify-center w-8 h-8 rounded-lg text-primary hover:bg-primary/10 transition-all duration-200"
+                    title={currentNote ? "Share / Collaborate" : "Join a Shared Note"}
+                >
+                    <Share2 size={18} strokeWidth={2} />
+                    <div className="absolute left-10 px-2 py-1 rounded bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        {currentNote ? "Collaborate" : "Join Note"}
+                    </div>
+                </button>
             </div>
 
             {/* Bottom Global Actions */}
@@ -100,6 +118,12 @@ export const ActivityBar: React.FC = () => {
                     {isLeftSidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
                 </button>
             </div>
+
+            <ShareNoteModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                noteId={currentNote?.id}
+            />
         </aside>
     );
 };

@@ -23,7 +23,6 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useNoteStore, UNTITLED_NOTE } from '@/stores/noteStore';
-import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
 import { useResearchStore } from '@/stores/researchStore';
 import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
@@ -168,13 +167,13 @@ export const FilesSidebar: React.FC = () => {
         );
     };
 
-    const navigate = useNavigate();
     const { toggleTemplateModal, toggleNoFolderModal, isMobile, toggleLeftSidebar } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
     const [showRecorder, setShowRecorder] = useState(false);
     const [recordingFolderId, setRecordingFolderId] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [shareNoteId, setShareNoteId] = useState<string | null>(null);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
@@ -297,26 +296,8 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const handleJoinRoom = () => {
-        setPromptConfig({
-            isOpen: true,
-            title: 'Join Collaborative Note',
-            label: 'Note Link or Hash',
-            defaultValue: '',
-            onConfirm: (input) => {
-                if (input) {
-                    let hash = input.trim();
-                    if (hash.includes('/join/')) {
-                        const parts = hash.split('/join/');
-                        hash = parts[parts.length - 1];
-                    }
-                    if (hash) {
-                        navigate(`/join/${hash}`);
-                        if (isMobile) toggleLeftSidebar();
-                    }
-                }
-                setPromptConfig(prev => ({ ...prev, isOpen: false }));
-            }
-        });
+        setShareNoteId(null);
+        setIsShareModalOpen(true);
     };
 
     const handleDeleteClick = (e: React.MouseEvent, item: any) => {
@@ -448,6 +429,7 @@ export const FilesSidebar: React.FC = () => {
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShareNoteId(item.id);
+                                    setIsShareModalOpen(true);
                                 }}
                                 className="p-1 hover:text-primary transition-all opacity-0 group-hover:opacity-100 text-light-text-disabled hover:text-primary"
                                 title="Share Note"
@@ -515,12 +497,12 @@ export const FilesSidebar: React.FC = () => {
         const activeSubfolders = folders.filter(f => 
             selectedFolderId 
                 ? f.parentId === selectedFolderId 
-                : (isLocalMode ? f.parentId === null : f.parentId === activeWorkspaceId)
+                : (isLocalMode ? f.parentId === null : (f.parentId === activeWorkspaceId || (activeWorkspaceId === null && f.parentId === null)))
         );
         const activeNotes = notes.filter(n => 
             selectedFolderId 
                 ? n.folderId === selectedFolderId 
-                : (isLocalMode ? n.folderId === null : n.folderId === activeWorkspaceId)
+                : (isLocalMode ? n.folderId === null : (n.folderId === activeWorkspaceId || n.folderId === null || !folders.some(f => f.id === n.folderId)))
         );
 
         return (
@@ -683,6 +665,17 @@ export const FilesSidebar: React.FC = () => {
                                                     <h5 className="font-bold text-xs truncate text-light-text-primary dark:text-dark-text-primary">{note.title}</h5>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShareNoteId(note.id);
+                                                            setIsShareModalOpen(true);
+                                                        }}
+                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        title="Share Note"
+                                                    >
+                                                        <Share2 size={12} />
+                                                    </button>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -913,13 +906,14 @@ export const FilesSidebar: React.FC = () => {
                 onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
             />
 
-            {shareNoteId && (
-                <ShareNoteModal
-                    isOpen={!!shareNoteId}
-                    onClose={() => setShareNoteId(null)}
-                    noteId={shareNoteId}
-                />
-            )}
+            <ShareNoteModal
+                isOpen={isShareModalOpen}
+                onClose={() => {
+                    setIsShareModalOpen(false);
+                    setShareNoteId(null);
+                }}
+                noteId={shareNoteId}
+            />
         </div>
     );
 };

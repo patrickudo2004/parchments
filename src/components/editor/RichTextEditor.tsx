@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -172,32 +172,82 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     }, [activeRoom, currentNote?.title, updateRoomTitle, joinedRooms]);
 
+    const activeNoteIdRef = useRef<string | null>(currentNote?.id || null);
+    const lastLoadedNoteIdRef = useRef<string | null>(currentNote?.id || null);
+    const pendingSaveRef = useRef<{ title: string; content: string; noteId: string } | null>(null);
+    const saveTimeoutRef = useRef<any>(null);
+
+    // Synchronously flush pending saves when switching notes
+    useEffect(() => {
+        const prevNoteId = activeNoteIdRef.current;
+        const currentId = currentNote?.id || null;
+
+        if (prevNoteId && currentId && prevNoteId !== currentId) {
+            // Cancel pending timeout
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            // Flush unsaved edits to the PREVIOUS note ID so they never overwrite the new note
+            if (pendingSaveRef.current && pendingSaveRef.current.noteId === prevNoteId) {
+                const { title: t, content: c, noteId: nid } = pendingSaveRef.current;
+                pendingSaveRef.current = null;
+                saveCurrentNote(t, c, nid);
+            }
+        }
+
+        activeNoteIdRef.current = currentId;
+    }, [currentNote?.id, saveCurrentNote]);
+
+    // On unmount, flush any remaining pending save
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            if (pendingSaveRef.current) {
+                const { title: t, content: c, noteId: nid } = pendingSaveRef.current;
+                pendingSaveRef.current = null;
+                saveCurrentNote(t, c, nid);
+            }
+        };
+    }, [saveCurrentNote]);
+
     // Unified Save Logic via Store
-    const saveToDB = async (newTitle: string, newContent: string) => {
+    const saveToDB = async (newTitle: string, newContent: string, targetId?: string) => {
+        const idToSave = targetId || activeNoteIdRef.current || currentNote?.id;
+        if (!idToSave) return;
         setIsSaving(true);
         try {
-            await saveCurrentNote(newTitle, newContent);
+            await saveCurrentNote(newTitle, newContent, idToSave);
+            if (pendingSaveRef.current?.noteId === idToSave) {
+                pendingSaveRef.current = null;
+            }
         } finally {
             setIsSaving(false);
         }
     };
 
-
     // Debounce Save (2 seconds)
     const debouncedSave = useCallback(
-        (() => {
-            let timeout: any;
+        (t: string, c: string) => {
+            if (!enableAutoSave) return;
+            const targetId = activeNoteIdRef.current || currentNote?.id;
+            if (!targetId) return;
 
-            return (t: string, c: string) => {
-                // Only auto-save if the setting is enabled
-                if (!enableAutoSave) return;
+            pendingSaveRef.current = { title: t, content: c, noteId: targetId };
 
-                clearTimeout(timeout);
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
 
-                timeout = setTimeout(() => saveToDB(t, c), 2000);
-            };
-        })(),
-        [currentNote?.id, saveCurrentNote, enableAutoSave]
+            saveTimeoutRef.current = setTimeout(() => {
+                saveTimeoutRef.current = null;
+                saveToDB(t, c, targetId);
+            }, 2000);
+        },
+        [enableAutoSave, currentNote?.id, saveCurrentNote]
     );
 
     const editor = useEditor({
@@ -446,13 +496,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     }, [editor, pulpitMode]);
 
-    // Sync TipTap content when switching active note (e.g. in Pulpit Mode note switcher)
+    // Sync TipTap content when switching active note (e.g. in Pulpit Mode note switcher or Deck)
     useEffect(() => {
         if (editor && currentNote && !shouldSync) {
-            const currentHTML = editor.getHTML();
-            const noteContent = currentNote.content || '';
-            if (currentHTML !== noteContent && (currentHTML === '<p></p>' || currentHTML === '' || noteContent !== '')) {
-                editor.commands.setContent(noteContent);
+            if (lastLoadedNoteIdRef.current !== currentNote.id) {
+                lastLoadedNoteIdRef.current = currentNote.id;
+                editor.commands.setContent(currentNote.content || '');
             }
         }
     }, [editor, currentNote?.id, currentNote?.content, shouldSync]);

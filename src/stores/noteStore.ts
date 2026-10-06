@@ -95,6 +95,96 @@ export const STUDY_TEMPLATES = {
             <h2>Scripture Integration</h2>
             <p></p>
         `
+    },
+    topical: {
+        id: 'topical',
+        name: 'Topical Sermon',
+        description: 'Theme, Key Verses, Practical Life Truths, Gospel Connection.',
+        content: `
+            <h1>Topical Sermon Outline</h1>
+            <p><strong>Series / Topic:</strong> </p>
+            <p><strong>Central Proposition:</strong> What single biblical truth must the hearers take away?</p>
+            <p></p>
+            <h2>1. The Felt Need & Cultural Tension</h2>
+            <p>Where does modern life collide with this topic? What is the human struggle?</p>
+            <p></p>
+            <h2>2. Biblical Framework & Key Passages</h2>
+            <p>What does the whole counsel of scripture say about this?</p>
+            <p></p>
+            <h2>3. Practical Principles & Life Applications</h2>
+            <p>Actionable steps for Monday morning obedience.</p>
+            <p></p>
+            <h2>4. The Gospel Climax & Response</h2>
+            <p>How does Christ resolve the tension? Altar call or prayer response.</p>
+        `
+    },
+    counseling: {
+        id: 'counseling',
+        name: 'Pastoral Care & Counseling',
+        description: 'Confidential care log, presenting issue, scripture comfort, action plan.',
+        content: `
+            <h1>Pastoral Care Session</h1>
+            <p><em>Confidential Ministry Note · Date: ${new Date().toLocaleDateString()}</em></p>
+            <p></p>
+            <h2>Presenting Situation & Emotional State</h2>
+            <p>What brought them in? Summary of heart condition and circumstances.</p>
+            <p></p>
+            <h2>Scripture Ministry & Gospel Comfort</h2>
+            <p>Relevant passages spoken, prayed over, or assigned.</p>
+            <p></p>
+            <h2>Next Steps & Action Commitments</h2>
+            <p>Practical homework, boundaries, or referrals for accountability.</p>
+            <p></p>
+            <h2>Pastoral Prayer Focus</h2>
+            <p>Specific prayer petitions for ongoing intercession.</p>
+        `
+    },
+    funeral: {
+        id: 'funeral',
+        name: 'Memorial & Funeral Service',
+        description: 'Order of service, eulogy notes, resurrection scriptures, committal words.',
+        content: `
+            <h1>Memorial Service Liturgy & Message</h1>
+            <p><em>In Loving Memory of: </em></p>
+            <p><em>Date: ${new Date().toLocaleDateString()} · Officiant: </em></p>
+            <p></p>
+            <h2>1. Order of Service</h2>
+            <p>Prelude · Opening Prayer · Scripture Reading · Family Tributes · Pastoral Homily · Benediction</p>
+            <p></p>
+            <h2>2. Comforting Scripture Passages</h2>
+            <p>e.g. Psalm 23, John 11:25-26, 1 Thessalonians 4:13-18, Revelation 21:1-4</p>
+            <p></p>
+            <h2>3. Homily: The Hope of the Resurrection</h2>
+            <p>Proclaiming Christian hope, honoring the departed's faith journey, and comforting the grieving.</p>
+            <p></p>
+            <h2>4. Committal & Final Blessing</h2>
+            <p>"Earth to earth, ashes to ashes, dust to dust; in sure and certain hope of the Resurrection unto eternal life..."</p>
+        `
+    },
+    communion: {
+        id: 'communion',
+        name: "Lord's Supper & Communion",
+        description: 'Words of institution, Eucharistic liturgy, call to confession, distribution.',
+        content: `
+            <h1>The Lord's Supper & Holy Communion</h1>
+            <p><em>Liturgical Order · Date: ${new Date().toLocaleDateString()}</em></p>
+            <p></p>
+            <h2>1. Call to the Table & Invitation</h2>
+            <p>Welcoming all believers to partake of the body and blood of our Lord Jesus Christ.</p>
+            <p></p>
+            <h2>2. Examination & Prayer of Confession</h2>
+            <p>1 Corinthians 11:28 · Silent reflection and corporate prayer for cleansing.</p>
+            <p></p>
+            <h2>3. Words of Institution</h2>
+            <p><em>"For I received from the Lord what I also passed on to you: The Lord Jesus, on the night he was betrayed, took bread..." (1 Cor 11:23-26)</em></p>
+            <p></p>
+            <h2>4. Distribution & Thanksgiving</h2>
+            <p>Bread: "The body of Christ, broken for you."</p>
+            <p>Cup: "The blood of Christ, shed for the remission of sins."</p>
+            <p></p>
+            <h2>5. Closing Doxology & Benediction</h2>
+            <p></p>
+        `
     }
 };
 
@@ -142,7 +232,7 @@ interface NoteStore {
     openLocalFile: (item: LocalItem) => Promise<void>;
     openLooseFile: () => Promise<void>;
     // Local Creation Actions
-    saveCurrentNote: (title: string, content: string) => Promise<void>;
+    saveCurrentNote: (title: string, content: string, targetNoteId?: string) => Promise<void>;
     setLocalMode: (enabled: boolean) => void;
     createLocalNote: (fileName: string, targetFolderId: string | null, content?: string, forceId?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
@@ -156,9 +246,9 @@ interface NoteStore {
     createWorkspace: (name: string) => Promise<void>;
 }
 
-const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
 const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
-const autoSandbox = isCapacitor || isMobileViewport || !isFileSystemSupported;
+const autoSandbox = isCapacitor || isMobileOrTabletViewport || !isFileSystemSupported;
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,
@@ -736,24 +826,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                             }
                         }
                         
-                        // If no canonical UUID, generate one and write back
+                        // If no canonical UUID in metadata, keep the deterministic file ID in memory without mutating user's disk file
                         if (!hasMetaId) {
-                            fileId = crypto.randomUUID();
-                            meta.id = fileId;
-                            if (!meta.createdAt) {
-                                meta.createdAt = Date.now();
-                            }
-                            
-                            const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
-                            let newContent = rawContent;
-                            if (metaMatch) {
-                                newContent = rawContent.replace(/<!--\s*parchments-meta:.*?\s*-->/, `<!-- parchments-meta: ${JSON.stringify(meta)} -->`);
-                            } else {
-                                newContent = rawContent + metaTag;
-                            }
-                            
-                            console.log(`[refreshLocalFiles] 🆕 Generated and injected canonical UUID for ${f.name}: ${fileId}`);
-                            await fileSystem.writeFile(fileHandle, newContent);
+                            fileId = f.id;
                         }
                         
                         mappedFiles.push({
@@ -1195,8 +1270,39 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    saveCurrentNote: async (title, content) => {
-        const { currentNote, isLocalMode, currentFileHandle, notes, renameNote } = get();
+    saveCurrentNote: async (title, content, targetNoteId?: string) => {
+        const { currentNote, isLocalMode, currentFileHandle, notes, renameNote, localFiles, dehydrateAssets } = get();
+
+        // If targetNoteId is specified and differs from current active note (e.g. background flush on note switch or close)
+        if (targetNoteId && (!currentNote || currentNote.id !== targetNoteId)) {
+            try {
+                const localTarget = localFiles.find(f => f.id === targetNoteId && f.kind === 'file');
+                if (isLocalMode && localTarget?.handle) {
+                    let diskContent = content;
+                    if (MarkdownService.isMarkdownFile(localTarget.name)) {
+                        diskContent = MarkdownService.htmlToMarkdown(content);
+                    }
+                    await fileSystem.writeFile(localTarget.handle as FileSystemFileHandle, dehydrateAssets(diskContent));
+                }
+
+                const targetDbNote = await db.notes.get(targetNoteId);
+                if (targetDbNote) {
+                    await db.notes.update(targetNoteId, {
+                        title,
+                        content,
+                        updatedAt: Date.now()
+                    });
+                }
+                const updatedNotes = notes.map(n =>
+                    n.id === targetNoteId ? { ...n, title, content, updatedAt: Date.now() } : n
+                );
+                set({ notes: updatedNotes });
+            } catch (err) {
+                console.error('[NoteStore] Failed targeted note save:', err);
+            }
+            return;
+        }
+
         if (!currentNote) return;
 
         // SMART AUTO-NAMING: If title is "Untitled Note", try to extract from content
@@ -1396,7 +1502,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     setLocalMode: (enabled) => {
-        set({ isLocalMode: enabled, currentNote: null, selectedFolderId: null });
+        set({
+            isLocalMode: enabled,
+            hasStudyspace: !enabled ? true : get().hasStudyspace,
+            currentNote: null,
+            selectedFolderId: null
+        });
         if (!enabled) {
             get().loadFolders();
             get().loadNotes();

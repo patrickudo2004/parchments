@@ -26,7 +26,7 @@ pub struct PeerInfo {
     pub approved: bool,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum PeerMode {
     Editor,
@@ -264,8 +264,8 @@ async fn handle_connection(
     // Fire Tauri event to prompt host with "Allow / Deny" dialog
     let _ = app_handle.emit("sync:peer-requesting", serde_json::json!({
         "addr": addr.to_string(),
-        "device_name": handshake.device_name,
-        "mode": handshake.mode,
+        "device_name": &handshake.device_name,
+        "mode": &handshake.mode,
     }));
 
     // --- Wait for approval or timeout (60 seconds) ---
@@ -286,7 +286,7 @@ async fn handle_connection(
     let _ = ws_sender.send(Message::Text(serde_json::json!({
         "status": "approved",
         "mode": &handshake.mode
-    }).to_string())).await;
+    }).to_string().into())).await;
 
     // Notify frontend that a new peer is connected
     let _ = app_handle.emit("sync:peer-connected", serde_json::json!({
@@ -302,11 +302,15 @@ async fn handle_connection(
 
     loop {
         tokio::select! {
-            // Forward incoming Yjs update bytes from this peer to all others
+            // Forward incoming Yjs update bytes only if peer is an authorized editor
             msg = ws_receiver.next() => {
                 match msg {
                     Some(Ok(Message::Binary(data))) => {
-                        let _ = tx.send(data);
+                        if handshake.mode == PeerMode::Editor {
+                            let _ = tx.send(data);
+                        } else {
+                            log::warn!("[SyncServer] Rejected binary update from read-only follower peer {}", addr);
+                        }
                     }
                     Some(Ok(Message::Close(_))) | None => {
                         log::info!("[SyncServer] Peer {} disconnected.", addr);
@@ -316,10 +320,19 @@ async fn handle_connection(
                 }
             }
             // Forward broadcast updates from other peers to this peer
-            // Only editor peers receive forwarded updates; followers get read-only
-            Ok(data) = rx.recv() => {
-                if ws_sender.send(Message::Binary(data)).await.is_err() {
-                    break;
+            broadcast_msg = rx.recv() => {
+                match broadcast_msg {
+                    Ok(data) => {
+                        if ws_sender.send(Message::Binary(data)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                        log::warn!("[SyncServer] Peer {} lagged by {} updates", addr, skipped);
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        break;
+                    }
                 }
             }
         }

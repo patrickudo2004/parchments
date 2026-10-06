@@ -636,7 +636,7 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
 
                 // Trigger update in UI if active in editor
                 const uiStore = (window as any).useUIStore || null;
-                const editor = uiStore ? uiStore.getState?.().editor : null;
+                const editor = uiStore ? (uiStore.getState?.().activeEditor || uiStore.getState?.().editor) : null;
                 if (editor && editor.getHTML) {
                     const latestNote = useNoteStore.getState().currentNote;
                     if (latestNote && latestNote.id === activeNoteId) {

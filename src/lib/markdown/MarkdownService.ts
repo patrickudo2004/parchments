@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import TurndownService from 'turndown';
+import DOMPurify from 'dompurify';
 
 type MarkdownItInstance = ReturnType<typeof MarkdownIt>;
 
@@ -194,10 +195,28 @@ export class MarkdownService {
     static markdownToHtml(rawMarkdown: string): ParsedMarkdown {
         const { frontmatter, body } = this.parseFrontmatter(rawMarkdown);
         const parser = this.getParser();
-        const html = parser.render(body);
+        const rawHtml = parser.render(body);
+
+        // Sanitize rendered HTML while preserving rich TipTap scripture tags and metadata
+        const cleanHtml = DOMPurify.sanitize(rawHtml, {
+            ADD_TAGS: ['mark', 'u', 's', 'sup', 'sub'],
+            ADD_ATTR: [
+                'data-book',
+                'data-chapter',
+                'data-verse',
+                'data-verse-end',
+                'data-segments',
+                'data-scripture',
+                'data-asset-name',
+                'target',
+                'rel',
+                'class',
+                'style'
+            ]
+        });
 
         return {
-            html,
+            html: cleanHtml,
             frontmatter,
             rawBody: body,
         };

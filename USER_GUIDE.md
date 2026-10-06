@@ -57,6 +57,12 @@ Parchments bridges the gap between devotional reflection and deep academic exege
 * Pins stay active as you navigate across different testaments and books.
 * When writing, click **"Insert All"** or drag individual verses into your sermon notes as beautifully formatted blockquotes.
 
+### 6. Academic Citation Engine & Scholarly Reading
+* **Academic Citations**: Automatically formats quotes in **Standard**, **SBL Handbook of Style**, or **Chicago/Turabian Footnotes** with precise en-dash verse ranges (`vv. 1–11`).
+* **Continuous Paragraph Flow Mode**: Toggle between traditional Verse Study Mode and Continuous Paragraph Flow to read narrative prose and Hebrew poetry naturally without artificial line breaks.
+* **Masoretic Text Versification Divergence**: Displays traditional Hebrew markers (`[MT v.2]`) when Hebrew and English versification diverges (e.g. Malachi 3:19 / MT 4:1, Psalms 9–147).
+* **Advanced Compound Scripture Parsing**: Seamlessly recognizes discontinuous verse groups (`1 Sam 17:1-11, 16`), single-chapter books without colons (`Jude 4-8`), and cross-chapter spans (`Gen 1:1-2:3`).
+
 ---
 
 ## 🎙️ Pulpit Mode & Stage Delivery
@@ -67,27 +73,40 @@ Parchments bridges the gap between devotional reflection and deep academic exege
 * Click **Pulpit Mode** in the Top Bar, select **View > Pulpit Presentation Mode**, or tap the Pulpit icon in the mobile actions sheet.
 * Exit anytime by clicking **Exit (X)** or pressing `Esc`.
 
-### 2. In-Pulpit Scripture Quick-Sheet
+### 2. Sunday "Pulpit Deck" & Note Switcher
+Preaching a multi-part service (*Announcements*, *Main Homily*, *Scripture Reading*, *Communion*)?
+* **Sunday Pulpit Deck**: The top bar displays direct quick-access tabs (`#1`, `#2`, `#3`, `#4`) for your active and recent notes. Switch between them instantly with a tap or press `Alt+1` through `Alt+4`.
+* **Full Note Switcher**: Tap the `+ All Notes` button or sermon title pill to browse and switch to any note in your library without leaving presenter mode.
+
+### 3. Stage Mini Bible & Strong's Concordance (`Alt+B`)
+* Look up an inspired passage or cross-reference mid-sermon: Tap the **Bible** button or press `Alt+B` (or `Cmd+B` on macOS).
+* A draggable, floating Mini Bible window appears directly over your notes without interrupting your preaching flow.
+* Features keyword search, Strong's Concordance definitions (`G26`, `H7225`), and full interlinear support.
+* **Presentation Remote Safety**: The single `b` key emitted by wireless presentation clickers for black-screen will never accidentally launch the Bible modal on stage.
+
+### 4. In-Pulpit Scripture Quick-Sheet
 * Tap or click any scripture reference in your sermon manuscript.
 * A high-contrast, non-obtrusive **Scripture Modal / Bottom Sheet** slides up immediately with decrypted verse text and translation badges.
 * Features a 1-tap **Copy** button and version switcher (with automatic fallback to KJV if unavailable in the selected version).
+* Discontinuous passages (e.g. `1 Sam 17:1-11, 16`) display with clear omission dividers (`vv. 12–15 omitted`).
 * Tap outside or press `Esc` to return immediately to your preaching notes with zero displacement.
 
-### 3. Lectern Note Switcher
-* Tap the title pill: `[📖 Sermon Title ▾]`.
-* Instantly switch between sermon parts (*Announcements*, *Main Homily*, *Communion*) without exiting presenter mode.
-
-### 4. Continuous Teleprompter vs. Paginated Cards
+### 5. Continuous Teleprompter vs. Paginated Cards
 * **📜 Teleprompter (Scroll)**: Smooth, hands-free auto-scrolling with adjustable words/min pacing (`-` / `+`). Tap anywhere or press `Spacebar` to pause/resume.
 * **📄 Paginated Cards (Paginate)**: Divides your sermon into clean section cards based on your headings. Advance with arrow keys or touch buttons.
 
-### 5. Stage Lighting & Contrast Themes
+### 6. Stage Lighting & Contrast Themes
 * **Standard Dark**: Deep charcoal with crisp off-white text.
 * **High-Contrast Amber**: Pure OLED pitch-black with radiant warm amber typography, eliminating pupil strain and stage backlight wash.
 * **Clean Light**: High-contrast black on pure white paper texture for bright outdoor venues.
 
-### 6. Preacher's Timer & Remote Clickers
-* Track elapsed time or configure a gentle countdown clock.
+### 7. Preacher's Timer, Target Countdown & Overtime Traffic Light
+* **Clock & Elapsed Time**: Displays current wall clock and elapsed preaching duration.
+* **Target Countdown Modal**: Click the timer to set custom target minutes (e.g. `35m`).
+* **Traffic Light Warnings**:
+  - Green / Normal: Approaching sermon target.
+  - Amber (5-Minute Warning): Subtle amber warning pulse when 5 minutes remain.
+  - Pulsing Red (Overtime Warning): Clear, non-jarring flashing red alert when exceeding target duration.
 * Compatible with standard wireless presenter remotes and Bluetooth foot pedals (Spacebar, Left/Right arrow keys, Page Up/Down).
 
 ---
@@ -162,6 +181,8 @@ Parchments bridges the gap between devotional reflection and deep academic exege
 | `Ctrl + I` / `Cmd + I` | Italic |
 | `Ctrl + ]` | Toggle Bible Study Panel |
 | `Spacebar` (Pulpit Mode) | Pause / Resume Teleprompter Scroll |
+| `Alt + B` / `Cmd + B` | Toggle Stage Mini Bible & Strong's Concordance |
+| `Alt + 1` .. `Alt + 4` | Switch Sunday Pulpit Deck Notes |
 | `Arrow Right / Left` | Next / Previous Page or Adjust Pacing |
 | `Esc` | Close Modals / Exit Pulpit Mode |
 | `Ctrl + +` / `Ctrl + -` | Zoom Editor Font In / Out |

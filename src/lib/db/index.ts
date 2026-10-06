@@ -93,6 +93,27 @@ export class ParchmentsDatabase extends Dexie {
             dictionary: 'id, term',
             topicalIndex: 'id, topic'
         });
+
+        // Version 11: Add multi-entry index for Strong's Concordance searches
+        this.version(11).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]',
+            strongsEntries: 'id',
+            strongsConcordance: 'verseId, *strongsNumbers',
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
+            vectors: 'id, noteId, lastIndexed',
+            bibleVectors: 'id, versionId, [versionId+book+chapter]',
+            readingPlans: 'id, name, status, startDate, endDate',
+            readingPlanHistory: 'id, planId, completedAt',
+            tskRefs: 'verseId',
+            commentaries: 'id, source, book, [book+chapter], [source+book+chapter]',
+            dictionary: 'id, term',
+            topicalIndex: 'id, topic'
+        });
     }
 }
 

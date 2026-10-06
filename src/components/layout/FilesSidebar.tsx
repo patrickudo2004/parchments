@@ -234,7 +234,9 @@ export const FilesSidebar: React.FC = () => {
                     setCurrentNote(note);
                 }
             }
-            if (isMobile || isLeftSidebarFloating) toggleLeftSidebar();
+            if (isMobile || isLeftSidebarFloating || (typeof window !== 'undefined' && window.innerWidth < 1024)) {
+                toggleLeftSidebar();
+            }
         } else if (item.kind === 'directory' || item.type === 'folder') {
             toggleFolder(e, item.id);
             setSelectedFolderId(selectedFolderId === item.id ? null : item.id);
@@ -468,7 +470,7 @@ export const FilesSidebar: React.FC = () => {
 
     // Responsive Mobile Grid View render path
     if (isMobile) {
-        // 1. MOBILE ONBOARDING: Force local folder open if no active Studyspace exists
+        // 1. MOBILE ONBOARDING: Allow browser database or local folder open if no active Studyspace exists
         if (!hasStudyspace) {
             return (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6 bg-light-surface dark:bg-dark-surface">
@@ -478,15 +480,27 @@ export const FilesSidebar: React.FC = () => {
                     <div className="space-y-2 max-w-xs">
                         <h2 className="text-xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">Open Your Library</h2>
                         <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
-                            Parchments is a local-first workspace. Select or open a folder to organize your study notes and transcripts.
+                            Parchments is a local-first workspace. Continue with your offline browser database or open a local folder.
                         </p>
                     </div>
-                    <button
-                        onClick={openLocalFolder}
-                        className="w-full py-3 bg-primary text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 animate-bounce"
-                    >
-                        Open Local Folder
-                    </button>
+                    <div className="w-full space-y-2.5">
+                        <button
+                            onClick={() => {
+                                setLocalMode(false);
+                            }}
+                            className="w-full py-3 bg-primary text-[#121212] text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95"
+                        >
+                            Continue with Browser Database (Offline)
+                        </button>
+                        {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                            <button
+                                onClick={openLocalFolder}
+                                className="w-full py-2.5 border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-all active:scale-95"
+                            >
+                                Open Local Folder
+                            </button>
+                        )}
+                    </div>
                 </div>
             );
         }
@@ -898,14 +912,26 @@ export const FilesSidebar: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">No Studyspace</p>
-                            <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Open a local folder to start managing your notes.</p>
+                            <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Open a local folder or continue with your offline browser database.</p>
                         </div>
-                        <button
-                            onClick={openLocalFolder}
-                            className="w-full py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/20 hover:scale-105 active:scale-[0.95] transition-all"
-                        >
-                            Open Folder
-                        </button>
+                        <div className="w-full space-y-2">
+                            <button
+                                onClick={() => {
+                                    setLocalMode(false);
+                                }}
+                                className="w-full py-2 bg-primary text-[#121212] text-xs font-black rounded-lg shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                Use Browser Database (Offline)
+                            </button>
+                            {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                                <button
+                                    onClick={openLocalFolder}
+                                    className="w-full py-1.5 border border-primary/30 text-primary text-xs font-semibold rounded-lg hover:bg-primary/5 transition-all"
+                                >
+                                    Open Local Folder
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ) : isExplorerEmpty ? (
                     <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">

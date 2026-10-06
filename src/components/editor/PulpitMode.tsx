@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { Editor, EditorContent } from '@tiptap/react';
 import {
@@ -17,12 +17,16 @@ import {
     Maximize,
     Minimize,
     FileText,
-    BookOpen
+    BookOpen,
+    Timer,
+    X
 } from 'lucide-react';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { PulpitScriptureModal, type PulpitScriptureTarget } from './PulpitScriptureModal';
 import { PulpitNoteSwitcher } from './PulpitNoteSwitcher';
 import { useNoteStore } from '@/stores/noteStore';
+import { parseScriptureReference } from '@/lib/scriptureParser';
+import { db } from '@/lib/db';
 
 interface PulpitModeProps {
     editor: Editor;
@@ -31,11 +35,44 @@ interface PulpitModeProps {
 }
 
 export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit }) => {
-    const { currentNote } = useNoteStore();
+    const { currentNote, notes, localFiles, isLocalMode } = useNoteStore();
     const displayTitle = currentNote?.title || (currentNote as any)?.name || title || 'Untitled Sermon';
 
     const [scriptureTarget, setScriptureTarget] = useState<PulpitScriptureTarget | null>(null);
     const [isNoteSwitcherOpen, setIsNoteSwitcherOpen] = useState(false);
+
+    // Sunday Pulpit Deck: Quick-switch chips for multi-part sermons & announcements
+    const pulpitDeckNotes = useMemo(() => {
+        const deck: any[] = [];
+        const seen = new Set<string>();
+        if (currentNote) {
+            seen.add(String(currentNote.id));
+            deck.push(currentNote);
+        }
+        if (isLocalMode) {
+            localFiles
+                .filter(f => f.kind === 'file' && !seen.has(String(f.id)))
+                .slice(0, 3)
+                .forEach(f => {
+                    seen.add(String(f.id));
+                    deck.push({
+                        id: f.id,
+                        title: f.name.replace(/\.(md|html|txt)$/i, ''),
+                        name: f.name,
+                        kind: 'file',
+                        handle: f.handle
+                    });
+                });
+        }
+        notes
+            .filter(n => !seen.has(String(n.id)))
+            .slice(0, 4 - deck.length)
+            .forEach(n => {
+                seen.add(String(n.id));
+                deck.push(n);
+            });
+        return deck;
+    }, [currentNote, isLocalMode, localFiles, notes]);
 
     const {
         pulpitModeType,
@@ -50,10 +87,13 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         toggleBibleModal
     } = useUIStore();
 
-    // Timer State (Silent Timer)
+    // Timer State (Silent Timer & Preaching Target Countdown)
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [isTimerRunning, setIsTimerRunning] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [targetMinutes, setTargetMinutes] = useState<number | null>(null);
+    const [customMinutesInput, setCustomMinutesInput] = useState<string>('35');
+    const [isTimerSettingsOpen, setIsTimerSettingsOpen] = useState(false);
 
     // Auto-scroll State
     const [isAutoScrolling, setIsAutoScrolling] = useState(false);
@@ -69,6 +109,13 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
     // Fullscreen state
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Ensure TipTap editor content updates immediately when selecting another note in Pulpit Mode
+    useEffect(() => {
+        if (editor && currentNote?.content !== undefined) {
+            editor.commands.setContent(currentNote.content || '');
+        }
+    }, [currentNote?.id, currentNote?.content, editor]);
 
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -101,7 +148,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         return () => clearInterval(interval);
     }, []);
 
-    // Silent Preaching Timer ticker
+    // Preaching Timer ticker
     useEffect(() => {
         let interval: any = null;
         if (isTimerRunning) {
@@ -120,6 +167,31 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         const secs = totalSeconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
+
+    const totalTargetSeconds = targetMinutes ? targetMinutes * 60 : null;
+    const remainingSeconds = totalTargetSeconds !== null ? totalTargetSeconds - elapsedSeconds : null;
+    const isOvertime = remainingSeconds !== null && remainingSeconds < 0;
+    const isWarningStage = remainingSeconds !== null && remainingSeconds <= 300 && remainingSeconds >= 0; // Final 5 minutes
+
+    const timerDisplay = useMemo(() => {
+        if (remainingSeconds === null) {
+            return formatTimer(elapsedSeconds);
+        }
+        if (remainingSeconds < 0) {
+            return `+${formatTimer(Math.abs(remainingSeconds))}`;
+        }
+        return formatTimer(remainingSeconds);
+    }, [remainingSeconds, elapsedSeconds]);
+
+    const timerColorClass = useMemo(() => {
+        if (isOvertime) {
+            return 'text-red-500 bg-red-500/15 border-red-500/60 animate-pulse font-black';
+        }
+        if (isWarningStage) {
+            return 'text-amber-400 bg-amber-500/15 border-amber-500/40 font-bold';
+        }
+        return isTimerRunning ? 'text-emerald-500 border-current/20' : 'text-neutral-400 border-current/20';
+    }, [isOvertime, isWarningStage, isTimerRunning]);
 
     // Calculate pagination pages
     const updatePagination = useCallback(() => {
@@ -208,6 +280,10 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             // Escape dismisses active overlays first before exiting pulpit mode
             if (e.key === 'Escape') {
                 e.preventDefault();
+                if (isTimerSettingsOpen) {
+                    setIsTimerSettingsOpen(false);
+                    return;
+                }
                 if (scriptureTarget) {
                     setScriptureTarget(null);
                     return;
@@ -229,8 +305,18 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                 return;
             }
 
-            // B key toggles Mini Bible modal
-            if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            // Alt+1 to Alt+4 switches between Sunday Pulpit Deck notes
+            if (e.altKey && ['1', '2', '3', '4'].includes(e.key)) {
+                e.preventDefault();
+                const noteIndex = parseInt(e.key, 10) - 1;
+                if (pulpitDeckNotes[noteIndex]) {
+                    handleSelectNoteFromSwitcher(pulpitDeckNotes[noteIndex]);
+                }
+                return;
+            }
+
+            // Alt+B (or Cmd+B / Ctrl+B) toggles Mini Bible modal — prevents clicker black-screen trap
+            if ((e.key === 'b' || e.key === 'B') && (e.altKey || e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 toggleBibleModal();
                 return;
@@ -271,7 +357,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [pulpitModeType, handleNextPage, handlePrevPage, handleExit, scriptureTarget, isNoteSwitcherOpen, isBibleModalOpen, toggleBibleModal]);
+    }, [pulpitModeType, handleNextPage, handlePrevPage, handleExit, scriptureTarget, isNoteSwitcherOpen, isBibleModalOpen, toggleBibleModal, isTimerSettingsOpen, pulpitDeckNotes]);
 
     // Cycle through themes: standard (linen/charcoal) -> dark (charcoal/linen) -> contrast (pure black/white)
     const cycleTheme = () => {
@@ -289,16 +375,31 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         if (target) {
             e.preventDefault();
             e.stopPropagation();
-            const book = target.getAttribute('data-book');
-            const chapter = parseInt(target.getAttribute('data-chapter') || '0');
-            const verse = parseInt(target.getAttribute('data-verse') || '0');
-            const verseEnd = parseInt(target.getAttribute('data-verse-end') || '0');
-            const rawSegments = target.getAttribute('data-segments');
+            let book = target.getAttribute('data-book');
+            let chapter = parseInt(target.getAttribute('data-chapter') || '0', 10);
+            let verse = parseInt(target.getAttribute('data-verse') || '0', 10);
+            let verseEnd = parseInt(target.getAttribute('data-verse-end') || '0', 10);
+            let rawSegments = target.getAttribute('data-segments');
+
+            // Fallback / Enhanced Parsing: If attributes are incomplete or missing segments, parse visible text
+            if (!book || !chapter || !rawSegments) {
+                const parsed = parseScriptureReference(target.innerText.trim());
+                if (parsed) {
+                    book = parsed.book;
+                    chapter = parsed.chapter;
+                    verse = parsed.verse || 1;
+                    verseEnd = parsed.verseEnd || 0;
+                    if (parsed.segments && parsed.segments.length > 0) {
+                        rawSegments = parsed.segments.map(s => s.verseEnd ? `${s.verse}-${s.verseEnd}` : `${s.verse}`).join(', ');
+                    }
+                }
+            }
+
             if (book && chapter) {
                 setScriptureTarget({
                     book,
                     chapter,
-                    verse,
+                    verse: verse || 1,
                     verseEnd: verseEnd || undefined,
                     segments: rawSegments
                 });
@@ -306,9 +407,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         }
     };
 
-    const handleSelectNoteFromSwitcher = (note: any) => {
+    const handleSelectNoteFromSwitcher = async (note: any) => {
         if (note.handle) {
-            useNoteStore.getState().openLocalFile(note);
+            await useNoteStore.getState().openLocalFile(note);
+        } else if (note.id) {
+            const dbNote = await db.notes.get(note.id);
+            if (dbNote) {
+                useNoteStore.getState().setCurrentNote(dbNote);
+            } else {
+                useNoteStore.getState().setCurrentNote(note);
+            }
         } else {
             useNoteStore.getState().setCurrentNote(note);
         }
@@ -354,8 +462,14 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             {isDistractionFree ? (
                 <div className="h-10 px-4 sm:px-6 flex items-center justify-between border-b shrink-0 z-40 bg-neutral-900/95 dark:bg-black/95 text-white backdrop-blur-md transition-colors select-none">
                     <div className="flex items-center gap-2 font-mono text-xs font-bold">
-                        <Clock size={14} className={isTimerRunning ? "text-emerald-400 animate-pulse" : "text-neutral-400"} />
-                        <span>{formatTimer(elapsedSeconds)}</span>
+                        <button
+                            onClick={() => setIsTimerSettingsOpen(true)}
+                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                            title="Set Target Countdown Timer"
+                        >
+                            <Clock size={14} className={isTimerRunning ? "text-emerald-400 animate-pulse" : "text-neutral-400"} />
+                            <span className={`px-1.5 py-0.5 rounded border ${timerColorClass}`}>{timerDisplay}</span>
+                        </button>
                         <button
                             onClick={() => setIsTimerRunning(prev => !prev)}
                             className="p-1 hover:bg-white/10 rounded transition-colors"
@@ -369,7 +483,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         <button
                             onClick={toggleBibleModal}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isBibleModalOpen ? 'bg-primary text-white' : 'bg-white/15 hover:bg-white/25 text-white'}`}
-                            title="Open Mini Bible (B)"
+                            title="Open Mini Bible (Alt+B)"
                         >
                             <BookOpen size={13} />
                             <span>Bible</span>
@@ -404,10 +518,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                             <div className="flex items-center gap-3 shrink-0">
                                 {/* Silent Preaching Timer */}
                                 <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${buttonBase}`}>
-                                    <Clock size={16} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                                    <span className="font-mono text-base font-black tracking-tight select-none min-w-[50px] text-center">
-                                        {formatTimer(elapsedSeconds)}
-                                    </span>
+                                    <button
+                                        onClick={() => setIsTimerSettingsOpen(true)}
+                                        className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                        title="Click to set Target Preaching Duration"
+                                    >
+                                        <Clock size={16} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
+                                        <span className={`font-mono text-base font-black tracking-tight select-none min-w-[50px] text-center px-1.5 py-0.5 rounded-md border ${timerColorClass}`}>
+                                            {timerDisplay}
+                                        </span>
+                                    </button>
                                     <button
                                         onClick={() => setIsTimerRunning(prev => !prev)}
                                         className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95"
@@ -444,7 +564,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 <button
                                     onClick={toggleBibleModal}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
-                                    title="Open Mini Bible Studyspace (B)"
+                                    title="Open Mini Bible Studyspace (Alt+B)"
                                 >
                                     <BookOpen size={15} className={isBibleModalOpen ? "" : "text-primary"} />
                                     <span>Mini Bible</span>
@@ -626,10 +746,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 <div className="flex items-center gap-2">
                                     {/* Silent Preaching Timer */}
                                     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${buttonBase}`}>
-                                        <Clock size={15} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                                        <span className="font-mono text-sm font-black tracking-tight select-none">
-                                            {formatTimer(elapsedSeconds)}
-                                        </span>
+                                        <button
+                                            onClick={() => setIsTimerSettingsOpen(true)}
+                                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                            title="Click to set Target Preaching Duration"
+                                        >
+                                            <Clock size={15} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
+                                            <span className={`font-mono text-sm font-black tracking-tight select-none px-1.5 py-0.5 rounded border ${timerColorClass}`}>
+                                                {timerDisplay}
+                                            </span>
+                                        </button>
                                         <button
                                             onClick={() => setIsTimerRunning(prev => !prev)}
                                             className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 touch-manipulation"
@@ -661,7 +787,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                     <button
                                         onClick={toggleBibleModal}
                                         className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
-                                        title="Open Mini Bible (B)"
+                                        title="Open Mini Bible (Alt+B)"
                                     >
                                         <BookOpen size={14} className={isBibleModalOpen ? "" : "text-primary"} />
                                         <span className="hidden sm:inline">Mini Bible</span>
@@ -782,10 +908,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                             <div className="flex items-center justify-between gap-1.5">
                                 {/* Silent Preaching Timer */}
                                 <div className={`flex items-center gap-1 px-2 py-1 rounded-xl border ${buttonBase}`}>
-                                    <Clock size={14} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                                    <span className="font-mono text-xs font-black tracking-tight select-none">
-                                        {formatTimer(elapsedSeconds)}
-                                    </span>
+                                    <button
+                                        onClick={() => setIsTimerSettingsOpen(true)}
+                                        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                        title="Set Target Preaching Duration"
+                                    >
+                                        <Clock size={14} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
+                                        <span className={`font-mono text-xs font-black tracking-tight select-none px-1 py-0.5 rounded border ${timerColorClass}`}>
+                                            {timerDisplay}
+                                        </span>
+                                    </button>
                                     <button
                                         onClick={() => setIsTimerRunning(prev => !prev)}
                                         className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95 touch-manipulation"
@@ -817,7 +949,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 <button
                                     onClick={toggleBibleModal}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
-                                    title="Mini Bible (B)"
+                                    title="Mini Bible (Alt+B)"
                                 >
                                     <BookOpen size={12} className={isBibleModalOpen ? "" : "text-primary"} />
                                     <span>Bible</span>
@@ -901,6 +1033,40 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 </button>
                             </div>
                         </div>
+
+                        {/* Sunday Pulpit Deck: Quick-switch pinned sermon note chips */}
+                        {pulpitDeckNotes.length > 1 && (
+                            <div className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-black/10 dark:bg-white/5 border-t border-inherit overflow-x-auto no-scrollbar">
+                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60 shrink-0 mr-1 flex items-center gap-1">
+                                    <FileText size={11} className="text-primary" /> Pulpit Deck:
+                                </span>
+                                {pulpitDeckNotes.map((dn, idx) => {
+                                    const isActive = currentNote && String(dn.id) === String(currentNote.id);
+                                    const noteTitle = dn.title || dn.name || 'Untitled Sermon';
+                                    return (
+                                        <button
+                                            key={dn.id}
+                                            onClick={() => handleSelectNoteFromSwitcher(dn)}
+                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 active:scale-95 touch-manipulation min-h-[28px] ${isActive
+                                                ? isContrast ? 'bg-amber-400 text-black font-black' : 'bg-primary text-slate-900 font-extrabold shadow-sm'
+                                                : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'
+                                            }`}
+                                            title={`Switch to ${noteTitle} (Alt+${idx + 1})`}
+                                        >
+                                            <span className="text-[10px] opacity-60 font-mono">#{idx + 1}</span>
+                                            <span className="truncate max-w-[140px] sm:max-w-[200px]">{noteTitle}</span>
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    className="px-2 py-1 rounded text-[10px] font-bold opacity-60 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 shrink-0 transition-opacity"
+                                    title="Browse all sermon notes"
+                                >
+                                    + All Notes
+                                </button>
+                            </div>
+                        )}
                     </header>
                 </>
             )}
@@ -974,6 +1140,104 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                 themeMode={isContrast ? 'contrast' : isDark ? 'dark' : 'light'}
                 onSelectNote={handleSelectNoteFromSwitcher}
             />
+
+            {/* Custom Preaching Target Countdown Modal */}
+            {isTimerSettingsOpen && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+                    onClick={() => setIsTimerSettingsOpen(false)}
+                >
+                    <div 
+                        className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl border ${
+                            isContrast 
+                                ? 'bg-black text-white border-neutral-700' 
+                                : isDark 
+                                    ? 'bg-[#1e1e1e] text-[#f4f4f0] border-[#333]' 
+                                    : 'bg-white text-neutral-900 border-neutral-200'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-current/10">
+                            <div className="flex items-center gap-2">
+                                <Timer className="text-primary w-5 h-5" />
+                                <h3 className="font-bold text-base tracking-tight">Preaching Timer Target</h3>
+                            </div>
+                            <button
+                                onClick={() => setIsTimerSettingsOpen(false)}
+                                className="p-1 rounded-lg opacity-60 hover:opacity-100 transition-opacity"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs opacity-75 mb-4 leading-relaxed">
+                            Set a target duration in minutes. The timer counts down to zero, turning amber in the last 5 minutes and pulsing red when overtime.
+                        </p>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const parsed = parseInt(customMinutesInput, 10);
+                                if (!isNaN(parsed) && parsed > 0) {
+                                    setTargetMinutes(parsed);
+                                    setElapsedSeconds(0);
+                                    setIsTimerRunning(true);
+                                    setIsTimerSettingsOpen(false);
+                                }
+                            }}
+                            className="space-y-4"
+                        >
+                            <div>
+                                <label className="block text-xs font-semibold uppercase tracking-wider opacity-70 mb-1.5">
+                                    Target Minutes
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="300"
+                                        autoFocus
+                                        value={customMinutesInput}
+                                        onChange={(e) => setCustomMinutesInput(e.target.value)}
+                                        placeholder="e.g. 35"
+                                        className={`w-full px-3.5 py-2.5 rounded-xl border text-lg font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                                            isContrast 
+                                                ? 'bg-neutral-900 border-neutral-700 text-white' 
+                                                : isDark 
+                                                    ? 'bg-black/40 border-neutral-700 text-white' 
+                                                    : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                                        }`}
+                                    />
+                                    <span className="font-medium text-sm opacity-70 shrink-0">min</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-2 flex flex-col gap-2">
+                                <button
+                                    type="submit"
+                                    className="w-full py-2.5 px-4 rounded-xl font-bold text-sm bg-primary text-white hover:bg-primary/90 transition-all shadow-md active:scale-[0.98]"
+                                >
+                                    Start Countdown ({customMinutesInput || '0'}m)
+                                </button>
+                                {targetMinutes !== null && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTargetMinutes(null);
+                                            setIsTimerSettingsOpen(false);
+                                        }}
+                                        className={`w-full py-2 px-3 rounded-xl font-semibold text-xs border opacity-80 hover:opacity-100 transition-all ${
+                                            isContrast ? 'border-neutral-700 hover:bg-neutral-800' : isDark ? 'border-neutral-700 hover:bg-white/5' : 'border-neutral-300 hover:bg-neutral-100'
+                                        }`}
+                                    >
+                                        Switch to Count-Up (No Limit)
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

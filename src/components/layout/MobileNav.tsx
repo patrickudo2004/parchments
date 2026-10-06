@@ -76,7 +76,8 @@ export const MobileNav: React.FC = () => {
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: '100%', opacity: 0 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className="fixed bottom-16 left-4 right-4 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-3xl p-4 shadow-2xl z-[85] space-y-3"
+                            className="fixed left-4 right-4 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-3xl p-4 shadow-2xl z-[85] space-y-3"
+                            style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }}
                         >
                             <div className="flex items-center justify-between pb-2 border-b border-light-border dark:border-dark-border">
                                 <span className="text-xs font-black uppercase tracking-widest text-light-text-secondary">Actions</span>
@@ -170,8 +171,11 @@ export const MobileNav: React.FC = () => {
 
             {/* Bottom Bar — safe-area-inset-bottom for iPhone home indicator */}
             <nav
-                className="fixed bottom-0 left-0 right-0 h-16 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] shadow-2xl"
-                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                className="fixed bottom-0 left-0 right-0 bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border flex items-center justify-around px-2 z-[70] shadow-2xl"
+                style={{
+                    height: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+                    paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+                }}
             >
                 <button
                     onClick={() => toggleLeftSidebar('files')}

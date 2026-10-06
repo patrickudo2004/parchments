@@ -5,6 +5,7 @@ import { MenuBar } from './MenuBar';
 import { FilesSidebar } from './FilesSidebar';
 import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useReadingPlanStore } from '@/stores/readingPlanStore';
 import { MobileNav } from './MobileNav';
 
@@ -84,9 +85,56 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setRightSidebarPosition,
         mobileBibleState,
         pulpitMode
-    } = useUIStore();
+    } = useUIStore(
+        useShallow(state => ({
+            theme: state.theme,
+            density: state.density,
+            isBibleModalOpen: state.isBibleModalOpen,
+            isTemplateModalOpen: state.isTemplateModalOpen,
+            isSettingsModalOpen: state.isSettingsModalOpen,
+            toggleSettingsModal: state.toggleSettingsModal,
+            isShortcutModalOpen: state.isShortcutModalOpen,
+            toggleShortcutModal: state.toggleShortcutModal,
+            isUserGuideOpen: state.isUserGuideOpen,
+            userGuideChapterId: state.userGuideChapterId,
+            toggleUserGuide: state.toggleUserGuide,
+            setLeftSidebarWidth: state.setLeftSidebarWidth,
+            leftSidebarWidth: state.leftSidebarWidth,
+            leftSidebarContent: state.leftSidebarContent,
+            rightSidebarWidth: state.rightSidebarWidth,
+            setRightSidebarWidth: state.setRightSidebarWidth,
+            rightSidebarOpen: state.rightSidebarOpen,
+            rightSidebarContent: state.rightSidebarContent,
+            toggleRightSidebar: state.toggleRightSidebar,
+            isLeftSidebarOpen: state.isLeftSidebarOpen,
+            toggleLeftSidebar: state.toggleLeftSidebar,
+            isSearchModalOpen: state.isSearchModalOpen,
+            searchQuery: state.searchQuery,
+            toggleSearchModal: state.toggleSearchModal,
+            isStrongsModalOpen: state.isStrongsModalOpen,
+            selectedStrongsId: state.selectedStrongsId,
+            toggleStrongsModal: state.toggleStrongsModal,
+            isFocusMode: state.isFocusMode,
+            toast: state.toast,
+            isMobile: state.isMobile,
+            setIsMobile: state.setIsMobile,
+            isNoFolderModalOpen: state.isNoFolderModalOpen,
+            toggleNoFolderModal: state.toggleNoFolderModal,
+            isRightSidebarFloating: state.isRightSidebarFloating,
+            isLeftSidebarFloating: state.isLeftSidebarFloating,
+            leftSidebarPosition: state.leftSidebarPosition,
+            setLeftSidebarPosition: state.setLeftSidebarPosition,
+            rightSidebarPosition: state.rightSidebarPosition,
+            setRightSidebarPosition: state.setRightSidebarPosition,
+            mobileBibleState: state.mobileBibleState,
+            pulpitMode: state.pulpitMode,
+        }))
+    );
     const { isLectioModeActive } = useReadingPlanStore();
-    const { hasStudyspace, openLocalFolder, createNote, openLooseFile } = useNoteStore();
+    const hasStudyspace = useNoteStore(s => s.hasStudyspace);
+    const openLocalFolder = useNoteStore(s => s.openLocalFolder);
+    const createNote = useNoteStore(s => s.createNote);
+    const openLooseFile = useNoteStore(s => s.openLooseFile);
 
     const leftDragControls = useDragControls();
     const rightDragControls = useDragControls();
@@ -94,17 +142,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const [isResizingLeft, setIsResizingLeft] = React.useState(false);
     const [isResizingRight, setIsResizingRight] = React.useState(false);
 
-    // Mobile detection
+    const [isTablet, setIsTablet] = React.useState(typeof window !== 'undefined' && window.innerWidth >= 768 && window.innerWidth < 1024);
+
+    // Responsive Breakpoint Detection (Mobile < 768px, Tablet 768px - 1023px, Desktop >= 1024px)
     React.useEffect(() => {
         (window as any).useUIStore = useUIStore;
         (window as any).useNoteStore = useNoteStore;
         
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
+        const checkBreakpoints = () => {
+            const w = window.innerWidth;
+            setIsMobile(w < 768);
+            setIsTablet(w >= 768 && w < 1024);
         };
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
+        checkBreakpoints();
+        window.addEventListener('resize', checkBreakpoints);
+        return () => window.removeEventListener('resize', checkBreakpoints);
     }, [setIsMobile]);
 
     const startResizingLeft = React.useCallback((e: React.PointerEvent) => {
@@ -207,7 +259,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     return (
         <ErrorBoundary>
-            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode && !isLectioModeActive ? 'pb-16' : ''}`}>
+            <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode && !isLectioModeActive ? 'pb-[calc(4rem+env(safe-area-inset-bottom,0px))]' : ''}`}>
                 <UpdateBanner />
                 <VersionLockModal />
                 {!isMobile && !isLectioModeActive && !pulpitMode && <TopBar />}
@@ -215,9 +267,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
                 <div className={`flex-1 flex overflow-hidden relative ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'flex-col' : 'flex-row'}`}>
                     {/* ... rest of the component ... */}
-                    {/* Mobile Backdrop */}
+                    {/* Mobile & Tablet Backdrop */}
                     <AnimatePresence>
-                        {isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && !isLectioModeActive && (
+                        {(isMobile || isTablet) && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && !isLectioModeActive && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -238,7 +290,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {!isFocusMode && !pulpitMode && !isLectioModeActive && isLeftSidebarOpen && (
                         <>
                             <motion.aside
-                                drag={isLeftSidebarFloating}
+                                drag={!isTablet && isLeftSidebarFloating}
                                 dragListener={false}
                                 dragControls={leftDragControls}
                                 dragMomentum={false}
@@ -252,18 +304,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 }}
                                 initial={false}
                                 animate={{
-                                    x: isLeftSidebarFloating ? leftSidebarPosition.x : 0,
-                                    y: isLeftSidebarFloating ? leftSidebarPosition.y : 0
+                                    x: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.x : 0,
+                                    y: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.y : 0
                                 }}
-                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || !isLeftSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
+                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || isTablet || !isLeftSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isTablet ? 'fixed inset-y-0 left-12 z-[60] shadow-2xl border-r' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
                                 style={{
-                                    width: isMobile ? '85vw' : `${Math.max(leftSidebarWidth || 280, 150)}px`,
-                                    height: isLeftSidebarFloating ? '80vh' : '100%',
-                                    marginTop: isLeftSidebarFloating ? '64px' : '0'
+                                    width: isMobile ? '85vw' : isTablet ? '320px' : `${Math.max(leftSidebarWidth || 280, 150)}px`,
+                                    height: !isTablet && isLeftSidebarFloating ? '80vh' : '100%',
+                                    marginTop: !isTablet && isLeftSidebarFloating ? '64px' : '0'
                                 }}
                             >
                                 {/* Drag Handle (isolated touch control) */}
-                                {isLeftSidebarFloating && (
+                                {!isTablet && isLeftSidebarFloating && (
                                     <div
                                         onPointerDown={(e) => leftDragControls.start(e)}
                                         className="h-7 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group touch-none select-none shrink-0"
@@ -279,7 +331,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             </motion.aside>
 
                             {/* Left Resize Handle (Touch-Accessible Hit Target) */}
-                            {!isMobile && !isLeftSidebarFloating && (
+                            {!isMobile && !isTablet && !isLeftSidebarFloating && (
                                 <div
                                     onPointerDown={startResizingLeft}
                                     className="w-2 -mx-0.5 hover:bg-primary/30 active:bg-primary/50 cursor-col-resize transition-colors z-20 shrink-0 touch-none flex items-center justify-center group"
@@ -305,7 +357,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {!isFocusMode && !pulpitMode && !isLectioModeActive && rightSidebarOpen && (
                         <>
                             {/* Right Resize Handle (Touch-Accessible Hit Target) */}
-                            {!isMobile && !isRightSidebarFloating && (
+                            {!isMobile && !isTablet && !isRightSidebarFloating && (
                                 <div
                                     onPointerDown={startResizingRight}
                                     className="w-2 -mx-0.5 hover:bg-primary/30 active:bg-primary/50 cursor-col-resize transition-colors z-20 shrink-0 touch-none flex items-center justify-center group"
@@ -315,7 +367,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                             )}
 
                             <motion.aside
-                                drag={!isMobile && isRightSidebarFloating}
+                                drag={!isMobile && !isTablet && isRightSidebarFloating}
                                 dragListener={false}
                                 dragControls={rightDragControls}
                                 dragMomentum={false}
@@ -329,26 +381,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 }}
                                 initial={false}
                                 animate={{
-                                    x: isRightSidebarFloating ? rightSidebarPosition.x : 0,
-                                    y: isRightSidebarFloating ? rightSidebarPosition.y : 0
+                                    x: !isTablet && isRightSidebarFloating ? rightSidebarPosition.x : 0,
+                                    y: !isTablet && isRightSidebarFloating ? rightSidebarPosition.y : 0
                                 }}
                                 className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
                                     isMobile && rightSidebarContent === 'bible'
                                         ? `w-full border-b order-first z-10 ${mobileBibleState === 'full' ? 'fixed inset-0 z-[65]' : 'h-[45%]'}`
                                         : isMobile
                                             ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl border-l'
-                                            : isRightSidebarFloating
-                                                ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden'
-                                                : 'border-l h-full'
+                                            : isTablet
+                                                ? 'fixed inset-y-0 right-12 z-[60] shadow-2xl border-l'
+                                                : isRightSidebarFloating
+                                                    ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden'
+                                                    : 'border-l h-full'
                                 }`}
                                 style={isMobile && rightSidebarContent === 'bible' ? {} : {
-                                    width: isMobile ? '85vw' : `${Math.max(rightSidebarWidth || 350, 200)}px`,
-                                    height: isRightSidebarFloating ? '80vh' : '100%',
-                                    marginTop: isRightSidebarFloating ? '64px' : '0'
+                                    width: isMobile ? '85vw' : isTablet ? '380px' : `${Math.max(rightSidebarWidth || 350, 200)}px`,
+                                    height: !isTablet && isRightSidebarFloating ? '80vh' : '100%',
+                                    marginTop: !isTablet && isRightSidebarFloating ? '64px' : '0'
                                 }}
                             >
                                 {/* Drag Handle (isolated touch control) */}
-                                {isRightSidebarFloating && (
+                                {!isTablet && isRightSidebarFloating && (
                                     <div
                                         onPointerDown={(e) => rightDragControls.start(e)}
                                         className="h-7 bg-light-background dark:bg-dark-background border-b border-light-border dark:border-dark-border flex items-center justify-center cursor-move group touch-none select-none shrink-0"
@@ -394,7 +448,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {!isFocusMode && !pulpitMode && !isMobile && <StatusBar />}
 
                 {/* Floating Modals Container */}
-                <div className="fixed inset-0 pointer-events-none z-[100]">
+                <div className="fixed inset-0 pointer-events-none z-[150]">
                     <div className="absolute inset-0 pointer-events-none">
                         <AnimatePresence>
                             {isBibleModalOpen && (

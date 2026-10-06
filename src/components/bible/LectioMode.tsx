@@ -608,6 +608,18 @@ export const LectioMode: React.FC = () => {
                             </button>
                         </div>
 
+                        {/* Calendar & History View Button */}
+                        <button
+                            onClick={() => {
+                                setHistoryModalPlan(activePlan);
+                                setIsHistoryModalOpen(true);
+                            }}
+                            className="p-2 rounded-full transition-all duration-200 hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary"
+                            title="Reading Plan Calendar & History"
+                        >
+                            <Calendar size={18} />
+                        </button>
+
                         {/* Zen Focus Toggle Button (Desktop & Tablet) */}
                         <button
                             onClick={() => setZenFocus(!zenFocus)}

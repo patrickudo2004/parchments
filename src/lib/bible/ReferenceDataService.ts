@@ -55,6 +55,7 @@ class ReferenceDataServiceClass {
                 await db.tskRefs.bulkPut(chunk);
                 const pct = Math.min(99, 40 + Math.round(((i + chunk.length) / entries.length) * 58));
                 onProgress?.(pct, `Indexing references (${i + chunk.length}/${entries.length})...`);
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
             onProgress?.(100, 'TSK Cross-References installed successfully!');
             return true;
@@ -72,8 +73,14 @@ class ReferenceDataServiceClass {
             if (!res.ok) throw new Error(`HTTP ${res.status} fetching Dictionary`);
 
             const entries: DictionaryEntry[] = await res.json();
-            onProgress?.(50, `Indexing ${entries.length} dictionary definitions...`);
-            await db.dictionary.bulkPut(entries);
+            const CHUNK_SIZE = 2500;
+            for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+                const chunk = entries.slice(i, i + CHUNK_SIZE);
+                await db.dictionary.bulkPut(chunk);
+                const pct = Math.min(99, 20 + Math.round(((i + chunk.length) / entries.length) * 78));
+                onProgress?.(pct, `Indexing dictionary entries (${i + chunk.length}/${entries.length})...`);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
             onProgress?.(100, 'Easton\'s Bible Dictionary installed successfully!');
             return true;
         } catch (err: any) {
@@ -90,8 +97,14 @@ class ReferenceDataServiceClass {
             if (!res.ok) throw new Error(`HTTP ${res.status} fetching Topical Index`);
 
             const entries: TopicalEntry[] = await res.json();
-            onProgress?.(50, `Indexing ${entries.length} biblical topics...`);
-            await db.topicalIndex.bulkPut(entries);
+            const CHUNK_SIZE = 2500;
+            for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+                const chunk = entries.slice(i, i + CHUNK_SIZE);
+                await db.topicalIndex.bulkPut(chunk);
+                const pct = Math.min(99, 20 + Math.round(((i + chunk.length) / entries.length) * 78));
+                onProgress?.(pct, `Indexing topics (${i + chunk.length}/${entries.length})...`);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
             onProgress?.(100, 'Nave\'s Topical Bible installed successfully!');
             return true;
         } catch (err: any) {

@@ -96,9 +96,25 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                             }}
                             className="inline-flex items-center gap-1 mr-2 select-none group/num"
                         >
-                            <sup className={`font-black text-xs transition-colors ${selectedVerseId === verseId || isSelected ? 'text-primary' : 'text-primary/50 group-hover/num:text-primary'}`}>
+                            <sup className={`font-black text-xs transition-colors ${selectedVerseId === verseId || isSelected ? 'text-primary scale-110' : 'text-light-text-secondary dark:text-dark-text-secondary group-hover/num:text-primary'}`}>
                                 {verseNum}
                             </sup>
+                            {vid === 'wlc' && firstVerse?.book?.toLowerCase() === 'psalms' && (
+                                <span
+                                    className="text-[9px] font-mono px-1 py-0.2 rounded bg-primary/10 text-primary font-bold ml-0.5 cursor-help"
+                                    title="Masoretic Text (WLC) verse offset: Psalms superscription traditional counting"
+                                >
+                                    MT v.{verseNum + 1}
+                                </span>
+                            )}
+                            {vid === 'wlc' && firstVerse?.book?.toLowerCase() === 'malachi' && firstVerse?.chapter === 4 && (
+                                <span
+                                    className="text-[9px] font-mono px-1 py-0.2 rounded bg-primary/10 text-primary font-bold ml-0.5 cursor-help"
+                                    title="Masoretic Text (WLC) chapter offset: Malachi 4:1-6 corresponds to MT 3:19-24"
+                                >
+                                    MT 3:{verseNum + 18}
+                                </span>
+                            )}
                             {hasRefs && (
                                 <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
                             )}

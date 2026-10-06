@@ -8,6 +8,7 @@ export interface BibleReference {
     chapter: number;
     verse: number | null;
     verseEnd: number | null;
+    chapterEnd?: number | null;
     segments?: VerseSegment[];
 }
 
@@ -108,6 +109,29 @@ export const parseVerseSegments = (rawVerses: string): VerseSegment[] => {
     return segments;
 };
 
+export const SINGLE_CHAPTER_BOOKS = new Set([
+    'Obadiah',
+    'Philemon',
+    '2 John',
+    '3 John',
+    'Jude'
+]);
+
+export const resolveBookName = (bookStr: string, prefix?: string): string | null => {
+    let cleanBookName = bookStr.trim().toLowerCase();
+    if (prefix) {
+        const cleanPrefix = prefix.trim().replace(/^I$/i, '1').replace(/^II$/i, '2').replace(/^III$/i, '3');
+        cleanBookName = `${cleanPrefix}${cleanBookName}`;
+    }
+    let fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
+    if (!fullBookName && prefix) {
+        const cleanPrefix = prefix.trim().replace(/^I$/i, '1').replace(/^II$/i, '2').replace(/^III$/i, '3');
+        cleanBookName = `${cleanPrefix} ${bookStr.trim().toLowerCase()}`;
+        fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
+    }
+    return fullBookName || null;
+};
+
 /**
  * Regex explanation:
  * \b: Word boundary start
@@ -121,44 +145,83 @@ export const parseVerseSegments = (rawVerses: string): VerseSegment[] => {
  */
 export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*)\b/i;
 
+const CROSS_CHAPTER_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+)\s*[-–—]\s*(\d+):(\d+)\b/i;
+const SINGLE_CHAPTER_NO_COLON_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*)\b/i;
+const CHAPTER_ONLY_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+)\b/i;
+
 export const parseScriptureReference = (text: string): BibleReference | null => {
+    // 1. Cross-chapter span (e.g. Gen 1:1-2:3)
+    const crossMatch = text.match(CROSS_CHAPTER_REGEX);
+    if (crossMatch) {
+        const [_, prefix, bookName, ch1, v1, ch2, v2] = crossMatch;
+        const fullBookName = resolveBookName(bookName, prefix);
+        if (fullBookName) {
+            return {
+                book: fullBookName,
+                chapter: parseInt(ch1, 10),
+                verse: parseInt(v1, 10),
+                chapterEnd: parseInt(ch2, 10),
+                verseEnd: parseInt(v2, 10),
+                segments: [{ verse: parseInt(v1, 10), verseEnd: null }]
+            };
+        }
+    }
+
+    // 2. Standard chapter:verse reference with optional multi-verse segments (e.g. 1 Sam 17:1-11, 16)
     const match = text.match(SCRIPTURE_REGEX);
-
-    if (!match) return null;
-
-    const [_, prefix, bookName, chapter, verseSpec] = match;
-
-    // Normalize book name
-    let cleanBookName = bookName.trim().toLowerCase();
-
-    // Combine prefix if exists
-    if (prefix) {
-        const cleanPrefix = prefix.trim().replace('I', '1').replace('II', '2').replace('III', '3');
-        cleanBookName = `${cleanPrefix}${cleanBookName}`; // e.g., "1john"
+    if (match) {
+        const [_, prefix, bookName, chapter, verseSpec] = match;
+        const fullBookName = resolveBookName(bookName, prefix);
+        if (fullBookName) {
+            const segments = parseVerseSegments(verseSpec);
+            if (segments.length > 0) {
+                return {
+                    book: fullBookName,
+                    chapter: parseInt(chapter, 10),
+                    verse: segments[0].verse,
+                    verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
+                    segments: segments,
+                };
+            }
+        }
     }
 
-    // Lookup full name
-    let fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
-
-    if (!fullBookName && prefix) {
-        // Try checking "1 john" format if "1john" failed
-        const cleanPrefix = prefix.trim().replace('I', '1').replace('II', '2').replace('III', '3');
-        cleanBookName = `${cleanPrefix} ${bookName.trim().toLowerCase()}`;
-        fullBookName = BOOK_ABBREVIATIONS[cleanBookName];
+    // 3. Single-chapter books without colons (e.g. Jude 4-8, Philemon 5, 2 John 9)
+    const singleChMatch = text.match(SINGLE_CHAPTER_NO_COLON_REGEX);
+    if (singleChMatch) {
+        const [_, prefix, bookName, verseSpec] = singleChMatch;
+        const fullBookName = resolveBookName(bookName, prefix);
+        if (fullBookName && SINGLE_CHAPTER_BOOKS.has(fullBookName)) {
+            const segments = parseVerseSegments(verseSpec);
+            if (segments.length > 0) {
+                return {
+                    book: fullBookName,
+                    chapter: 1,
+                    verse: segments[0].verse,
+                    verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
+                    segments: segments,
+                };
+            }
+        }
     }
 
-    if (!fullBookName) return null;
+    // 4. Chapter-only reference (e.g. Romans 8, Psalm 23, John 3)
+    const chapterMatch = text.match(CHAPTER_ONLY_REGEX);
+    if (chapterMatch) {
+        const [_, prefix, bookName, chapterStr] = chapterMatch;
+        const fullBookName = resolveBookName(bookName, prefix);
+        if (fullBookName) {
+            return {
+                book: fullBookName,
+                chapter: parseInt(chapterStr, 10),
+                verse: 1, // Default to first verse for reader/lookup navigation
+                verseEnd: null,
+                segments: [{ verse: 1, verseEnd: null }]
+            };
+        }
+    }
 
-    const segments = parseVerseSegments(verseSpec);
-    if (segments.length === 0) return null;
-
-    return {
-        book: fullBookName,
-        chapter: parseInt(chapter, 10),
-        verse: segments[0].verse,
-        verseEnd: segments.length === 1 ? segments[0].verseEnd : null,
-        segments: segments,
-    };
+    return null;
 };
 
 /**

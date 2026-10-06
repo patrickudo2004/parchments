@@ -186,11 +186,11 @@ body.dark {
 
     /* Variant: Primary (Filled) */
     .btn-primary {
-        @apply bg-primary text-white shadow-md hover:shadow-xl hover:bg-primary-hover hover:-translate-y-0.5;
+        @apply bg-primary text-[#121212] font-black shadow-md hover:shadow-xl hover:bg-primary-hover hover:-translate-y-0.5;
     }
 
     .dark .btn-primary {
-        @apply hover:bg-primary-hover-dark shadow-primary/20;
+        @apply hover:bg-primary-hover-dark shadow-primary/20 text-[#121212];
     }
 
     /* Variant: Secondary (Outlined) */
@@ -402,5 +402,16 @@ body.dark {
 
 .pulpit-theme-standard mark {
     background-color: #FEF08A !important;
+    color: #121212 !important;
+}
+
+/* ==========================================================================
+   WCAG 2.1 AA / AAA Accessibility: Text Contrast on Antique Gold (#C5A059)
+   Ensures button text has 7.6:1+ contrast (deep charcoal #121212)
+   ========================================================================== */
+button.bg-primary,
+button.bg-primary.text-white,
+a.bg-primary.text-white,
+.btn-primary {
     color: #121212 !important;
 }

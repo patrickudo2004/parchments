@@ -10,7 +10,11 @@ import {
     PenTool,
     Info,
     Calendar,
-    ChevronRight
+    ChevronRight,
+    Compass,
+    HeartHandshake,
+    Flame,
+    Sparkles
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 
@@ -31,6 +35,27 @@ export const TemplatePickerModal: React.FC = () => {
 
     const templates = [
         {
+            id: 'expository',
+            name: STUDY_TEMPLATES.expository.name,
+            description: STUDY_TEMPLATES.expository.description,
+            icon: <MessageSquare className="text-orange-500" size={22} />,
+            details: "Title, Introduction, Points, Conclusion. Ideal for verse-by-verse preaching."
+        },
+        {
+            id: 'topical',
+            name: STUDY_TEMPLATES.topical.name,
+            description: STUDY_TEMPLATES.topical.description,
+            icon: <Compass className="text-amber-500" size={22} />,
+            details: "Theme, Key Texts, Proposition, Practical Application, Gospel Resolution."
+        },
+        {
+            id: 'inductive',
+            name: STUDY_TEMPLATES.inductive.name,
+            description: STUDY_TEMPLATES.inductive.description,
+            icon: <Search className="text-purple-500" size={22} />,
+            details: "Observation, Interpretation, Application. For deep analytical and theological research."
+        },
+        {
             id: 'soap',
             name: STUDY_TEMPLATES.soap.name,
             description: STUDY_TEMPLATES.soap.description,
@@ -38,25 +63,32 @@ export const TemplatePickerModal: React.FC = () => {
             details: "Scripture, Observation, Application, Prayer. Perfect for personal devotions."
         },
         {
-            id: 'inductive',
-            name: STUDY_TEMPLATES.inductive.name,
-            description: STUDY_TEMPLATES.inductive.description,
-            icon: <Search className="text-purple-500" size={22} />,
-            details: "Observation, Interpretation, Application. For deep analytical research."
+            id: 'counseling',
+            name: STUDY_TEMPLATES.counseling.name,
+            description: STUDY_TEMPLATES.counseling.description,
+            icon: <HeartHandshake className="text-rose-500" size={22} />,
+            details: "Confidential pastoral care log, emotional assessment, biblical comfort, action steps."
         },
         {
-            id: 'expository',
-            name: STUDY_TEMPLATES.expository.name,
-            description: STUDY_TEMPLATES.expository.description,
-            icon: <MessageSquare className="text-orange-500" size={22} />,
-            details: "Title, Introduction, Main Points, Conclusion. Ideal for sermon prep."
+            id: 'funeral',
+            name: STUDY_TEMPLATES.funeral.name,
+            description: STUDY_TEMPLATES.funeral.description,
+            icon: <Flame className="text-amber-600" size={22} />,
+            details: "Memorial liturgy, order of service, eulogy structure, resurrection hope, committal words."
+        },
+        {
+            id: 'communion',
+            name: STUDY_TEMPLATES.communion.name,
+            description: STUDY_TEMPLATES.communion.description,
+            icon: <Sparkles className="text-violet-500" size={22} />,
+            details: "Eucharistic liturgy, words of institution (1 Cor 11), confession of sin, bread & cup."
         },
         {
             id: 'journal',
             name: STUDY_TEMPLATES.journal.name,
             description: STUDY_TEMPLATES.journal.description,
-            icon: <Calendar className="text-green-500" size={22} />,
-            details: "A simple space for your daily thoughts and prayers."
+            icon: <Calendar className="text-emerald-500" size={22} />,
+            details: "A simple space for your daily spiritual thoughts and prayers."
         }
     ];
 

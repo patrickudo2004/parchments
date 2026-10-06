@@ -51,7 +51,7 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Quick Save':
                 if (currentNote) {
-                    saveCurrentNote(currentNote.id, activeEditor?.getHTML() || currentNote.content);
+                    saveCurrentNote(currentNote.title, activeEditor?.getHTML() || currentNote.content, currentNote.id);
                     showToast('Note saved!', 'success');
                 }
                 break;
@@ -238,7 +238,7 @@ export const MenuBar: React.FC = () => {
     }, []);
 
     return (
-        <div className="h-12 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 shrink-0 relative z-30 overflow-visible gap-2">
+        <div className="h-12 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 shrink-0 relative z-20 overflow-visible gap-2">
             {/* Left: Traditional Menu */}
             <div className="flex items-center gap-0.5 shrink-0" ref={menuRef}>
                 {MENU_STRUCTURE.map((menu) => (
@@ -258,7 +258,7 @@ export const MenuBar: React.FC = () => {
 
                         {/* Dropdown */}
                         {activeMenu === menu.label && (
-                            <div className="absolute top-full left-0 mt-1 w-64 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl shadow-2xl py-1 z-50">
+                            <div className="absolute top-full left-0 mt-1 w-64 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl shadow-2xl py-1 z-30">
                                 {menu.items.map((item, index) => (
                                     'type' in item && item.type === 'separator' ? (
                                         <div key={index} className="h-[1px] bg-light-border dark:border-dark-border my-1" />

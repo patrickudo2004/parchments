@@ -64,6 +64,22 @@ Capture homiletical insights on the go:
 
 ---
 
+## 📝 Study & Ministry Templates
+
+Kickstart sermon preparation or pastoral duties with purpose-built templates:
+* Click **New Study** in the Top Bar or press `Ctrl+N` / `Cmd+N`.
+* Available templates include:
+  1. **Expository Sermon**: Title, Introduction, exegetical points, modern application, conclusion.
+  2. **Topical Sermon**: Proposition, felt need, cross-canon scripture framework, life principles, gospel climax.
+  3. **Inductive Bible Study**: Observation (*What does it say?*), Interpretation (*What does it mean?*), Application (*How do I live it?*).
+  4. **S.O.A.P. Devotional**: Scripture, Observation, Application, Prayer for daily reflection.
+  5. **Pastoral Care & Counseling**: Confidential care log, presenting emotional state, scripture comfort, action homework, prayer focus.
+  6. **Memorial & Funeral Service**: Order of service, eulogy structure, resurrection hope, committal words.
+  7. **Lord's Supper & Communion**: Eucharistic liturgy, 1 Cor 11 words of institution, confession, distribution.
+  8. **Daily Spiritual Journal**: Personal thoughts, spiritual petitions, and scripture integration.
+
+---
+
 ## ⌨️ Essential Keyboard Shortcuts
 
 | Shortcut | Action |

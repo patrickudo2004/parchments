@@ -18,12 +18,14 @@ import { TermsOfService } from '@/components/marketing/TermsOfService';
 import { ReleasesPage } from '@/components/marketing/ReleasesPage';
 import { useNoteStore } from '@/stores/noteStore';
 import { Capacitor } from '@capacitor/core';
+import { storagePersistence } from '@/lib/utils/storagePersistence';
 
 const App: React.FC = () => {
     useSpaceSync();
     useVersionCheck();
 
     useEffect(() => {
+        storagePersistence.requestPersistence().catch(err => console.error('Failed to request storage persistence:', err));
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));
         
         // Load initial DB notes and folders for database mode / mobile sandbox

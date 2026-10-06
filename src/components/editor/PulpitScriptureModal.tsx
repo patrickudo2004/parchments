@@ -51,17 +51,17 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                     ? parseVerseSegments(segments)
                     : [{ verse, verseEnd: verseEnd && verseEnd > verse ? verseEnd : null }];
 
-                let activeVer = selectedVersion;
+                let activeVer = (selectedVersion || 'kjv').toLowerCase();
                 const resultVerses: { verse: number; text: string; omittedBeforeNotice?: string | null }[] = [];
 
                 // Check if selectedVersion has verses for this book/chapter
                 let checkCount = await db.bibleVerses
                     .where('[versionId+book+chapter]')
-                    .equals([selectedVersion, book, chapter])
+                    .equals([activeVer, book, chapter])
                     .count();
 
-                if (checkCount === 0 && selectedVersion !== 'KJV') {
-                    activeVer = 'KJV';
+                if (checkCount === 0 && activeVer !== 'kjv') {
+                    activeVer = 'kjv';
                 }
 
                 const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
@@ -98,22 +98,22 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                         if (v) segVerses = [v];
                     }
 
-                    // Fallback to KJV if specific segment not found in active translation (Rule 1)
-                    if (segVerses.length === 0 && activeVer !== 'KJV') {
+                    // Fallback to kjv if specific segment not found in active translation (Rule 1)
+                    if (segVerses.length === 0 && activeVer !== 'kjv') {
                         if (seg.verseEnd && seg.verseEnd > seg.verse) {
                             segVerses = await db.bibleVerses
                                 .where('[versionId+book+chapter]')
-                                .equals(['KJV', book, chapter])
+                                .equals(['kjv', book, chapter])
                                 .and(v => v.verse >= seg.verse && v.verse <= seg.verseEnd!)
                                 .sortBy('verse');
                         } else {
                             const v = await db.bibleVerses
                                 .where('[versionId+book+chapter+verse]')
-                                .equals(['KJV', book, chapter, seg.verse])
+                                .equals(['kjv', book, chapter, seg.verse])
                                 .first();
                             if (v) segVerses = [v];
                         }
-                        if (segVerses.length > 0) activeVer = 'KJV';
+                        if (segVerses.length > 0) activeVer = 'kjv';
                     }
 
                     // Fallback to case-insensitive book match if needed
@@ -121,7 +121,7 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                         const allInChapter = await db.bibleVerses
                             .where('chapter')
                             .equals(chapter)
-                            .filter(v => (v.versionId === activeVer || v.versionId === 'KJV') && v.book.toLowerCase() === book.toLowerCase())
+                            .filter(v => (v.versionId === activeVer || v.versionId === 'kjv') && v.book.toLowerCase() === book.toLowerCase())
                             .sortBy('verse');
                         if (allInChapter.length > 0) {
                             segVerses = allInChapter.filter(v =>

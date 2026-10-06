@@ -66,6 +66,26 @@ When synthesizing a multi-passage sermon or research paper:
 
 ---
 
+## 🎓 Academic Citations & Quoting (SBL, Chicago, Turabian)
+
+For seminary research papers, academic essays, and publication-ready articles:
+* Select any verse or range of verses in the Bible Reader.
+* A floating citation bar appears with multi-format copying:
+  - **Standard**: `"For God so loved..." — John 3:16 (KJV)`
+  - **SBL Handbook of Style**: `"For God so loved..." (John 3:16 KJV).`
+  - **Chicago / Turabian Footnote**: `John 3:16 (King James Version).`
+* Click **Quote in Note** to insert an elegantly formatted biblical blockquote directly into your active manuscript at cursor position.
+
+---
+
+## 📜 Continuous Paragraph Flow & Typography Controls
+
+* **Verse Grid vs. Continuous Flow**: Toggle the **Flow mode** button (`AlignLeft`) in the Bible Reader to switch between isolated verse study rows and continuous, flowing literary paragraphs with superscript verse numbers.
+* **Typographic Measure**: Single-translation views are constrained to an optimal 65–75 characters per line (`max-w-4xl`), reducing eye strain during deep exegetical study.
+* **Masoretic Versification Notes**: In parallel views with Hebrew (WLC), traditional Psalm superscription offsets (e.g. `MT v.2`) and chapter boundary divergences (e.g. Malachi 3/4) are flagged with helpful tooltips.
+
+---
+
 ## 📥 Managing Bible Translations & Offline Catalog
 
 * Navigate to **Settings > Translations**.

@@ -4,7 +4,6 @@ import { MarketingLayout } from './MarketingLayout';
 import {
     Download,
     ShieldCheck,
-    Users,
     Mic,
     Layout,
     Cpu,
@@ -90,7 +89,7 @@ export const LandingPage: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-center gap-4">
                                 <a
                                     href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_x64_en-US.msi`}
-                                    className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-white transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
+                                    className="group px-8 py-5 bg-white text-black font-black rounded-2xl flex items-center gap-3 hover:bg-primary hover:text-[#121212] transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5 cursor-pointer"
                                 >
                                     <Download size={22} className="group-hover:animate-bounce" />
                                     <span>Download for Windows</span>
@@ -205,7 +204,7 @@ export const LandingPage: React.FC = () => {
                                                     href="/app"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="px-8 py-4 bg-primary text-white font-black rounded-2xl flex items-center gap-3 hover:scale-110 transition-all shadow-2xl cursor-pointer"
+                                                    className="px-8 py-4 bg-primary text-[#121212] font-black rounded-2xl flex items-center gap-3 hover:scale-110 transition-all shadow-2xl cursor-pointer"
                                                 >
                                                     Open Interactive Workspace <ArrowRight size={20} />
                                                 </a>
@@ -260,17 +259,29 @@ export const LandingPage: React.FC = () => {
                             </div>
                             <h4 className="text-xl font-bold mb-3">Scripture Intelligence</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
-                                Type a verse reference (John 3:16) and watch it turn into a smart link instantly. Instant hover previews for deep flow.
+                                Type any verse reference (including complex spans like 1 Sam 17:1-11, 16 or Jude 4-8) for instant smart links, live omission indicators, and decrypted hover previews.
                             </p>
                         </div>
-                        {/* Privacy */}
+
+                        {/* Pulpit Mode & Sunday Deck */}
                         <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
                             <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
+                                <Mic size={28} />
+                            </div>
+                            <h4 className="text-xl font-bold mb-3">Sunday Pulpit Deck</h4>
+                            <p className="text-white/40 text-sm leading-relaxed">
+                                Live stage prompter with target countdown timer, 5-minute amber warning, pulsing red overtime alert, and Alt+1..Alt+4 quick-switch pills for multi-part sermons.
+                            </p>
+                        </div>
+
+                        {/* Privacy */}
+                        <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
+                            <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform">
                                 <ShieldCheck size={28} />
                             </div>
                             <h4 className="text-xl font-bold mb-3">Radial Privacy</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
-                                Your notes never leave your machine. No mandatory accounts, no cloud shadows, no data selling. Your study stays yours.
+                                Your notes stay on your machine. Client-side AES-GCM encrypted database storage (ENC::v1::), zero tracking telemetry, and zero forced cloud accounts.
                             </p>
                         </div>
 
@@ -279,42 +290,31 @@ export const LandingPage: React.FC = () => {
                             <div className="w-14 h-14 bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-500 mb-6 group-hover:scale-110 transition-transform">
                                 <BookOpen size={28} />
                             </div>
-                            <h4 className="text-xl font-bold mb-3">Lectio Zen Plans</h4>
+                            <h4 className="text-xl font-bold mb-3">Lectio Zen & Streak Calendar</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
-                                Track customizable scripture reading schedules (e.g., 1-year canonicals) inside physical workspaces on your local hard drive.
+                                5-stage contemplative reading tracks, reflection journaling, monthly streak calendar with illuminated parchment badges, and RFC 5545 ICS calendar export.
                             </p>
                         </div>
 
-                        {/* Local AI */}
+                        {/* Scholarly Exegesis */}
                         <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
                             <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mb-6 group-hover:scale-110 transition-transform">
                                 <Cpu size={28} />
                             </div>
-                            <h4 className="text-xl font-bold mb-3">On-Device Intelligence</h4>
+                            <h4 className="text-xl font-bold mb-3">Academic Exegesis Engine</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
-                                Transcribe sermons and outline chapters using local AI models (Whisper/Transformers). 100% offline, 100% private.
+                                Strong's Hebrew & Greek lexicons, continuous paragraph flow mode, Masoretic versification indicators ([MT v.2]), and automatic SBL / Chicago citations.
                             </p>
                         </div>
 
-                        {/* Sync */}
-                        <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
-                            <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform">
-                                <Users size={28} />
-                            </div>
-                            <h4 className="text-xl font-bold mb-3">Collaborative Study</h4>
-                            <p className="text-white/40 text-sm leading-relaxed">
-                                Sync folder-level metadata across your team without a central server. Peer-to-peer real-time collaboration.
-                            </p>
-                        </div>
-
-                        {/* PiP References */}
+                        {/* TSK & Cross References */}
                         <div className="group p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] hover:border-primary/30 transition-all duration-500">
                             <div className="w-14 h-14 bg-cyan-500/10 rounded-2xl flex items-center justify-center text-cyan-500 mb-6 group-hover:scale-110 transition-transform">
                                 <Eye size={28} />
                             </div>
-                            <h4 className="text-xl font-bold mb-3">Reference Drawer</h4>
+                            <h4 className="text-xl font-bold mb-3">Treasury of Scripture Knowledge</h4>
                             <p className="text-white/40 text-sm leading-relaxed">
-                                Tap scriptures in study notes to pull up Picture-in-Picture context previews instantly without losing focus.
+                                Over 31,102 cross-references indexed locally, classic commentaries (Matthew Henry, JFB), and Easton's Bible Dictionary available in an offline research drawer.
                             </p>
                         </div>
                     </div>
@@ -353,7 +353,7 @@ export const LandingPage: React.FC = () => {
                             e.preventDefault();
                             document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        className="inline-flex items-center gap-3 px-10 py-6 bg-primary text-white font-black rounded-[24px] hover:scale-110 active:scale-95 transition-all shadow-3xl shadow-primary/20 text-lg"
+                        className="inline-flex items-center gap-3 px-10 py-6 bg-primary text-[#121212] font-black rounded-[24px] hover:scale-110 active:scale-95 transition-all shadow-3xl shadow-primary/20 text-lg"
                     >
                         Download the Beta <Download size={24} />
                     </a>

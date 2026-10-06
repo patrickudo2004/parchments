@@ -16,25 +16,32 @@ interface ReleaseItem {
 const RELEASES: ReleaseItem[] = [
     {
         version: "v0.2.1 (Beta)",
-        date: "October 5, 2026",
+        date: "October 6, 2026",
         isLatest: true,
-        description: "Prominent Pulpit Mode access, responsive tablet & desktop toolbar wrapping without sliding, menu dropdown z-index fix, full local & sandbox file visibility on mobile, and installer version synchronization.",
+        description: "Comprehensive release: Sunday Pulpit Deck, target countdown preaching timer with overtime warnings, clicker-safe stage Mini Bible, academic citation engine (SBL & Chicago), continuous flow reading mode, compound scripture parsing, Lectio streak calendar, and hardened multi-platform OS builds.",
         features: [
-            "Prominent Front-Facing Pulpit Mode: Moved the Pulpit Mode button right to the front of the editor toolbar next to Save and Undo/Redo. It is now immediately visible and accessible on all screen sizes (desktop, tablet, mobile) with zero horizontal sliding.",
-            "Responsive Toolbar Wrapping: Eliminated the single-row horizontal clipping on tablet screens and resized desktop windows. The toolbar now cleanly wraps into two neat rows on viewports under 1200px, keeping all formatting and styling buttons in view.",
-            "Responsive Tablet & Mobile Pulpit Controls: Updated Pulpit Mode controls strip to adapt dynamically for tablet screens (< 1024px), displaying all auto-scroll, pagination, speed, and font size controls without clipping or overlapping.",
-            "Universal Mobile File & Folder Visibility: Mobile file explorer now displays both local file directory items and IndexedDB notes with string-safe ID resolution, ensuring notes inside folders always show correctly."
+            "Sunday Pulpit Deck & Rapid Note Switching: The Pulpit Mode top bar now features quick-access pills (#1, #2, #3, #4) for seamless multi-part sermon delivery, announcements, and communion liturgy, with dedicated Alt+1 through Alt+4 shortcuts.",
+            "Preaching Countdown Timer & Overtime Traffic Light: Enter custom target preaching minutes with a visual progress bar, 5-minute amber warning pulse, and clear red overtime alert to keep preaching on schedule.",
+            "Clicker-Safe Stage Mini Bible (Alt+B / Cmd+B): Floating, draggable Mini Bible app accessible anywhere in Pulpit Mode without disturbing your preaching manuscript. Isolated from single 'b' key presentation remote collisions.",
+            "Academic Citation Engine: Automatically format quotes and scripture embeds using Standard, SBL Handbook of Style, or Chicago/Turabian Footnotes with typographical en-dash verse ranges.",
+            "Continuous Paragraph Flow Mode: Scholarly toggle between atomized verse rows and continuous narrative prose / Hebrew poetry in the Bible Reader.",
+            "Masoretic Text Versification Divergence: Traditional Hebrew markers ([MT v.2]) for Malachi 3/4 and Psalms 9–147 versification discrepancies.",
+            "Advanced Scripture Reference Parsing: Full support for discontinuous passages (1 Sam 17:1-11, 16 with omission dividers), single-chapter books without colons (Jude 4-8), and multi-chapter spans (Gen 1:1-2:3).",
+            "Lectio Divina Streak Calendar: Track daily reading streaks on a monthly calendar with illuminated parchment badges and reflection paper trails.",
+            "Expanded Ministry Templates: Added 8 specialized templates in note creation: Expository Sermon, Topical Sermon, Inductive Study, SOAP, Daily Reflection, Pastoral Counseling, Memorial Service, and Holy Communion."
         ],
         improvements: [
-            "Menu Dropdown Z-Index & Overflow Fix: Resolved clipping where top MenuBar dropdowns were rendered behind the left panel by applying high stacking context and visible overflow.",
-            "Installer Version Synchronization: Synchronized version across package.json, tauri.conf.json, and Cargo.toml to ensure desktop installer binaries are correctly named Parchments_0.2.1_x64-setup.exe."
+            "WCAG AAA Accessible Contrast: Updated all primary gold action buttons to high-contrast dark slate (#121212 font-black), exceeding 7.5:1 contrast standards.",
+            "Unified Modal & Drawer Stacking Context: Re-architected z-index hierarchy so MenuBars (z-20), side drawers (z-[60]), and floating modals (z-[150]) never collide or trap clicks.",
+            "Edge-to-Edge Mobile Safe Areas: Dynamic bottom offsets preventing home indicator clipping on iOS and Android gesture bars.",
+            "Rule 2 Large Ingestion Chunking: Standardized chunked batching (CHUNK_SIZE = 2500) with event loop yields across all 31,102 TSK references, Strong's concordance, and Easton's dictionary entries."
         ],
         fixes: [
-            "Pulpit Mode button required horizontal sliding/scrolling on desktop and tablet screens.",
-            "Toolbar buttons were cut off or hidden out of view in tablet mode.",
-            "MenuBar dropdown menus opened behind the left sidebar panel.",
-            "Notes and local files inside folders were not appearing in mobile mode.",
-            "Desktop installer filename was carrying v0.1.7 instead of the updated version."
+            "Eliminated auto-save note overwrite race condition when rapidly switching notes in the editor.",
+            "Fixed Dexie v11 multi-entry index crash when querying Strong's concordance numbers.",
+            "Fixed Rust sync server ownership move compiler errors and websocket binary frame types.",
+            "Resolved Android release packaging permissions and Linux AppImage libfuse2 dependencies in CI/CD release workflow.",
+            "Synchronized version numbers across web, desktop, and mobile package manifests."
         ]
     },
     {

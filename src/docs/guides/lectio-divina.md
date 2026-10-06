@@ -88,6 +88,25 @@ Life happens. If you fall behind on a multi-week or year-long study plan:
 
 ---
 
+## 📅 Plan History, Streaks & Reflection Paper Trail
+
+Track your spiritual disciplines with an illuminated paper trail:
+* Tap the **Calendar icon** on any reading plan header to open the **Plan History & Paper Trail Modal**.
+* **Monthly Streak Calendar**: Displays an illuminated parchment badge for every completed day, calculating your current and longest streaks.
+* **Paper Trail Itinerary**: Review completed passages, completion timestamps, and jump directly into the devotional journal note written on that specific day.
+* **Timeline View**: Filter between All, Completed, and Pending days with 1-tap navigation.
+
+---
+
+## 🤝 Zero-Server Peer-to-Peer Plan Sharing & Sync
+
+Want to read through scripture together with a spouse, study partner, or small group?
+* Tap **Share Plan** on any plan card to generate a unique 6-character sync room code and QR code.
+* Partners click **Join Plan**, scan the QR code or enter the code, and sync their progress directly over local peer-to-peer WebRTC without any cloud servers or accounts required.
+* Changes in daily progress sync in real-time between devices.
+
+---
+
 ## 📅 Universal Calendar Export (`.ics`)
 
 Export your personalized reading track to any major digital calendar:

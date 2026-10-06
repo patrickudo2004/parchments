@@ -28,7 +28,7 @@ export const BibleModal: React.FC = () => {
     if (!isBibleModalOpen) return null;
 
     return (
-        <div ref={constraintsRef} className={`fixed inset-0 z-[100] pointer-events-none flex justify-center ${isMobile ? 'items-end' : 'items-center'}`}>
+        <div ref={constraintsRef} className={`fixed inset-0 z-[150] pointer-events-none flex justify-center ${isMobile ? 'items-end' : 'items-center'}`}>
             {!isDesktop && (
                 <div
                     className="fixed inset-0 bg-black/50 backdrop-blur-xs pointer-events-auto"
@@ -44,7 +44,7 @@ export const BibleModal: React.FC = () => {
                 initial={{ opacity: 0, scale: isMobile ? 1 : 0.95, y: isMobile ? 100 : 0 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: isMobile ? 1 : 0.95, y: isMobile ? 100 : 0 }}
-                className={`pointer-events-auto bg-light-surface dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden relative z-10 ${
+                className={`pointer-events-auto bg-light-surface dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden relative z-[150] ${
                     isMobile 
                         ? 'w-full h-[90vh] max-h-[90vh] rounded-t-3xl border-b-0' 
                         : isDesktop
@@ -55,7 +55,7 @@ export const BibleModal: React.FC = () => {
                     isMobile 
                         ? { width: '100vw', height: '90vh', maxWidth: '100vw' } 
                         : isDesktop
-                            ? { width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '350px', maxWidth: '95vw', minHeight: '450px', maxHeight: '90vh' }
+                            ? { width: '600px', height: 'min(720px, calc(100vh - 120px))', resize: 'both', overflow: 'hidden', minWidth: '350px', maxWidth: '95vw', minHeight: '400px', maxHeight: 'calc(100vh - 80px)' }
                             : { width: '85vw', height: '80vh', maxWidth: '720px' }
                 }
             >

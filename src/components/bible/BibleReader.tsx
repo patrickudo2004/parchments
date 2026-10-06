@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2, AlignLeft } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
@@ -9,7 +9,7 @@ import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { Languages } from 'lucide-react';
 import { ParallelVerseRow } from './ParallelVerseRow';
-import { Pin, X, BookOpen } from 'lucide-react';
+import { Pin, X, BookOpen, Copy, Quote } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoutService } from '@/lib/utils/popoutService';
@@ -37,7 +37,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
     const { pinItem } = useResearchStore();
 
-    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
+    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, openCrossRefs } = useUIStore();
+    const [readingFlowMode, setReadingFlowMode] = useState<'study' | 'paragraph'>('study');
 
     // Auto-expand/dock logic based on mode
     useEffect(() => {
@@ -190,6 +191,67 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         setSelectionRange(null);
     };
 
+    const handleCopyCitation = async (style: 'standard' | 'sbl' | 'chicago' = 'standard') => {
+        if (!selectionRange) return;
+        const start = Math.min(selectionRange.start, selectionRange.end);
+        const end = Math.max(selectionRange.start, selectionRange.end);
+
+        const rangeVerses = await db.bibleVerses
+            .where('[versionId+book+chapter]')
+            .equals([mainVersion, book, chapter])
+            .and(v => v.verse >= start && v.verse <= end)
+            .sortBy('verse');
+
+        if (rangeVerses.length === 0) return;
+
+        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+        const decryptedVerses = await decryptVerses(rangeVerses);
+        const plainText = decryptedVerses.map(v => `${v.verse} ${v.text}`).join(' ');
+        const refRange = `${book} ${chapter}:${start}${start !== end ? `–${end}` : ''}`;
+        const verTag = mainVersion.toUpperCase();
+
+        let formattedText = '';
+        if (style === 'sbl') {
+            formattedText = `"${plainText}" (${refRange} ${verTag}).`;
+        } else if (style === 'chicago') {
+            formattedText = `${refRange} (${verTag}): "${plainText}"`;
+        } else {
+            formattedText = `"${plainText}" — ${refRange} (${verTag})`;
+        }
+
+        await navigator.clipboard.writeText(formattedText);
+        showToast(`Copied ${refRange} (${style.toUpperCase()}) to clipboard`, 'success');
+        setSelectionRange(null);
+    };
+
+    const handleInsertIntoNote = async () => {
+        if (!selectionRange) return;
+        const { activeEditor } = useUIStore.getState();
+        const start = Math.min(selectionRange.start, selectionRange.end);
+        const end = Math.max(selectionRange.start, selectionRange.end);
+
+        const rangeVerses = await db.bibleVerses
+            .where('[versionId+book+chapter]')
+            .equals([mainVersion, book, chapter])
+            .and(v => v.verse >= start && v.verse <= end)
+            .sortBy('verse');
+
+        if (rangeVerses.length === 0) return;
+
+        const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
+        const decryptedVerses = await decryptVerses(rangeVerses);
+        const quoteHtml = `<blockquote><p>${decryptedVerses.map(v => `<sup>${v.verse}</sup> ${v.text}`).join(' ')}</p><p>— <em>${book} ${chapter}:${start}${start !== end ? `–${end}` : ''} (${mainVersion.toUpperCase()})</em></p></blockquote>`;
+
+        if (activeEditor) {
+            activeEditor.commands.insertContent(quoteHtml);
+            showToast('Inserted scripture into note!', 'success');
+        } else {
+            await navigator.clipboard.writeText(quoteHtml);
+            showToast('Copied HTML quote to clipboard', 'info');
+        }
+        setSelectionRange(null);
+    };
+
     if (installedVersions.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full bg-light-surface dark:bg-dark-surface p-8 text-center relative overflow-hidden">
@@ -326,6 +388,13 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                     >
                         <Languages size={18} />
                     </button>
+                    <button
+                        onClick={() => setReadingFlowMode(prev => prev === 'study' ? 'paragraph' : 'study')}
+                        className={`p-1.5 rounded-full transition-colors ${readingFlowMode === 'paragraph' ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                        title={readingFlowMode === 'paragraph' ? "Switch to Verse Study Grid" : "Switch to Continuous Paragraph Flow"}
+                    >
+                        <AlignLeft size={18} />
+                    </button>
                     {!isIndependent && !isMobile && (
                         <button
                             onClick={toggleRightSidebarFloating}
@@ -430,28 +499,56 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Reading Content */}
             <div ref={contentRef} className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className={`max-w-[1400px] mx-auto ${isMobile ? 'p-6 pt-10' : 'p-4 sm:p-12'}`}>
+                <div className={`${activeVersions.length > 1 ? 'max-w-[1400px]' : 'max-w-4xl'} mx-auto ${isMobile ? 'p-6 pt-10' : 'p-4 sm:p-12'}`}>
                     <h1 className={`${isMobile ? 'text-3xl' : 'text-5xl'} font-black mb-8 text-light-text-primary dark:text-dark-text-primary tracking-tight`}>
                         {book} <span className="text-primary">{chapter}</span>
                     </h1>
 
-                    {/* Scripture Text - Grid Version */}
-                    <div className="flex flex-col">
-                        {sortedVerseNums.length > 0 ? (
-                            sortedVerseNums.map((vNum) => (
-                                <ParallelVerseRow
-                                    key={vNum}
-                                    verseNum={vNum}
-                                    versions={activeVersions}
-                                    versesByVersion={groupedVerses[vNum]}
-                                />
-                            ))
-                        ) : (
-                            <div className="py-20 text-center space-y-4">
-                                <p className="text-light-text-disabled italic text-xl font-serif">Scripture text loading or not available.</p>
-                            </div>
-                        )}
-                    </div>
+                    {/* Scripture Text — Paragraph Flow vs Verse Study Grid */}
+                    {readingFlowMode === 'paragraph' ? (
+                        <div className="font-serif text-lg leading-relaxed text-light-text-primary dark:text-dark-text-primary py-4 select-text">
+                            {sortedVerseNums.map((vNum) => {
+                                const v = groupedVerses[vNum]?.[mainVersion];
+                                if (!v) return null;
+                                const isSelected = selectionRange && vNum >= Math.min(selectionRange.start, selectionRange.end) && vNum <= Math.max(selectionRange.start, selectionRange.end);
+                                return (
+                                    <span
+                                        key={vNum}
+                                        onClick={(e) => {
+                                            if (e.shiftKey && selectionRange) {
+                                                setSelectionRange({ ...selectionRange, end: vNum });
+                                            } else {
+                                                setSelectionRange({ start: vNum, end: vNum });
+                                                const vId = `${v.book.toLowerCase()}-${v.chapter}-${v.verse}`;
+                                                openCrossRefs(vId);
+                                            }
+                                        }}
+                                        className={`inline cursor-pointer transition-colors hover:text-primary rounded px-0.5 ${isSelected ? 'bg-primary/20 text-primary font-medium' : ''}`}
+                                    >
+                                        <sup className="font-bold text-xs text-primary/90 dark:text-primary mr-1 select-none">{vNum}</sup>
+                                        <span className="mr-1.5">{v.text}</span>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col">
+                            {sortedVerseNums.length > 0 ? (
+                                sortedVerseNums.map((vNum) => (
+                                    <ParallelVerseRow
+                                        key={vNum}
+                                        verseNum={vNum}
+                                        versions={activeVersions}
+                                        versesByVersion={groupedVerses[vNum]}
+                                    />
+                                ))
+                            ) : (
+                                <div className="py-20 text-center space-y-4">
+                                    <p className="text-light-text-disabled italic text-xl font-serif">Scripture text loading or not available.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Chapter End Navigation */}
                     <div className="mt-20 py-10 border-t border-light-border dark:border-dark-border flex justify-between items-center">
@@ -493,36 +590,74 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         initial={{ y: 100, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: 100, opacity: 0 }}
-                        className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[100] bg-dark-surface border border-white/10 shadow-2xl rounded-2xl p-2 px-4 flex items-center gap-4 text-white"
+                        className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[100] bg-dark-surface border border-white/10 shadow-2xl rounded-2xl p-2 px-3 sm:px-4 flex flex-wrap items-center gap-2 sm:gap-3 text-white max-w-[95vw]"
                     >
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-slate-900 font-black">
                                 <Pin size={16} />
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                                    {book} {chapter}:{Math.min(selectionRange.start, selectionRange.end)}{selectionRange.start !== selectionRange.end ? `-${Math.max(selectionRange.start, selectionRange.end)}` : ''}
+                                    {book} {chapter}:{Math.min(selectionRange.start, selectionRange.end)}{selectionRange.start !== selectionRange.end ? `–${Math.max(selectionRange.start, selectionRange.end)}` : ''}
                                 </span>
-                                <span className="text-[8px] opacity-50 font-medium">
-                                    {selectionRange.start === selectionRange.end ? '1 verse selected • Tap another to extend' : `${Math.abs(selectionRange.end - selectionRange.start) + 1} verses selected`}
+                                <span className="text-[9px] text-neutral-400 font-medium">
+                                    {selectionRange.start === selectionRange.end ? '1 verse' : `${Math.abs(selectionRange.end - selectionRange.start) + 1} verses`}
                                 </span>
                             </div>
                         </div>
 
-                        <div className="w-[1px] h-6 bg-white/10" />
+                        <div className="hidden sm:block w-[1px] h-6 bg-white/10" />
 
+                        {/* Pin Range */}
                         <button
                             onClick={handlePinSelection}
-                            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95"
+                            className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 shadow-sm"
+                            title="Pin selected verses to Research Board"
                         >
                             Pin Range
                         </button>
 
+                        {/* Copy Options */}
+                        <div className="flex items-center bg-white/10 rounded-xl p-0.5 text-[10px] font-bold">
+                            <button
+                                onClick={() => handleCopyCitation('standard')}
+                                className="px-2 py-1 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-1"
+                                title="Copy citation: &quot;Verse Text&quot; — Ref (Version)"
+                            >
+                                <Copy size={11} /> Copy
+                            </button>
+                            <button
+                                onClick={() => handleCopyCitation('sbl')}
+                                className="px-2 py-1 rounded-lg hover:bg-white/10 transition-colors text-[9px] opacity-80 hover:opacity-100"
+                                title="Copy in SBL Academic Style"
+                            >
+                                SBL
+                            </button>
+                            <button
+                                onClick={() => handleCopyCitation('chicago')}
+                                className="px-2 py-1 rounded-lg hover:bg-white/10 transition-colors text-[9px] opacity-80 hover:opacity-100"
+                                title="Copy in Chicago Turabian Footnote Style"
+                            >
+                                Chicago
+                            </button>
+                        </div>
+
+                        {/* Insert into Note */}
+                        <button
+                            onClick={handleInsertIntoNote}
+                            className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1 active:scale-95"
+                            title="Insert scripture blockquote directly into active note"
+                        >
+                            <Quote size={11} className="text-primary" />
+                            <span className="hidden sm:inline">Quote in Note</span>
+                        </button>
+
                         <button
                             onClick={() => setSelectionRange(null)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors opacity-70 hover:opacity-100"
+                            title="Clear Selection (Esc)"
                         >
-                            <X size={16} />
+                            <X size={15} />
                         </button>
                     </motion.div>
                 )}

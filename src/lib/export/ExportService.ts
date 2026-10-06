@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver';
 import html2pdf from 'html2pdf.js/src/index.js';
 // @ts-ignore
 import htmlToDocx from 'html-to-docx';
+import DOMPurify from 'dompurify';
 import { parseScriptureReference } from '@/lib/scriptureParser';
 import { dbHelpers } from '@/lib/db';
 import { MarkdownService } from '@/lib/markdown/MarkdownService';
@@ -63,8 +64,10 @@ export class ExportService {
             htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
         }
         try {
+            const sanitizedTitle = DOMPurify.sanitize(title);
+            const sanitizedBody = DOMPurify.sanitize(htmlContent);
             // html-to-docx expects a complete HTML document structure or at least body content
-            const fullHtml = `<!DOCTYPE html><html><head><title>${title}</title></head><body>${htmlContent}</body></html>`;
+            const fullHtml = `<!DOCTYPE html><html><head><title>${sanitizedTitle}</title></head><body>${sanitizedBody}</body></html>`;
 
             const data = await htmlToDocx(fullHtml, null, {
                 title: title,
@@ -130,9 +133,16 @@ export class ExportService {
             }
 
             if (typeof elementOrHtml === 'string') {
-                // If string, create a temp container with better formatting
+                // If string, create a temp container with better formatting and XSS protection
                 const container = document.createElement('div');
-                container.innerHTML = `<h1 style="margin-bottom: 20px; font-size: 24px; font-weight: bold;">${title}</h1>` + elementOrHtml;
+                const heading = document.createElement('h1');
+                heading.textContent = title;
+                heading.style.cssText = "margin-bottom: 20px; font-size: 24px; font-weight: bold; color: #000000;";
+                container.appendChild(heading);
+
+                const bodyDiv = document.createElement('div');
+                bodyDiv.innerHTML = DOMPurify.sanitize(elementOrHtml);
+                container.appendChild(bodyDiv);
 
                 // Apply styles to prevent clipping
                 container.style.width = '180mm'; // A4 width minus margins

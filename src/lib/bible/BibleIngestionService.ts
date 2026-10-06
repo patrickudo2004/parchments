@@ -9,45 +9,97 @@ export class BibleIngestionService {
         console.info('[BibleIngestion] Starting encrypted KJV ingestion...');
 
         try {
-            const response = await fetch(KJV_URL);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch KJV: ${response.statusText}`);
+            let data: any = null;
+
+            // 1. First attempt: bundled local asset in public/data/bibles/ (100% offline cold-launch support)
+            try {
+                const localRes = await fetch('/data/bibles/KJV.json');
+                if (localRes.ok) {
+                    data = await localRes.json();
+                    console.info('[BibleIngestion] Using bundled local KJV scripture asset.');
+                }
+            } catch (err) {
+                console.warn('[BibleIngestion] Local KJV asset fetch failed, trying remote...', err);
             }
 
-            const data = await response.json();
+            // 2. Fallback: remote URL if local asset is unavailable
+            if (!data) {
+                const response = await fetch(KJV_URL);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch KJV: ${response.statusText}`);
+                }
+                data = await response.json();
+            }
+
             const versesToIngest: BibleVerse[] = [];
 
-            for (const book of data.books) {
-                let bookName = book.name;
+            if (data && data.books) {
+                if (Array.isArray(data.books)) {
+                    // Scrollmapper Array format
+                    for (const book of data.books) {
+                        let bookName = book.name;
+                        if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
+                        else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
+                        else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
 
-                if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
-                else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
-                else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
+                        for (const chapter of book.chapters) {
+                            const chapterNumber = chapter.chapter;
+                            for (const verse of chapter.verses) {
+                                const verseNumber = verse.verse;
+                                const text = verse.text;
+                                const encryptedText = await encryptVerseText(text);
 
-                for (const chapter of book.chapters) {
-                    const chapterNumber = chapter.chapter;
-                    for (const verse of chapter.verses) {
-                        const verseNumber = verse.verse;
-                        const text = verse.text;
+                                versesToIngest.push({
+                                    id: `kjv-${bookName}-${chapterNumber}-${verseNumber}`.toLowerCase(),
+                                    versionId: 'kjv',
+                                    book: bookName,
+                                    chapter: chapterNumber,
+                                    verse: verseNumber,
+                                    text: encryptedText
+                                });
+                            }
+                        }
+                    }
+                } else if (typeof data.books === 'object') {
+                    // Bundled /data/bibles/KJV.json Object format
+                    for (const [rawBookName, bookObj] of Object.entries<any>(data.books)) {
+                        let bookName = rawBookName;
+                        if (bookName.startsWith('I ')) bookName = bookName.replace('I ', '1 ');
+                        else if (bookName.startsWith('II ')) bookName = bookName.replace('II ', '2 ');
+                        else if (bookName.startsWith('III ')) bookName = bookName.replace('III ', '3 ');
 
-                        const encryptedText = await encryptVerseText(text);
+                        const chapters = (bookObj as any)?.chapters || {};
+                        for (const [chapNumStr, chapObj] of Object.entries<any>(chapters)) {
+                            const chapterNumber = parseInt(chapNumStr, 10);
+                            const verses = (chapObj as any)?.verses || {};
+                            for (const [verseNumStr, verseText] of Object.entries<any>(verses)) {
+                                const verseNumber = parseInt(verseNumStr, 10);
+                                const text = typeof verseText === 'string' ? verseText : (verseText as any)?.text || '';
+                                const encryptedText = await encryptVerseText(text);
 
-                        versesToIngest.push({
-                            id: `kjv-${bookName}-${chapterNumber}-${verseNumber}`.toLowerCase(),
-                            versionId: 'kjv',
-                            book: bookName,
-                            chapter: chapterNumber,
-                            verse: verseNumber,
-                            text: encryptedText
-                        });
+                                versesToIngest.push({
+                                    id: `kjv-${bookName}-${chapterNumber}-${verseNumber}`.toLowerCase(),
+                                    versionId: 'kjv',
+                                    book: bookName,
+                                    chapter: chapterNumber,
+                                    verse: verseNumber,
+                                    text: encryptedText
+                                });
+                            }
+                        }
                     }
                 }
             }
 
-            console.info(`[BibleIngestion] Parsing complete. Encrypting & Ingesting ${versesToIngest.length} verses...`);
+            console.info(`[BibleIngestion] Parsing complete. Encrypting & Ingesting ${versesToIngest.length} verses in safe batches...`);
 
-            // Bulk add to IndexedDB
-            await db.bibleVerses.bulkPut(versesToIngest);
+            // Safe Batch Ingestion (Rule 2: CHUNK_SIZE = 2500 with event loop yielding)
+            const CHUNK_SIZE = 2500;
+            for (let i = 0; i < versesToIngest.length; i += CHUNK_SIZE) {
+                const chunk = versesToIngest.slice(i, i + CHUNK_SIZE);
+                await db.bibleVerses.bulkPut(chunk);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
 
             // Update version metadata
             const kjvMetadata: BibleVersion = {
@@ -77,6 +129,8 @@ export class BibleIngestionService {
     static async ingestStrongs() {
         console.info('[BibleIngestion] Starting Strongs Lexicon ingestion...');
         try {
+            const CHUNK_SIZE = 2500;
+
             // 1. Hebrew
             const hRes = await fetch('/data/strongs/hebrew.json');
             const hData = await hRes.json();
@@ -89,7 +143,11 @@ export class BibleIngestionService {
                 strongs_def: data.strongs_def,
                 kjv_def: data.kjv_def,
             }));
-            await db.strongsEntries.bulkPut(hEntries);
+            for (let i = 0; i < hEntries.length; i += CHUNK_SIZE) {
+                const chunk = hEntries.slice(i, i + CHUNK_SIZE);
+                await db.strongsEntries.bulkPut(chunk);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
             console.info(`[BibleIngestion] Ingested ${hEntries.length} Hebrew Strongs entries.`);
 
             // 2. Greek
@@ -104,7 +162,11 @@ export class BibleIngestionService {
                 strongs_def: data.strongs_def,
                 kjv_def: data.kjv_def,
             }));
-            await db.strongsEntries.bulkPut(gEntries);
+            for (let i = 0; i < gEntries.length; i += CHUNK_SIZE) {
+                const chunk = gEntries.slice(i, i + CHUNK_SIZE);
+                await db.strongsEntries.bulkPut(chunk);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
             console.info(`[BibleIngestion] Ingested ${gEntries.length} Greek Strongs entries.`);
 
             return true;

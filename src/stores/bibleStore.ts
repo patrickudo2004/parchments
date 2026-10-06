@@ -156,6 +156,13 @@ export const useBibleStore = create<BibleStore>()(
         }),
         {
             name: 'parchments-bible-v2', // Increment version to clear KJV vs kjv confusion
+            partialize: (state) => ({
+                mainVersion: state.mainVersion,
+                parallelVersions: state.parallelVersions,
+                bibleFocus: state.bibleFocus,
+                interlinearEnabled: state.interlinearEnabled,
+                verseHoverPreviews: state.verseHoverPreviews
+            })
         }
     )
 );

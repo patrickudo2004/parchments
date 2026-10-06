@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { useBibleStore } from '@/stores/bibleStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { BibleVerse, BibleVersion } from '@/types/database';
+import { parseVerseSegments } from '@/lib/scriptureParser';
 
 export interface PulpitScriptureTarget {
     book: string;
@@ -31,7 +32,7 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
     const { isMobile, showToast } = useUIStore();
     const [selectedVersion, setSelectedVersion] = useState<string>(mainVersion || 'KJV');
-    const [verses, setVerses] = useState<{ verse: number; text: string }[]>([]);
+    const [verses, setVerses] = useState<{ verse: number; text: string; omittedBeforeNotice?: string | null }[]>([]);
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
     const [activeVersionBadge, setActiveVersionBadge] = useState<string>(mainVersion || 'KJV');
@@ -46,73 +47,106 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
             try {
                 const { book, chapter, verse, verseEnd, segments } = target;
 
-                // 1. Try selected version
-                let rawVerses = await db.bibleVerses
-                    .where('[versionId+book+chapter]')
-                    .equals([selectedVersion, book, chapter])
-                    .sortBy('verse');
+                const parsedSegments = segments
+                    ? parseVerseSegments(segments)
+                    : [{ verse, verseEnd: verseEnd && verseEnd > verse ? verseEnd : null }];
 
                 let activeVer = selectedVersion;
+                const resultVerses: { verse: number; text: string; omittedBeforeNotice?: string | null }[] = [];
 
-                // Fallback to KJV if active version lacks this book/chapter (Rule 1)
-                if (rawVerses.length === 0 && selectedVersion !== 'KJV') {
-                    rawVerses = await db.bibleVerses
-                        .where('[versionId+book+chapter]')
-                        .equals(['KJV', book, chapter])
-                        .sortBy('verse');
+                // Check if selectedVersion has verses for this book/chapter
+                let checkCount = await db.bibleVerses
+                    .where('[versionId+book+chapter]')
+                    .equals([selectedVersion, book, chapter])
+                    .count();
+
+                if (checkCount === 0 && selectedVersion !== 'KJV') {
                     activeVer = 'KJV';
                 }
 
-                // If still empty, try case-insensitive or book name normalization
-                if (rawVerses.length === 0) {
-                    const allInChapter = await db.bibleVerses
-                        .where('chapter')
-                        .equals(chapter)
-                        .filter(v => (v.versionId === selectedVersion || v.versionId === 'KJV') && v.book.toLowerCase() === book.toLowerCase())
-                        .sortBy('verse');
-                    if (allInChapter.length > 0) {
-                        rawVerses = allInChapter;
-                        activeVer = allInChapter[0].versionId;
-                    }
-                }
-
-                if (isCancelled) return;
-
-                // 2. Filter by verse / range / segments
-                let filteredVerses: BibleVerse[] = [];
-                if (segments) {
-                    try {
-                        const parsedSegments: { verse: number; verseEnd?: number }[] = JSON.parse(segments);
-                        filteredVerses = rawVerses.filter(v =>
-                            parsedSegments.some(s =>
-                                s.verseEnd ? (v.verse >= s.verse && v.verse <= s.verseEnd) : v.verse === s.verse
-                            )
-                        );
-                    } catch {
-                        filteredVerses = rawVerses.filter(v =>
-                            verseEnd && verseEnd >= verse ? (v.verse >= verse && v.verse <= verseEnd) : v.verse === verse
-                        );
-                    }
-                } else if (verseEnd && verseEnd >= verse) {
-                    filteredVerses = rawVerses.filter(v => v.verse >= verse && v.verse <= verseEnd);
-                } else if (verse) {
-                    filteredVerses = rawVerses.filter(v => v.verse === verse);
-                } else {
-                    filteredVerses = rawVerses;
-                }
-
-                // If no specific verse matched, show at least requested verse or first few
-                if (filteredVerses.length === 0 && rawVerses.length > 0) {
-                    filteredVerses = rawVerses.filter(v => v.verse === verse);
-                    if (filteredVerses.length === 0) filteredVerses = rawVerses.slice(0, 3);
-                }
-
-                // 3. Decrypt text invariant (Rule 1)
                 const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
-                const plainVerses = await decryptVerses(filteredVerses);
+
+                for (let idx = 0; idx < parsedSegments.length; idx++) {
+                    const seg = parsedSegments[idx];
+                    let omittedBeforeNotice: string | null = null;
+
+                    if (idx > 0) {
+                        const prevSeg = parsedSegments[idx - 1];
+                        const prevEnd = prevSeg.verseEnd || prevSeg.verse;
+                        const currentStart = seg.verse;
+                        if (currentStart > prevEnd + 1) {
+                            if (currentStart === prevEnd + 2) {
+                                omittedBeforeNotice = `v. ${prevEnd + 1} omitted`;
+                            } else {
+                                omittedBeforeNotice = `vv. ${prevEnd + 1}–${currentStart - 1} omitted`;
+                            }
+                        }
+                    }
+
+                    let segVerses: BibleVerse[] = [];
+                    if (seg.verseEnd && seg.verseEnd > seg.verse) {
+                        segVerses = await db.bibleVerses
+                            .where('[versionId+book+chapter]')
+                            .equals([activeVer, book, chapter])
+                            .and(v => v.verse >= seg.verse && v.verse <= seg.verseEnd!)
+                            .sortBy('verse');
+                    } else {
+                        const v = await db.bibleVerses
+                            .where('[versionId+book+chapter+verse]')
+                            .equals([activeVer, book, chapter, seg.verse])
+                            .first();
+                        if (v) segVerses = [v];
+                    }
+
+                    // Fallback to KJV if specific segment not found in active translation (Rule 1)
+                    if (segVerses.length === 0 && activeVer !== 'KJV') {
+                        if (seg.verseEnd && seg.verseEnd > seg.verse) {
+                            segVerses = await db.bibleVerses
+                                .where('[versionId+book+chapter]')
+                                .equals(['KJV', book, chapter])
+                                .and(v => v.verse >= seg.verse && v.verse <= seg.verseEnd!)
+                                .sortBy('verse');
+                        } else {
+                            const v = await db.bibleVerses
+                                .where('[versionId+book+chapter+verse]')
+                                .equals(['KJV', book, chapter, seg.verse])
+                                .first();
+                            if (v) segVerses = [v];
+                        }
+                        if (segVerses.length > 0) activeVer = 'KJV';
+                    }
+
+                    // Fallback to case-insensitive book match if needed
+                    if (segVerses.length === 0) {
+                        const allInChapter = await db.bibleVerses
+                            .where('chapter')
+                            .equals(chapter)
+                            .filter(v => (v.versionId === activeVer || v.versionId === 'KJV') && v.book.toLowerCase() === book.toLowerCase())
+                            .sortBy('verse');
+                        if (allInChapter.length > 0) {
+                            segVerses = allInChapter.filter(v =>
+                                seg.verseEnd ? (v.verse >= seg.verse && v.verse <= seg.verseEnd) : v.verse === seg.verse
+                            );
+                            if (segVerses.length > 0) activeVer = segVerses[0].versionId;
+                        }
+                    }
+
+                    if (isCancelled) return;
+
+                    // Decrypt verses (Rule 1)
+                    const plainVerses = await decryptVerses(segVerses);
+
+                    plainVerses.forEach((pv, pIdx) => {
+                        resultVerses.push({
+                            verse: pv.verse,
+                            text: pv.text,
+                            omittedBeforeNotice: pIdx === 0 ? omittedBeforeNotice : null
+                        });
+                    });
+                }
 
                 if (!isCancelled) {
-                    setVerses(plainVerses.map(v => ({ verse: v.verse, text: v.text })));
+                    setVerses(resultVerses);
                     setActiveVersionBadge(activeVer);
                     setLoading(false);
                 }
@@ -133,9 +167,11 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
 
     if (!target) return null;
 
-    const refString = target.verseEnd && target.verseEnd > target.verse
-        ? `${target.book} ${target.chapter}:${target.verse}–${target.verseEnd}`
-        : `${target.book} ${target.chapter}:${target.verse}`;
+    const refString = target.segments
+        ? `${target.book} ${target.chapter}:${target.segments.replace(/,/g, ', ').replace(/-/g, '–')}`
+        : target.verseEnd && target.verseEnd > target.verse
+            ? `${target.book} ${target.chapter}:${target.verse}–${target.verseEnd}`
+            : `${target.book} ${target.chapter}:${target.verse}`;
 
     const handleCopy = () => {
         const fullText = verses.map(v => `${v.verse} ${v.text}`).join(' ');
@@ -242,12 +278,23 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                         ) : (
                             <div className="space-y-3">
                                 {verses.map(v => (
-                                    <p key={v.verse} className="flex gap-2.5 items-baseline">
-                                        <sup className={`text-xs font-sans font-bold select-none ${isContrast ? 'text-amber-500' : 'text-primary'}`}>
-                                            {v.verse}
-                                        </sup>
-                                        <span>{v.text}</span>
-                                    </p>
+                                    <React.Fragment key={v.verse}>
+                                        {v.omittedBeforeNotice && (
+                                            <div className="flex items-center gap-3 py-2 my-1 select-none opacity-60">
+                                                <div className="h-[1px] flex-1 bg-current opacity-20" />
+                                                <span className="text-[11px] font-sans font-bold italic tracking-wider px-3 py-0.5 rounded-full border border-current/20">
+                                                    {v.omittedBeforeNotice}
+                                                </span>
+                                                <div className="h-[1px] flex-1 bg-current opacity-20" />
+                                            </div>
+                                        )}
+                                        <p className="flex gap-2.5 items-baseline">
+                                            <sup className={`text-xs font-sans font-bold select-none ${isContrast ? 'text-amber-500' : 'text-primary'}`}>
+                                                {v.verse}
+                                            </sup>
+                                            <span>{v.text}</span>
+                                        </p>
+                                    </React.Fragment>
                                 ))}
                             </div>
                         )}

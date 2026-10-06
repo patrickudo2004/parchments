@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { X, Search, Settings, BookOpen } from 'lucide-react';
@@ -13,26 +13,58 @@ export const BibleModal: React.FC = () => {
     const constraintsRef = useRef(null);
     const dragControls = useDragControls();
 
+    const [isDesktop, setIsDesktop] = useState(
+        typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    );
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsDesktop(window.innerWidth >= 1024);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (!isBibleModalOpen) return null;
 
     return (
         <div ref={constraintsRef} className={`fixed inset-0 z-[100] pointer-events-none flex justify-center ${isMobile ? 'items-end' : 'items-center'}`}>
+            {!isDesktop && (
+                <div
+                    className="fixed inset-0 bg-black/50 backdrop-blur-xs pointer-events-auto"
+                    onClick={toggleBibleModal}
+                />
+            )}
             <motion.div
-                drag={!isMobile}
+                drag={isDesktop}
                 dragListener={false}
                 dragControls={dragControls}
                 dragMomentum={false}
                 dragConstraints={constraintsRef}
-                initial={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 0 }}
+                initial={{ opacity: 0, scale: isMobile ? 1 : 0.95, y: isMobile ? 100 : 0 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: isMobile ? 1 : 0.9, y: isMobile ? 100 : 0 }}
-                className={`pointer-events-auto bg-light-surface dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden ${isMobile ? 'w-full h-[90vh] max-h-[90vh] rounded-t-3xl border-b-0' : 'rounded-2xl'}`}
-                style={isMobile ? { width: '100vw', height: '90vh', maxWidth: '100vw' } : { width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '350px', maxWidth: '95vw', minHeight: '450px', maxHeight: '90vh' }}
+                exit={{ opacity: 0, scale: isMobile ? 1 : 0.95, y: isMobile ? 100 : 0 }}
+                className={`pointer-events-auto bg-light-surface dark:bg-dark-surface shadow-2xl flex flex-col border border-light-border dark:border-dark-border overflow-hidden relative z-10 ${
+                    isMobile 
+                        ? 'w-full h-[90vh] max-h-[90vh] rounded-t-3xl border-b-0' 
+                        : isDesktop
+                            ? 'rounded-2xl'
+                            : 'w-[90vw] max-w-2xl h-[82vh] rounded-3xl'
+                }`}
+                style={
+                    isMobile 
+                        ? { width: '100vw', height: '90vh', maxWidth: '100vw' } 
+                        : isDesktop
+                            ? { width: '600px', height: '750px', resize: 'both', overflow: 'hidden', minWidth: '350px', maxWidth: '95vw', minHeight: '450px', maxHeight: '90vh' }
+                            : { width: '85vw', height: '80vh', maxWidth: '720px' }
+                }
             >
-                {/* Header (Drag Handle) */}
+                {/* Header (Drag Handle on Desktop) */}
                 <div
-                    className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 bg-light-background/50 dark:bg-dark-background/50 backdrop-blur-md cursor-move select-none shrink-0"
-                    onPointerDown={(e) => dragControls.start(e)}
+                    className={`h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-6 bg-light-background/50 dark:bg-dark-background/50 backdrop-blur-md select-none shrink-0 ${isDesktop ? 'cursor-move' : ''}`}
+                    onPointerDown={(e) => {
+                        if (isDesktop) dragControls.start(e);
+                    }}
                 >
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
@@ -45,19 +77,19 @@ export const BibleModal: React.FC = () => {
                     <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => setSearchOpen(!isSearchOpen)}
-                            className={`p-2 rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary'}`}
+                            className={`p-2 rounded-xl transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95 touch-manipulation ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary'}`}
                             title={isSearchOpen ? "Back to Bible" : "Search (Keywords, References, Strong's)"}
                         >
                             <Search size={16} />
                         </button>
-                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-full transition-colors" title="Settings"><Settings size={16} /></button>
-                        <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-1" />
+                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-xl transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95 touch-manipulation" title="Settings"><Settings size={16} /></button>
+                        <div className="w-[1px] h-4 bg-light-border dark:border-dark-border mx-1" />
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleBibleModal();
                             }}
-                            className="p-1.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full transition-colors"
+                            className="p-1.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95 touch-manipulation"
                             title="Close (Esc)"
                         >
                             <X size={20} />
@@ -73,12 +105,14 @@ export const BibleModal: React.FC = () => {
                     </AnimatePresence>
                 </div>
 
-                {/* Resize Handle (Custom) */}
-                <div className="absolute bottom-1 right-1 cursor-se-resize p-1 z-50 pointer-events-none">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2L2 10H10V2Z" className="fill-light-border dark:fill-dark-border" />
-                    </svg>
-                </div>
+                {/* Resize Handle (Desktop only) */}
+                {isDesktop && (
+                    <div className="absolute bottom-1 right-1 cursor-se-resize p-1 z-50 pointer-events-none">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2L2 10H10V2Z" className="fill-light-border dark:fill-dark-border" />
+                        </svg>
+                    </div>
+                )}
             </motion.div>
         </div>
     );

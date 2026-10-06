@@ -394,7 +394,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {!isFocusMode && !pulpitMode && !isMobile && <StatusBar />}
 
                 {/* Floating Modals Container */}
-                <div className="fixed inset-0 pointer-events-none z-[60]">
+                <div className="fixed inset-0 pointer-events-none z-[100]">
                     <div className="absolute inset-0 pointer-events-none">
                         <AnimatePresence>
                             {isBibleModalOpen && (

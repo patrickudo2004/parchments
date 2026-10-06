@@ -16,7 +16,8 @@ import {
     Contrast,
     Maximize,
     Minimize,
-    FileText
+    FileText,
+    BookOpen
 } from 'lucide-react';
 import { ScriptureTooltipProvider } from './ScriptureTooltip';
 import { PulpitScriptureModal, type PulpitScriptureTarget } from './PulpitScriptureModal';
@@ -44,7 +45,9 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         pulpitFontSize,
         setPulpitFontSize,
         pulpitTheme,
-        setPulpitTheme
+        setPulpitTheme,
+        isBibleModalOpen,
+        toggleBibleModal
     } = useUIStore();
 
     // Timer State (Silent Timer)
@@ -195,10 +198,41 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
     // Keyboard Shortcuts for Pulpit & Remote Clickers
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Escape exits pulpit mode
+            const targetEl = e.target as HTMLElement | null;
+            const isTyping = targetEl && (
+                targetEl.tagName === 'INPUT' ||
+                targetEl.tagName === 'TEXTAREA' ||
+                targetEl.isContentEditable
+            );
+
+            // Escape dismisses active overlays first before exiting pulpit mode
             if (e.key === 'Escape') {
                 e.preventDefault();
+                if (scriptureTarget) {
+                    setScriptureTarget(null);
+                    return;
+                }
+                if (isNoteSwitcherOpen) {
+                    setIsNoteSwitcherOpen(false);
+                    return;
+                }
+                if (isBibleModalOpen) {
+                    toggleBibleModal();
+                    return;
+                }
                 handleExit();
+                return;
+            }
+
+            // Do not trigger hotkeys if user is searching/typing
+            if (isTyping) {
+                return;
+            }
+
+            // B key toggles Mini Bible modal
+            if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                toggleBibleModal();
                 return;
             }
 
@@ -237,7 +271,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [pulpitModeType, handleNextPage, handlePrevPage, handleExit]);
+    }, [pulpitModeType, handleNextPage, handlePrevPage, handleExit, scriptureTarget, isNoteSwitcherOpen, isBibleModalOpen, toggleBibleModal]);
 
     // Cycle through themes: standard (linen/charcoal) -> dark (charcoal/linen) -> contrast (pure black/white)
     const cycleTheme = () => {
@@ -333,6 +367,14 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={toggleBibleModal}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isBibleModalOpen ? 'bg-primary text-white' : 'bg-white/15 hover:bg-white/25 text-white'}`}
+                            title="Open Mini Bible (B)"
+                        >
+                            <BookOpen size={13} />
+                            <span>Bible</span>
+                        </button>
+                        <button
                             onClick={() => setIsDistractionFree(false)}
                             className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-bold transition-all active:scale-95"
                             title="Show Pulpit Controls"
@@ -396,6 +438,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                     <FileText size={15} className="shrink-0 text-primary" />
                                     <span className="truncate">{displayTitle}</span>
                                     <ChevronDown size={13} className="shrink-0 opacity-60" />
+                                </button>
+
+                                {/* Mini Bible Quick-Launch Button */}
+                                <button
+                                    onClick={toggleBibleModal}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
+                                    title="Open Mini Bible Studyspace (B)"
+                                >
+                                    <BookOpen size={15} className={isBibleModalOpen ? "" : "text-primary"} />
+                                    <span>Mini Bible</span>
                                 </button>
                             </div>
 
@@ -604,6 +656,16 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                         <span className="truncate">{displayTitle}</span>
                                         <ChevronDown size={12} className="shrink-0 opacity-60" />
                                     </button>
+
+                                    {/* Mini Bible Quick-Launch Button */}
+                                    <button
+                                        onClick={toggleBibleModal}
+                                        className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
+                                        title="Open Mini Bible (B)"
+                                    >
+                                        <BookOpen size={14} className={isBibleModalOpen ? "" : "text-primary"} />
+                                        <span className="hidden sm:inline">Mini Bible</span>
+                                    </button>
                                 </div>
 
                                 {/* Right: Font Size, Theme, Fullscreen, Focus, Exit */}
@@ -743,12 +805,22 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 {/* Sermon Note Switcher Pill */}
                                 <button
                                     onClick={() => setIsNoteSwitcherOpen(true)}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] max-w-[130px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${buttonBase}`}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] max-w-[100px] xs:max-w-[130px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${buttonBase}`}
                                     title="Switch Sermon Note"
                                 >
                                     <FileText size={12} className="shrink-0 text-primary" />
                                     <span className="truncate">{displayTitle}</span>
                                     <ChevronDown size={11} className="shrink-0 opacity-60" />
+                                </button>
+
+                                {/* Mini Bible Quick-Launch Button */}
+                                <button
+                                    onClick={toggleBibleModal}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
+                                    title="Mini Bible (B)"
+                                >
+                                    <BookOpen size={12} className={isBibleModalOpen ? "" : "text-primary"} />
+                                    <span>Bible</span>
                                 </button>
 
                                 {/* Exit Button */}

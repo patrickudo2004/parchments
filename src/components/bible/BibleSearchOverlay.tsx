@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useBibleStore } from '@/stores/bibleStore';
-import { Search, X, Loader2, Book } from 'lucide-react';
+import { Search, X, Loader2, Book, Hash, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { db } from '@/lib/db';
+import type { StrongsEntry } from '@/types/database';
+import { useUIStore } from '@/stores/uiStore';
 
 export const BibleSearchOverlay: React.FC = () => {
     const {
@@ -13,15 +16,33 @@ export const BibleSearchOverlay: React.FC = () => {
         executeSearch,
         setBibleFocus
     } = useBibleStore();
-
+    const { showToast } = useUIStore();
 
     // Local state for immediate input feedback
     const [localQuery, setLocalQuery] = useState(searchQuery);
+    const [strongsEntry, setStrongsEntry] = useState<StrongsEntry | null>(null);
+    const [copiedStrongs, setCopiedStrongs] = useState(false);
 
     // Sync local state if store changes externally (e.g. from Interlinear search)
     useEffect(() => {
         setLocalQuery(searchQuery);
     }, [searchQuery]);
+
+    // Check for Strong's code in search query (e.g. G26, H7225)
+    useEffect(() => {
+        const trimmed = localQuery.trim();
+        if (/^[GH]\d+$/i.test(trimmed)) {
+            const normId = trimmed.toUpperCase();
+            db.strongsEntries.get(normId).then(res => {
+                setStrongsEntry(res || null);
+            }).catch(err => {
+                console.error('[BibleSearchOverlay] Failed to fetch Strongs:', err);
+                setStrongsEntry(null);
+            });
+        } else {
+            setStrongsEntry(null);
+        }
+    }, [localQuery]);
 
     // Debounce effect: Update the store and execute search after 400ms of inactivity
     useEffect(() => {
@@ -38,6 +59,15 @@ export const BibleSearchOverlay: React.FC = () => {
     const handleResultClick = (v: any) => {
         setBibleFocus({ book: v.book, chapter: v.chapter, verse: v.verse });
         setSearchOpen(false);
+    };
+
+    const handleCopyStrongs = () => {
+        if (!strongsEntry) return;
+        const text = `[Strong's ${strongsEntry.id}] ${strongsEntry.lemma} (${strongsEntry.xlit})\nPronunciation: ${strongsEntry.pron || 'N/A'}\nDefinition: ${strongsEntry.strongs_def}\nKJV Usage: ${strongsEntry.kjv_def || 'N/A'}`;
+        navigator.clipboard.writeText(text);
+        setCopiedStrongs(true);
+        showToast(`Copied Strong's ${strongsEntry.id} to clipboard`, 'success');
+        setTimeout(() => setCopiedStrongs(false), 2000);
     };
 
     return (
@@ -77,9 +107,56 @@ export const BibleSearchOverlay: React.FC = () => {
 
             {/* Results Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {/* Strong's Concordance Card */}
+                {strongsEntry && (
+                    <div className="m-4 p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                                    <Hash size={11} />
+                                    <span>{strongsEntry.id}</span>
+                                </span>
+                                <span className="font-serif text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+                                    {strongsEntry.lemma}
+                                </span>
+                                <span className="text-xs text-light-text-secondary dark:text-dark-text-secondary italic">
+                                    ({strongsEntry.xlit})
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleCopyStrongs}
+                                className="p-1.5 rounded-lg border border-primary/20 hover:bg-primary/10 text-primary transition-colors flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                                title="Copy Strong's Definition"
+                            >
+                                {copiedStrongs ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                                <span>{copiedStrongs ? 'Copied' : 'Copy'}</span>
+                            </button>
+                        </div>
+
+                        {strongsEntry.pron && (
+                            <p className="text-[11px] font-mono text-light-text-disabled">
+                                Pronunciation: <span className="font-semibold text-light-text-secondary dark:text-dark-text-secondary">{strongsEntry.pron}</span>
+                            </p>
+                        )}
+
+                        <div className="text-xs text-light-text-primary dark:text-dark-text-primary leading-relaxed space-y-1 font-serif">
+                            <p className="font-sans font-bold text-[10px] uppercase tracking-wider text-primary opacity-80">
+                                Strong's Definition:
+                            </p>
+                            <p className="opacity-95">{strongsEntry.strongs_def}</p>
+                        </div>
+
+                        {strongsEntry.kjv_def && (
+                            <div className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary leading-relaxed pt-2 border-t border-light-border/40 dark:border-dark-border/40 font-sans">
+                                <span className="font-bold text-light-text-primary dark:text-dark-text-primary">KJV Translation Usage: </span>
+                                <span className="italic">{strongsEntry.kjv_def}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {isSearching ? (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-48">
                         <Loader2 className="animate-spin text-primary" />
                     </div>
                 ) : searchResults.length > 0 ? (

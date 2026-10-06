@@ -446,6 +446,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     }, [editor, pulpitMode]);
 
+    // Sync TipTap content when switching active note (e.g. in Pulpit Mode note switcher)
+    useEffect(() => {
+        if (editor && currentNote && !shouldSync) {
+            const currentHTML = editor.getHTML();
+            const noteContent = currentNote.content || '';
+            if (currentHTML !== noteContent && (currentHTML === '<p></p>' || currentHTML === '' || noteContent !== '')) {
+                editor.commands.setContent(noteContent);
+            }
+        }
+    }, [editor, currentNote?.id, currentNote?.content, shouldSync]);
+
     // Zoom Keyboard Shortcuts
     useEffect(() => {
         const handleZoom = (e: KeyboardEvent) => {

@@ -14,7 +14,8 @@ const SHORTCUTS = [
             { label: 'Toggle Left Sidebar', keys: ['Ctrl', 'B'] },
             { label: 'Toggle Bible Panel', keys: ['Ctrl', ']'] },
             { label: 'Open Settings', keys: ['Ctrl', ','] },
-            { label: 'Help / Shortcuts', keys: ['F1'] },
+            { label: 'User Guide & Documentation', keys: ['F1'] },
+            { label: 'Keyboard Shortcuts', keys: ['Ctrl', '?'] },
         ]
     },
     {

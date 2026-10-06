@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { exportService, type ExportOptions } from '@/lib/export/ExportService';
 import { ExportOptionsModal } from '@/components/export/ExportOptionsModal';
 import { useState } from 'react';
-import { PenTool, Search, Moon, Sun, Settings, Download, Share2, BookOpen } from 'lucide-react';
+import { PenTool, Search, Moon, Sun, Settings, Download, Share2, BookOpen, HelpCircle } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { useSyncStore } from '@/stores/syncStore';
 import { CollaborationList } from '@/components/editor/CollaborationList';
@@ -16,7 +16,7 @@ export const TopBar: React.FC = () => {
     const {
         theme, toggleTheme, toggleSettingsModal, toggleSearchModal,
         isExportModalOpen, exportFormat, closeExportModal, openExportModal,
-        toggleTemplateModal, toggleNoFolderModal
+        toggleTemplateModal, toggleNoFolderModal, toggleUserGuide
     } = useUIStore();
     const { identity } = useSyncStore();
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -184,6 +184,14 @@ export const TopBar: React.FC = () => {
                     title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 >
                     {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+
+                <button
+                    onClick={() => toggleUserGuide()}
+                    className="p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary active:scale-95"
+                    title="User Guide & Documentation (F1)"
+                >
+                    <HelpCircle size={18} />
                 </button>
 
                 <button

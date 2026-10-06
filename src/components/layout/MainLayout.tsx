@@ -12,6 +12,7 @@ import { BibleModal } from '@/components/bible/BibleModal';
 import { BibleReader } from '@/components/bible/BibleReader';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutModal } from './ShortcutModal';
+import { UserGuideModal } from '@/components/help/UserGuideModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
     Search as SearchIcon
@@ -50,6 +51,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         toggleSettingsModal,
         isShortcutModalOpen,
         toggleShortcutModal,
+        isUserGuideOpen,
+        userGuideChapterId,
+        toggleUserGuide,
         setLeftSidebarWidth,
         leftSidebarWidth,
         leftSidebarContent,
@@ -190,18 +194,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 e.preventDefault();
                 openLooseFile();
             }
+
+            if (e.key === 'F1') {
+                e.preventDefault();
+                toggleUserGuide();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toggleSearchModal, hasStudyspace, createNote, openLooseFile]);
+    }, [toggleSearchModal, hasStudyspace, createNote, openLooseFile, toggleUserGuide]);
 
     return (
         <ErrorBoundary>
             <div className={`h-[100dvh] w-full flex flex-col bg-light-background dark:bg-dark-background text-light-text-primary dark:text-dark-text-primary overflow-x-hidden ${density === 'compact' ? 'density-compact' : ''} ${isMobile && !pulpitMode && !isLectioModeActive ? 'pb-16' : ''}`}>
                 <UpdateBanner />
                 <VersionLockModal />
-                {!isMobile && !isLectioModeActive && <TopBar />}
+                {!isMobile && !isLectioModeActive && !pulpitMode && <TopBar />}
                 {!isFocusMode && !isMobile && !isLectioModeActive && !pulpitMode && <MenuBar />}
 
                 <div className={`flex-1 flex overflow-hidden relative ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'flex-col' : 'flex-row'}`}>
@@ -436,6 +445,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             />
             <SettingsModal isOpen={isSettingsModalOpen} onClose={toggleSettingsModal} />
             <ShortcutModal isOpen={isShortcutModalOpen} onClose={toggleShortcutModal} />
+            <UserGuideModal
+                isOpen={isUserGuideOpen}
+                onClose={toggleUserGuide}
+                initialChapterId={userGuideChapterId}
+            />
                 {/* Toast System */}
                 <AnimatePresence>
                     {toast && (

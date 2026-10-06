@@ -10,7 +10,8 @@ import {
     Share2,
     BookMarked,
     X,
-    BookText
+    BookText,
+    HelpCircle
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -30,7 +31,8 @@ export const MobileNav: React.FC = () => {
         toggleNoFolderModal,
         openExportModal,
         mobileBibleState,
-        cycleMobileBibleState
+        cycleMobileBibleState,
+        toggleUserGuide
     } = useUIStore();
 
     const { hasStudyspace, currentNote } = useNoteStore();
@@ -146,6 +148,19 @@ export const MobileNav: React.FC = () => {
                                         <BookMarked size={16} />
                                     </div>
                                     <span>Search All</span>
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        toggleUserGuide();
+                                    }}
+                                    className="flex items-center gap-3 p-3 bg-light-background dark:bg-dark-background hover:opacity-80 rounded-2xl transition-all font-bold text-xs"
+                                >
+                                    <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                                        <HelpCircle size={16} />
+                                    </div>
+                                    <span>User Guide</span>
                                 </button>
                             </div>
                         </motion.div>

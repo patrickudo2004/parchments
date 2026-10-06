@@ -38,6 +38,8 @@ interface UIStore {
     isSearchModalOpen: boolean;
     searchQuery: string;
     isShortcutModalOpen: boolean;
+    isUserGuideOpen: boolean;
+    userGuideChapterId: string;
     isFocusMode: boolean;
     pulpitMode: boolean;
     pulpitModeType: 'scroll' | 'paginate';
@@ -74,6 +76,7 @@ interface UIStore {
     toggleTemplateModal: () => void;
     toggleSearchModal: (query?: string) => void;
     toggleShortcutModal: () => void;
+    toggleUserGuide: (chapterId?: string) => void;
     toggleFocusMode: () => void;
     togglePulpitMode: () => void;
     setFocusedHeadingPos: (pos: number | null) => void;
@@ -148,6 +151,8 @@ export const useUIStore = create<UIStore>()(
             isSearchModalOpen: false,
             searchQuery: '',
             isShortcutModalOpen: false,
+            isUserGuideOpen: false,
+            userGuideChapterId: 'getting-started',
             isFocusMode: false,
             pulpitMode: false,
             pulpitModeType: 'scroll',
@@ -203,6 +208,10 @@ export const useUIStore = create<UIStore>()(
                 searchQuery: query || ''
             })),
             toggleShortcutModal: () => set((state) => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
+            toggleUserGuide: (chapterId) => set((state) => ({
+                isUserGuideOpen: !state.isUserGuideOpen,
+                userGuideChapterId: chapterId || state.userGuideChapterId || 'getting-started'
+            })),
             togglePairingModal: (mode) => set((state) => {
                 if (mode !== undefined) {
                     return { isPairingModalOpen: !!mode, pairingMode: mode };

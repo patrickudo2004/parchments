@@ -15,8 +15,13 @@ import {
     Moon,
     Contrast,
     Maximize,
-    Minimize
+    Minimize,
+    FileText
 } from 'lucide-react';
+import { ScriptureTooltipProvider } from './ScriptureTooltip';
+import { PulpitScriptureModal, type PulpitScriptureTarget } from './PulpitScriptureModal';
+import { PulpitNoteSwitcher } from './PulpitNoteSwitcher';
+import { useNoteStore } from '@/stores/noteStore';
 
 interface PulpitModeProps {
     editor: Editor;
@@ -25,6 +30,12 @@ interface PulpitModeProps {
 }
 
 export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit }) => {
+    const { currentNote } = useNoteStore();
+    const displayTitle = currentNote?.title || (currentNote as any)?.name || title || 'Untitled Sermon';
+
+    const [scriptureTarget, setScriptureTarget] = useState<PulpitScriptureTarget | null>(null);
+    const [isNoteSwitcherOpen, setIsNoteSwitcherOpen] = useState(false);
+
     const {
         pulpitModeType,
         setPulpitModeType,
@@ -239,6 +250,40 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
         }
     };
 
+    const handleContentClick = (e: React.MouseEvent) => {
+        const target = (e.target as HTMLElement).closest('.scripture-ref') as HTMLElement | null;
+        if (target) {
+            e.preventDefault();
+            e.stopPropagation();
+            const book = target.getAttribute('data-book');
+            const chapter = parseInt(target.getAttribute('data-chapter') || '0');
+            const verse = parseInt(target.getAttribute('data-verse') || '0');
+            const verseEnd = parseInt(target.getAttribute('data-verse-end') || '0');
+            const rawSegments = target.getAttribute('data-segments');
+            if (book && chapter) {
+                setScriptureTarget({
+                    book,
+                    chapter,
+                    verse,
+                    verseEnd: verseEnd || undefined,
+                    segments: rawSegments
+                });
+            }
+        }
+    };
+
+    const handleSelectNoteFromSwitcher = (note: any) => {
+        if (note.handle) {
+            useNoteStore.getState().openLocalFile(note);
+        } else {
+            useNoteStore.getState().setCurrentNote(note);
+        }
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        setCurrentPage(1);
+    };
+
     const isContrast = pulpitTheme === 'contrast';
     const isDark = pulpitTheme === 'dark';
 
@@ -341,6 +386,17 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                 <div className="hidden md:flex items-center gap-1.5 text-xs font-semibold opacity-75">
                                     <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
+
+                                {/* Sermon Note Switcher Pill */}
+                                <button
+                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-bold text-xs max-w-[240px] transition-all active:scale-95 touch-manipulation min-h-[38px] ${buttonBase}`}
+                                    title="Switch Sermon Note"
+                                >
+                                    <FileText size={15} className="shrink-0 text-primary" />
+                                    <span className="truncate">{displayTitle}</span>
+                                    <ChevronDown size={13} className="shrink-0 opacity-60" />
+                                </button>
                             </div>
 
                             {/* Center: Mode Toggle & Scroll/Page Controls */}
@@ -512,28 +568,41 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         </div>
 
                         {/* Tablet Header Layout (640px - 1023px) — Dual Row, 100% Non-Clipping */}
-                        <div className="hidden sm:flex lg:hidden flex-col px-4 py-2 gap-2 border-b border-inherit">
-                            {/* Tablet Row 1: Timer and Global Actions (Font size, Theme, Fullscreen, Focus, Exit) */}
+                        <div className="hidden sm:flex lg:hidden flex-col px-4 py-2.5 gap-2.5 border-b border-inherit">
+                            {/* Tablet Row 1: Timer, Note Switcher and Global Actions */}
                             <div className="flex items-center justify-between gap-2">
-                                {/* Silent Preaching Timer */}
-                                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${buttonBase}`}>
-                                    <Clock size={15} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                                    <span className="font-mono text-sm font-black tracking-tight select-none">
-                                        {formatTimer(elapsedSeconds)}
-                                    </span>
+                                <div className="flex items-center gap-2">
+                                    {/* Silent Preaching Timer */}
+                                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${buttonBase}`}>
+                                        <Clock size={15} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
+                                        <span className="font-mono text-sm font-black tracking-tight select-none">
+                                            {formatTimer(elapsedSeconds)}
+                                        </span>
+                                        <button
+                                            onClick={() => setIsTimerRunning(prev => !prev)}
+                                            className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 touch-manipulation"
+                                            title={isTimerRunning ? "Pause" : "Start"}
+                                        >
+                                            {isTimerRunning ? <Pause size={13} /> : <Play size={13} />}
+                                        </button>
+                                        <button
+                                            onClick={() => setElapsedSeconds(0)}
+                                            className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 touch-manipulation"
+                                            title="Reset Timer"
+                                        >
+                                            <RotateCcw size={13} />
+                                        </button>
+                                    </div>
+
+                                    {/* Sermon Note Switcher Pill */}
                                     <button
-                                        onClick={() => setIsTimerRunning(prev => !prev)}
-                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs min-w-[26px] min-h-[26px] flex items-center justify-center active:scale-95"
-                                        title={isTimerRunning ? "Pause" : "Start"}
+                                        onClick={() => setIsNoteSwitcherOpen(true)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs max-w-[180px] sm:max-w-[220px] transition-all active:scale-95 touch-manipulation min-h-[38px] ${buttonBase}`}
+                                        title="Switch Sermon Note"
                                     >
-                                        {isTimerRunning ? <Pause size={12} /> : <Play size={12} />}
-                                    </button>
-                                    <button
-                                        onClick={() => setElapsedSeconds(0)}
-                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-xs min-w-[26px] min-h-[26px] flex items-center justify-center active:scale-95"
-                                        title="Reset Timer"
-                                    >
-                                        <RotateCcw size={12} />
+                                        <FileText size={14} className="shrink-0 text-primary" />
+                                        <span className="truncate">{displayTitle}</span>
+                                        <ChevronDown size={12} className="shrink-0 opacity-60" />
                                     </button>
                                 </div>
 
@@ -542,7 +611,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                     <div className={`flex items-center gap-0.5 p-1 rounded-xl border ${buttonBase}`}>
                                         <button
                                             onClick={() => setPulpitFontSize(Math.max(18, pulpitFontSize - 3))}
-                                            className="px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-xs font-black min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95"
+                                            className="px-2.5 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-xs font-black min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 touch-manipulation"
                                             title="Decrease Text Size"
                                         >
                                             A-
@@ -550,7 +619,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                         <span className="font-mono text-xs font-bold px-1 select-none min-w-[30px] text-center">{pulpitFontSize}px</span>
                                         <button
                                             onClick={() => setPulpitFontSize(Math.min(64, pulpitFontSize + 3))}
-                                            className="px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-xs font-black min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95"
+                                            className="px-2.5 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-xs font-black min-w-[34px] min-h-[34px] flex items-center justify-center active:scale-95 touch-manipulation"
                                             title="Increase Text Size"
                                         >
                                             A+
@@ -559,36 +628,36 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                     <button
                                         onClick={cycleTheme}
-                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border active:scale-95 ${buttonBase}`}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border active:scale-95 min-h-[38px] touch-manipulation ${buttonBase}`}
                                         title="Switch Theme"
                                     >
-                                        {isContrast ? <Contrast size={13} className="text-yellow-400" /> : isDark ? <Moon size={13} /> : <Sun size={13} />}
+                                        {isContrast ? <Contrast size={14} className="text-yellow-400" /> : isDark ? <Moon size={14} /> : <Sun size={14} />}
                                         <span className="font-bold">{isContrast ? 'Contrast' : isDark ? 'Dark' : 'Standard'}</span>
                                     </button>
 
                                     <button
                                         onClick={toggleFullscreen}
-                                        className={`p-2 rounded-xl text-xs border active:scale-95 ${buttonBase}`}
+                                        className={`p-2 rounded-xl text-xs border active:scale-95 min-w-[38px] min-h-[38px] flex items-center justify-center touch-manipulation ${buttonBase}`}
                                         title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                                     >
-                                        {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
+                                        {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
                                     </button>
 
                                     <button
                                         onClick={() => setIsDistractionFree(true)}
-                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border active:scale-95 ${buttonBase}`}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border active:scale-95 min-h-[38px] touch-manipulation ${buttonBase}`}
                                         title="Distraction-Free Reading"
                                     >
-                                        <EyeOff size={13} />
+                                        <EyeOff size={14} />
                                         <span>Focus</span>
                                     </button>
 
                                     <button
                                         onClick={handleExit}
-                                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black active:scale-95 shadow-sm"
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black active:scale-95 shadow-sm min-h-[38px] touch-manipulation"
                                         title="Exit Pulpit Mode"
                                     >
-                                        <LogOut size={13} />
+                                        <LogOut size={14} />
                                         <span>Exit</span>
                                     </button>
                                 </div>
@@ -647,32 +716,56 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                         {/* Mobile Header Layout (< 640px) — Dual Row, 100% Permanently Visible */}
                         <div className="flex sm:hidden flex-col px-3 py-2 gap-2">
-                            {/* Mobile Row 1: Timer, Mode, and Exit */}
-                            <div className="flex items-center justify-between gap-2">
+                            {/* Mobile Row 1: Timer, Note Switcher, and Exit */}
+                            <div className="flex items-center justify-between gap-1.5">
                                 {/* Silent Preaching Timer */}
                                 <div className={`flex items-center gap-1 px-2 py-1 rounded-xl border ${buttonBase}`}>
                                     <Clock size={14} className={isTimerRunning ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
-                                    <span className="font-mono text-sm font-black tracking-tight select-none">
+                                    <span className="font-mono text-xs font-black tracking-tight select-none">
                                         {formatTimer(elapsedSeconds)}
                                     </span>
                                     <button
                                         onClick={() => setIsTimerRunning(prev => !prev)}
-                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs min-w-[26px] min-h-[26px] flex items-center justify-center active:scale-95"
+                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95 touch-manipulation"
                                         title={isTimerRunning ? "Pause" : "Start"}
                                     >
                                         {isTimerRunning ? <Pause size={12} /> : <Play size={12} />}
                                     </button>
                                     <button
                                         onClick={() => setElapsedSeconds(0)}
-                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs min-w-[26px] min-h-[26px] flex items-center justify-center active:scale-95"
+                                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded text-xs min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95 touch-manipulation"
                                         title="Reset"
                                     >
                                         <RotateCcw size={12} />
                                     </button>
                                 </div>
 
+                                {/* Sermon Note Switcher Pill */}
+                                <button
+                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] max-w-[130px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${buttonBase}`}
+                                    title="Switch Sermon Note"
+                                >
+                                    <FileText size={12} className="shrink-0 text-primary" />
+                                    <span className="truncate">{displayTitle}</span>
+                                    <ChevronDown size={11} className="shrink-0 opacity-60" />
+                                </button>
+
+                                {/* Exit Button */}
+                                <button
+                                    onClick={handleExit}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 text-white rounded-xl text-xs font-black shadow-sm active:scale-95 touch-manipulation min-h-[34px]"
+                                    title="Exit Pulpit Mode"
+                                >
+                                    <LogOut size={13} />
+                                    <span>Exit</span>
+                                </button>
+                            </div>
+
+                            {/* Mobile Row 2: Scroll/Pages actions, Font size, Theme */}
+                            <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-current/10">
                                 {/* Mode Toggle: Scroll vs Pages */}
-                                <div className={`flex p-0.5 rounded-lg border ${buttonBase}`}>
+                                <div className={`flex p-0.5 rounded-lg border shrink-0 ${buttonBase}`}>
                                     <button
                                         onClick={() => { setPulpitModeType('scroll'); setIsAutoScrolling(false); }}
                                         className={`px-2 py-1 text-xs font-bold rounded ${pulpitModeType === 'scroll' ? isContrast ? 'bg-emerald-500 text-black font-black' : 'bg-emerald-600 text-white' : 'opacity-70'}`}
@@ -687,25 +780,12 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                     </button>
                                 </div>
 
-                                {/* Exit Button */}
-                                <button
-                                    onClick={handleExit}
-                                    className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-xl text-xs font-black shadow-sm active:scale-95"
-                                    title="Exit Pulpit Mode"
-                                >
-                                    <LogOut size={13} />
-                                    <span>Exit</span>
-                                </button>
-                            </div>
-
-                            {/* Mobile Row 2: Scroll/Pages actions, Font size, Theme */}
-                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/10">
                                 {/* Scroll or Paginate controls */}
                                 {pulpitModeType === 'scroll' ? (
                                     <div className="flex items-center gap-1">
                                         <button
                                             onClick={() => setIsAutoScrolling(prev => !prev)}
-                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black active:scale-95 ${isAutoScrolling
+                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black active:scale-95 touch-manipulation min-h-[32px] ${isAutoScrolling
                                                 ? 'bg-amber-600 text-white animate-pulse'
                                                 : isContrast ? 'bg-emerald-500 text-black font-black' : 'bg-emerald-600 text-white'
                                                 }`}
@@ -714,20 +794,20 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                             <span>{isAutoScrolling ? 'Pause' : 'Scroll'}</span>
                                         </button>
                                         <div className={`flex items-center gap-0.5 px-1 py-0.5 rounded-lg text-xs border ${buttonBase}`}>
-                                            <button onClick={() => setPulpitScrollSpeed(Math.max(20, pulpitScrollSpeed - 15))} className="px-1.5 py-0.5 font-black opacity-80 hover:opacity-100 min-w-[24px] min-h-[24px] flex items-center justify-center">-</button>
-                                            <span className="font-mono text-[11px] font-bold w-7 text-center">{Math.round(pulpitScrollSpeed / 10)}x</span>
-                                            <button onClick={() => setPulpitScrollSpeed(Math.min(250, pulpitScrollSpeed + 15))} className="px-1.5 py-0.5 font-black opacity-80 hover:opacity-100 min-w-[24px] min-h-[24px] flex items-center justify-center">+</button>
+                                            <button onClick={() => setPulpitScrollSpeed(Math.max(20, pulpitScrollSpeed - 15))} className="px-1.5 py-0.5 font-black opacity-80 hover:opacity-100 min-w-[28px] min-h-[28px] flex items-center justify-center touch-manipulation">-</button>
+                                            <span className="font-mono text-[11px] font-bold w-6 text-center">{Math.round(pulpitScrollSpeed / 10)}x</span>
+                                            <button onClick={() => setPulpitScrollSpeed(Math.min(250, pulpitScrollSpeed + 15))} className="px-1.5 py-0.5 font-black opacity-80 hover:opacity-100 min-w-[28px] min-h-[28px] flex items-center justify-center touch-manipulation">+</button>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-1">
-                                        <button onClick={handlePrevPage} className={`p-1.5 rounded-lg border active:scale-95 ${buttonBase}`}>
+                                        <button onClick={handlePrevPage} className={`p-1.5 rounded-lg border active:scale-95 min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation ${buttonBase}`}>
                                             <ChevronUp size={14} />
                                         </button>
-                                        <span className="font-mono text-xs font-bold px-1 select-none min-w-[40px] text-center">
+                                        <span className="font-mono text-xs font-bold px-1 select-none min-w-[36px] text-center">
                                             {currentPage}/{totalPages}
                                         </span>
-                                        <button onClick={handleNextPage} className={`p-1.5 rounded-lg active:scale-95 ${isContrast ? 'bg-emerald-500 text-black font-black' : 'bg-emerald-600 text-white'}`}>
+                                        <button onClick={handleNextPage} className={`p-1.5 rounded-lg active:scale-95 min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation ${isContrast ? 'bg-emerald-500 text-black font-black' : 'bg-emerald-600 text-white'}`}>
                                             <ChevronDown size={14} />
                                         </button>
                                     </div>
@@ -735,15 +815,15 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                 {/* Font Size Adjuster A- / A+ */}
                                 <div className={`flex items-center gap-0.5 px-1 py-0.5 rounded-lg border ${buttonBase}`}>
-                                    <button onClick={() => setPulpitFontSize(Math.max(18, pulpitFontSize - 3))} className="px-1.5 py-0.5 text-xs font-black min-w-[24px] min-h-[24px] flex items-center justify-center active:scale-95">A-</button>
-                                    <span className="font-mono text-[11px] font-bold px-1">{pulpitFontSize}</span>
-                                    <button onClick={() => setPulpitFontSize(Math.min(64, pulpitFontSize + 3))} className="px-1.5 py-0.5 text-xs font-black min-w-[24px] min-h-[24px] flex items-center justify-center active:scale-95">A+</button>
+                                    <button onClick={() => setPulpitFontSize(Math.max(18, pulpitFontSize - 3))} className="px-1.5 py-0.5 text-xs font-black min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95 touch-manipulation">A-</button>
+                                    <span className="font-mono text-[11px] font-bold px-0.5">{pulpitFontSize}</span>
+                                    <button onClick={() => setPulpitFontSize(Math.min(64, pulpitFontSize + 3))} className="px-1.5 py-0.5 text-xs font-black min-w-[28px] min-h-[28px] flex items-center justify-center active:scale-95 touch-manipulation">A+</button>
                                 </div>
 
                                 {/* Theme switcher */}
                                 <button
                                     onClick={cycleTheme}
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-black border transition-all active:scale-95 ${buttonBase}`}
+                                    className={`px-2 py-1 rounded-lg text-xs font-black border transition-all active:scale-95 touch-manipulation min-h-[32px] ${buttonBase}`}
                                 >
                                     {isContrast ? 'Lectern' : isDark ? 'Dark' : 'Standard'}
                                 </button>
@@ -757,8 +837,10 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             <main
                 ref={scrollContainerRef}
                 onScroll={updatePagination}
-                onClick={() => {
-                    if (isAutoScrolling) setIsAutoScrolling(false);
+                onClick={(e) => {
+                    if (isAutoScrolling && !(e.target as HTMLElement).closest('.scripture-ref, button, select, input')) {
+                        setIsAutoScrolling(false);
+                    }
                 }}
                 className="flex-1 overflow-y-auto px-6 sm:px-16 md:px-24 lg:px-36 py-12 custom-scrollbar"
                 style={{
@@ -769,15 +851,18 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                 <div className="max-w-4xl mx-auto">
                     {/* Sermon Title */}
                     <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-10 tracking-tight border-b pb-6 border-current/20">
-                        {title || 'Untitled Sermon'}
+                        {displayTitle}
                     </h1>
 
                     {/* Sermon Body (TipTap Editor Read-only Rendering with direct font size scaling) */}
                     <div
+                        onClickCapture={handleContentClick}
                         className="pulpit-content font-serif tracking-normal leading-relaxed max-w-none transition-[font-size] duration-150"
                         style={{ fontSize: `${pulpitFontSize}px` }}
                     >
-                        <EditorContent editor={editor} />
+                        <ScriptureTooltipProvider>
+                            <EditorContent editor={editor} />
+                        </ScriptureTooltipProvider>
                     </div>
 
                     {/* Bottom Padding for lectern comfort */}
@@ -800,6 +885,23 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                     </span>
                 </div>
             </footer>
+
+            {/* Stage-Ready Scripture Quick-Sheet Modal */}
+            {scriptureTarget && (
+                <PulpitScriptureModal
+                    target={scriptureTarget}
+                    onClose={() => setScriptureTarget(null)}
+                    themeMode={isContrast ? 'contrast' : isDark ? 'dark' : 'light'}
+                />
+            )}
+
+            {/* Lectern Sermon Note Switcher Modal */}
+            <PulpitNoteSwitcher
+                isOpen={isNoteSwitcherOpen}
+                onClose={() => setIsNoteSwitcherOpen(false)}
+                themeMode={isContrast ? 'contrast' : isDark ? 'dark' : 'light'}
+                onSelectNote={handleSelectNoteFromSwitcher}
+            />
         </div>
     );
 };

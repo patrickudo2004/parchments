@@ -168,7 +168,7 @@ export const FilesSidebar: React.FC = () => {
         );
     };
 
-    const { toggleTemplateModal, toggleNoFolderModal, isMobile, toggleLeftSidebar } = useUIStore();
+    const { toggleTemplateModal, toggleNoFolderModal, isMobile, toggleLeftSidebar, isLeftSidebarFloating } = useUIStore();
     const { pinItem, unpinItem, isItemPinned } = useResearchStore();
     const [showRecorder, setShowRecorder] = useState(false);
     const [recordingFolderId, setRecordingFolderId] = useState<string | null>(null);
@@ -225,16 +225,18 @@ export const FilesSidebar: React.FC = () => {
     const handleItemClick = (e: React.MouseEvent, item: any) => {
         e.stopPropagation();
         if (item.kind === 'file' || item.type === 'file') {
-            if (isLocalMode) {
-                openLocalFile(item);
+            const localFile = localFiles.find(f => (f.id === item.id || f.name === item.name) && f.kind === 'file');
+            if (item.handle || localFile?.handle) {
+                openLocalFile(item.handle ? item : localFile);
             } else {
-                const note = notes.find(n => n.id === item.id);
+                const note = notes.find(n => String(n.id) === String(item.id)) || item;
                 if (note) {
                     setCurrentNote(note);
                 }
             }
-            if (isMobile) toggleLeftSidebar();
+            if (isMobile || isLeftSidebarFloating) toggleLeftSidebar();
         } else if (item.kind === 'directory' || item.type === 'folder') {
+            toggleFolder(e, item.id);
             setSelectedFolderId(selectedFolderId === item.id ? null : item.id);
         }
     };
@@ -371,20 +373,20 @@ export const FilesSidebar: React.FC = () => {
             <React.Fragment key={item.id}>
                 <div
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items-center justify-between p-1 rounded cursor-pointer text-sm transition-colors select-none ${selectedFolderId === item.id
+                    className={`group flex items-center justify-between py-2 px-1.5 rounded-lg cursor-pointer text-sm transition-colors select-none min-h-[38px] sm:min-h-[40px] touch-manipulation ${selectedFolderId === item.id
                         ? 'bg-primary/20 text-primary font-medium'
                         : 'hover:bg-light-background dark:hover:bg-dark-background'
                         }`}
-                    style={{ paddingLeft: `${level * 16 + 4}px` }}
+                    style={{ paddingLeft: `${level * 16 + 6}px` }}
                 >
                     <div className="flex items-center overflow-hidden flex-1">
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
                             {hasChildren && (
                                 <div
                                     onClick={(e) => toggleFolder(e, item.id)}
-                                    className="flex items-center justify-center w-4 h-4 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
+                                    className="flex items-center justify-center w-6 h-6 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
                                 >
-                                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                 </div>
                             )}
                         </div>
@@ -527,6 +529,7 @@ export const FilesSidebar: React.FC = () => {
                     content: '',
                     type: 'file' as const,
                     createdAt: Date.now(),
+                    handle: f.handle,
                     fileHandle: f.handle,
                     kind: 'file' as const
                 }));
@@ -695,8 +698,9 @@ export const FilesSidebar: React.FC = () => {
                                         <div
                                             key={note.id}
                                             onClick={() => {
-                                                if (isLocalMode && (note.kind === 'file' || note.type === 'file')) {
-                                                    openLocalFile(note);
+                                                const localFile = localFiles.find(f => (f.id === note.id || f.name === note.name) && f.kind === 'file');
+                                                if (note.handle || localFile?.handle) {
+                                                    openLocalFile(note.handle ? note : localFile);
                                                 } else {
                                                     const found = notes.find(n => String(n.id) === String(note.id)) || note;
                                                     setCurrentNote(found);

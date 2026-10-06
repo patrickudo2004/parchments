@@ -1217,8 +1217,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                                 {/* Links footer */}
                                                 <div className="space-y-3 pt-5 border-t border-light-border dark:border-dark-border">
-                                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Project Links</h4>
-                                                    <div className="flex gap-3">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Documentation & Links</h4>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                onClose();
+                                                                settings.toggleUserGuide();
+                                                            }}
+                                                            className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary hover:bg-primary/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                                                        >
+                                                            <BookOpen size={12} /> Open User Guide (F1)
+                                                        </button>
                                                         <a
                                                             href="https://github.com/patrickudo2004/parchments/releases"
                                                             target="_blank"

@@ -22,7 +22,8 @@ export const MenuBar: React.FC = () => {
         updateSettings,
         editorFontSize,
         toggleFocusMode,
-        togglePulpitMode
+        togglePulpitMode,
+        toggleUserGuide
     } = useUIStore();
     const { currentNote, saveCurrentNote, createNote, createFolder, hasStudyspace, openLocalFolder, openLooseFile } = useNoteStore();
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -83,6 +84,9 @@ export const MenuBar: React.FC = () => {
                 break;
             case 'Strong\'s Lookup':
                 toggleStrongsModal();
+                break;
+            case 'User Guide':
+                toggleUserGuide();
                 break;
             case 'Keyboard Shortcuts':
                 toggleShortcutModal();
@@ -211,7 +215,9 @@ export const MenuBar: React.FC = () => {
         {
             label: 'Help',
             items: [
-                { label: 'Keyboard Shortcuts', shortcut: 'F1' },
+                { label: 'User Guide', shortcut: 'F1' },
+                { label: 'Keyboard Shortcuts', shortcut: 'Ctrl+?' },
+                { type: 'separator' },
                 { label: 'Check for Updates...', shortcut: '' },
                 { label: 'About Parchments', shortcut: '' },
             ]

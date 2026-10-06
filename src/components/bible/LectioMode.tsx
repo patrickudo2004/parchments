@@ -11,6 +11,9 @@ import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { downloadPlanIcs } from '@/lib/bible/icsExportService';
 import { LectioStudyPopover } from '@/components/bible/LectioStudyPopover';
 import { LECTIO_PRESETS, parsePastedCuratedText, type LectioPreset } from '@/lib/bible/lectioPresets';
+import { QRCodeSVG } from 'qrcode.react';
+import { exportPlanToJsonFile, importPlanFromJson, calculatePlanMetrics } from '@/lib/bible/planHistoryService';
+import { PlanHistoryModal } from '@/components/bible/PlanHistoryModal';
 import {
     BookOpen,
     Calendar,
@@ -43,7 +46,11 @@ import {
     Minimize2,
     CheckSquare,
     Square,
-    Sparkles
+    Sparkles,
+    Flame,
+    Download,
+    Upload,
+    QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -112,6 +119,13 @@ export const LectioMode: React.FC = () => {
 
     const [sharingPlan, setSharingPlan] = useState<any | null>(null);
     const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
+
+    const [historyModalPlan, setHistoryModalPlan] = useState<any | null>(null);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+    const allHistory = useLiveQuery(async () => {
+        return await db.readingPlanHistory.toArray();
+    }) || [];
 
     // Active study session states
     const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
@@ -1506,6 +1520,8 @@ export const LectioMode: React.FC = () => {
                                 {activePlans.map(plan => {
                                     const startStr = new Date(plan.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                                     const endStr = new Date(plan.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                                    const planHistory = allHistory.filter(h => h.planId === plan.id);
+                                    const metrics = calculatePlanMetrics(plan, planHistory);
 
                                     return (
                                         <div
@@ -1513,11 +1529,19 @@ export const LectioMode: React.FC = () => {
                                             className="bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:border-primary/20 rounded-2xl p-5 text-left flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden group"
                                         >
                                             {/* Left Card info */}
-                                            <div className="flex-1 space-y-3 min-w-0">
+                                            <div className="flex-1 space-y-3 min-w-0 w-full">
                                                 <div className="space-y-1">
-                                                    <h4 className="font-serif font-bold text-lg md:text-xl text-light-text-primary dark:text-dark-text-primary tracking-tight">
-                                                        {plan.name}
-                                                    </h4>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <h4 className="font-serif font-bold text-lg md:text-xl text-light-text-primary dark:text-dark-text-primary tracking-tight">
+                                                            {plan.name}
+                                                        </h4>
+                                                        {metrics.streakDays > 0 && (
+                                                            <span className="flex items-center gap-1 text-amber-500 font-bold bg-amber-500/10 dark:bg-amber-500/20 px-2.5 py-0.5 rounded-full text-[10px] shrink-0 border border-amber-500/20">
+                                                                <Flame size={12} className="fill-amber-500 animate-pulse" />
+                                                                <span>{metrics.streakDays}-day streak</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-[10px] font-bold uppercase tracking-wider text-light-text-disabled flex items-center gap-1">
                                                         <Calendar size={12} />
                                                         <span>{startStr} — {endStr}</span>
@@ -1533,6 +1557,22 @@ export const LectioMode: React.FC = () => {
                                                         </div>
                                                     ))}
                                                 </div>
+
+                                                {/* Progress Bar & Paper Trail Indicator */}
+                                                <div className="space-y-1.5 pt-1">
+                                                    <div className="flex items-center justify-between text-[11px] font-semibold text-light-text-secondary dark:text-dark-text-secondary">
+                                                        <span>Progress: <b>{metrics.completedDays}</b> / {metrics.totalDays} Days ({metrics.percentage}%)</span>
+                                                        <span className="text-[10px] text-light-text-disabled uppercase font-black tracking-wider">
+                                                            {metrics.notesCount > 0 ? `${metrics.notesCount} study notes` : 'No notes yet'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-light-background dark:bg-dark-background/80 rounded-full h-2 overflow-hidden border border-light-border/60 dark:border-dark-border/60">
+                                                        <div
+                                                            className="bg-primary h-full rounded-full transition-all duration-500"
+                                                            style={{ width: `${metrics.percentage}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             {/* Card actions */}
@@ -1543,6 +1583,20 @@ export const LectioMode: React.FC = () => {
                                                 >
                                                     <Play size={12} fill="white" />
                                                     <span>Study Session</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setHistoryModalPlan(plan);
+                                                        setIsHistoryModalOpen(true);
+                                                    }}
+                                                    className="p-2.5 rounded-xl border border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-colors group/btn relative"
+                                                    title="History & Calendar View"
+                                                >
+                                                    <FileText size={16} />
+                                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-gray-900 text-white text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-md">
+                                                        Paper Trail / History
+                                                    </div>
                                                 </button>
 
                                                 <button
@@ -1616,6 +1670,12 @@ export const LectioMode: React.FC = () => {
                 onClose={() => setIsSharingModalOpen(false)}
                 plan={sharingPlan}
                 onToast={showToast}
+            />
+
+            <PlanHistoryModal
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                plan={historyModalPlan}
             />
         </div>
     );
@@ -1724,6 +1784,7 @@ export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose,
     const [copiedHash, setCopiedHash] = useState(false);
     const [inboundInput, setInboundInput] = useState('');
     const [isSyncingPlan, setIsSyncingPlan] = useState(false);
+    const [showQr, setShowQr] = useState(false);
 
     // Cryptographically Secure Salt derived or generated
     const [planSalt, setPlanSalt] = useState('');
@@ -1750,17 +1811,27 @@ export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose,
             : `plan-sync-local-${plan.id}-${planSalt}`
         : '';
 
+    const getBaseOrigin = () => {
+        if (typeof window === 'undefined') return 'https://parchments.app';
+        const origin = window.location.origin;
+        if (!origin || origin.startsWith('tauri://') || origin.startsWith('capacitor://') || origin.startsWith('file://') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return 'https://parchments.app';
+        }
+        return origin;
+    };
+
     const shareUrl = roomHash 
-        ? `${window.location.origin}/join/${roomHash}?title=${encodeURIComponent(plan.name)}`
+        ? `${getBaseOrigin()}/join/${roomHash}?title=${encodeURIComponent(plan.name)}`
         : '';
 
-    // Join the room as the host when opening the share UI
+    // Join the room as the host when opening the share UI & save syncRoomHash
     React.useEffect(() => {
-        if (isOpen && roomHash) {
+        if (isOpen && roomHash && plan && plan.id) {
             import('@/lib/sync/PlanSyncManager').then(({ PlanSyncManager }) => {
                 PlanSyncManager.joinPlanRoom(roomHash);
                 PlanSyncManager.broadcastPlanUpdate(plan.id);
             });
+            db.readingPlans.update(plan.id, { syncRoomHash: roomHash }).catch(console.error);
         }
     }, [isOpen, roomHash, plan]);
 
@@ -1883,26 +1954,56 @@ export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose,
                                     <div className="p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-xs font-mono break-all text-light-text-secondary dark:text-dark-text-secondary max-h-24 overflow-y-auto">
                                         {shareUrl}
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         <button
                                             onClick={handleCopy}
-                                            className={`flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${copiedLink ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-98'}`}
+                                            className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${copiedLink ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-98'}`}
                                         >
                                             {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
                                             {copiedLink ? 'Link Copied' : 'Copy Share Link'}
                                         </button>
                                         <button
                                             onClick={handleCopyHash}
-                                            className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${copiedHash ? 'bg-green-500 text-white' : 'bg-light-sidebar dark:bg-dark-sidebar border border-light-border dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary'}`}
+                                            className={`px-3 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${copiedHash ? 'bg-green-500 text-white' : 'bg-light-sidebar dark:bg-dark-sidebar border border-light-border dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary'}`}
                                         >
                                             {copiedHash ? <Check size={14} /> : <Copy size={14} />}
-                                            <span>{copiedHash ? 'Hash' : 'Hash'}</span>
+                                            <span>Hash</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowQr(!showQr)}
+                                            className={`px-3 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${showQr ? 'bg-primary text-white' : 'bg-light-sidebar dark:bg-dark-sidebar border border-light-border dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary'}`}
+                                            title="Toggle QR Code"
+                                        >
+                                            <QrCode size={14} />
+                                            <span>{showQr ? 'Hide QR' : 'QR Code'}</span>
                                         </button>
                                     </div>
+
+                                    {showQr && (
+                                        <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-light-border dark:border-dark-border shadow-inner mx-auto my-2 text-center">
+                                            <QRCodeSVG value={shareUrl} size={160} level="M" />
+                                            <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider mt-2.5">
+                                                Scan with phone camera or mobile Parchments
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
+
                                 <p className="text-[9px] text-light-text-disabled uppercase font-black leading-relaxed">
-                                    Copy this secure cryptographic link. Open it on your other device to synchronize your tracks, completions, and all sibling journal notes recursively.
+                                    Copy this secure cryptographic link or scan the QR code. Open it on your other device to synchronize your tracks, completions, and all sibling journal notes recursively.
                                 </p>
+
+                                {/* Offline Export */}
+                                <button
+                                    onClick={() => {
+                                        exportPlanToJsonFile(plan);
+                                        onToast(`Exported "${plan.name}" as .plan.json file!`, 'success');
+                                    }}
+                                    className="w-full py-2.5 px-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-xl text-light-text-secondary dark:text-dark-text-secondary text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Download size={14} />
+                                    <span>Export Offline .plan.json File</span>
+                                </button>
                             </div>
                         )}
 
@@ -1936,6 +2037,32 @@ export const SharePlanModal: React.FC<SharePlanModalProps> = ({ isOpen, onClose,
                                     <span>{isSyncingPlan ? 'Connecting...' : 'Receive & Sync Plan'}</span>
                                 </button>
                             </form>
+
+                            {/* Offline Import */}
+                            <div className="pt-2 border-t border-light-border dark:border-dark-border">
+                                <label className="w-full cursor-pointer flex items-center justify-center gap-2 py-2.5 px-4 bg-light-background dark:bg-dark-background border border-dashed border-primary/40 hover:border-primary rounded-xl text-primary text-[10px] font-black uppercase tracking-wider transition-all">
+                                    <Upload size={14} />
+                                    <span>Import Offline .plan.json File</span>
+                                    <input
+                                        type="file"
+                                        accept=".json"
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            try {
+                                                const text = await file.text();
+                                                const importedPlan = await importPlanFromJson(text);
+                                                onToast(`Imported plan "${importedPlan.name}" successfully!`, 'success');
+                                                useReadingPlanStore.getState().loadPlans();
+                                                onClose();
+                                            } catch (err: any) {
+                                                onToast(err.message || 'Failed to import plan file', 'error');
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
                         </div>
 
                         {/* E2EE Info Block */}

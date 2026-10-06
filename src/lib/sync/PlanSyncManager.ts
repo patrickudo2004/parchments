@@ -119,11 +119,16 @@ export class PlanSyncManager {
             const planData = {
                 id: planId,
                 name: planName,
+                type: (metadata.get('type') || 'sequential') as any,
                 startDate: metadata.get('startDate') as number,
                 endDate: metadata.get('endDate') as number,
                 status: (metadata.get('status') || 'active') as 'active' | 'completed',
-                tracks: metadata.get('tracks') as any[],
-                folderId: targetFolderId
+                tracks: (metadata.get('tracks') as any[]) || [],
+                folderId: targetFolderId,
+                templateType: (metadata.get('templateType') || 'lectio_divina') as any,
+                curatedSchedule: metadata.get('curatedSchedule') as any,
+                wordStudyMeta: metadata.get('wordStudyMeta') as any,
+                syncRoomHash: roomHash
             };
 
             await db.readingPlans.put(planData);
@@ -284,7 +289,15 @@ export class PlanSyncManager {
             metadata.set('startDate', plan.startDate);
             metadata.set('endDate', plan.endDate);
             metadata.set('status', plan.status);
-            metadata.set('tracks', plan.tracks);
+            metadata.set('tracks', plan.tracks || []);
+            metadata.set('type', plan.type || 'sequential');
+            metadata.set('templateType', plan.templateType || 'lectio_divina');
+            if (plan.curatedSchedule) {
+                metadata.set('curatedSchedule', plan.curatedSchedule);
+            }
+            if (plan.wordStudyMeta) {
+                metadata.set('wordStudyMeta', plan.wordStudyMeta);
+            }
         });
 
         // Update shared history array

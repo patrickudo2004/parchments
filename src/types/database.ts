@@ -138,6 +138,7 @@ export interface ReadingPlan {
         definition?: string;
         totalVerses: number;
     };
+    syncRoomHash?: string;
 }
 
 export interface ReadingPlanHistory {

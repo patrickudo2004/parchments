@@ -244,6 +244,17 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
             loadPlans: async () => {
                 const plans = await db.readingPlans.toArray();
                 set({ activePlans: plans });
+
+                // Automatically re-join sync rooms for active shared plans in background
+                plans.forEach(plan => {
+                    if (plan.syncRoomHash && plan.status === 'active') {
+                        import('@/lib/sync/PlanSyncManager').then(({ PlanSyncManager }) => {
+                            PlanSyncManager.joinPlanRoom(plan.syncRoomHash!);
+                        }).catch(err => {
+                            console.warn('[readingPlanStore] Failed to auto-reconnect plan sync room:', err);
+                        });
+                    }
+                });
             },
 
             createPlan: async (name, startDate, endDate, tracks, templateType = 'freeform') => {

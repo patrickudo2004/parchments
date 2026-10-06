@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { APP_VERSION, VERSION_INFO } from '@/lib/version';
+import { Capacitor } from '@capacitor/core';
 
-const VERSION_URLS = [
-    '/version.json',
+const REMOTE_VERSION_URLS = [
     'https://raw.githubusercontent.com/patrickudo2004/parchments/main/public/version.json',
-    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json'
+    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json',
+    'https://api.github.com/repos/patrickudo2004/parchments/releases/latest'
 ];
+
 export const CURRENT_VERSION = APP_VERSION;
 
 // Helper to compare semantic versions (basic version for beta tags)
@@ -33,12 +35,35 @@ export const compareVersions = (v1: string, v2: string) => {
 };
 
 export const fetchVersionInfo = async () => {
-    for (const url of VERSION_URLS) {
+    const isNative = typeof window !== 'undefined' && (
+        !!(window as any).__TAURI__ || 
+        !!(window as any).__TAURI_INTERNALS__ || 
+        Capacitor.isNativePlatform()
+    );
+
+    // In web browsers, checking local /version.json first is fine as it's served by the host
+    // In native Desktop/Mobile, /version.json resolves to the internal package assets, so we query live GitHub
+    const urls = isNative ? REMOTE_VERSION_URLS : ['/version.json', ...REMOTE_VERSION_URLS];
+
+    for (const url of urls) {
         try {
             const response = await fetch(url, { cache: 'no-store' });
-            if (response.ok) return await response.json();
+            if (response.ok) {
+                const data = await response.json();
+                // Handle GitHub Releases API format if hit directly
+                if (data.tag_name && !data.latest) {
+                    const cleanTag = data.tag_name.replace(/^v/, '');
+                    return {
+                        latest: cleanTag,
+                        min_required: CURRENT_VERSION,
+                        download_url: data.html_url || 'https://github.com/patrickudo2004/parchments/releases',
+                        message: data.body || 'A new release is available.'
+                    };
+                }
+                return data;
+            }
         } catch {
-            // Try the next source. Version checks should never disturb app startup.
+            // Try next source
         }
     }
 
@@ -53,8 +78,8 @@ export const checkAppVersion = async (manual = false): Promise<void> => {
         showToast('Checking for updates...', 'info');
     }
 
-    // In desktop Tauri, try the native plugin updater first if available
-    if (isTauri && manual) {
+    // In desktop Tauri, try native plugin updater (runs both on launch and manually)
+    if (isTauri) {
         try {
             const { check } = await import('@tauri-apps/plugin-updater');
             const update = await check();
@@ -65,11 +90,13 @@ export const checkAppVersion = async (manual = false): Promise<void> => {
                     downloadUrl: 'https://github.com/patrickudo2004/parchments/releases',
                     message: update.body || 'A new desktop update is available.'
                 });
-                showToast(`Parchments v${update.version} is available!`, 'info');
+                if (manual) {
+                    showToast(`Parchments v${update.version} is available!`, 'info');
+                }
                 return;
             }
         } catch (tauriErr) {
-            console.warn('[Version Check] Tauri updater check fallback to web metadata:', tauriErr);
+            console.warn('[Version Check] Tauri updater check fallback to live metadata:', tauriErr);
         }
     }
 
@@ -109,14 +136,19 @@ export const checkAppVersion = async (manual = false): Promise<void> => {
 
 export const useVersionCheck = () => {
     useEffect(() => {
-        // Run silent check on mount
-        checkAppVersion(false);
+        // Run silent check 3 seconds after mount so app boot remains instantaneous
+        const bootTimer = setTimeout(() => {
+            checkAppVersion(false);
+        }, 3000);
 
-        // Check periodically every 6 hours if the app stays open
+        // Check periodically every 4 hours if the app stays open
         const interval = setInterval(() => {
             checkAppVersion(false);
-        }, 6 * 60 * 60 * 1000);
+        }, 4 * 60 * 60 * 1000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearTimeout(bootTimer);
+            clearInterval(interval);
+        };
     }, []);
 };

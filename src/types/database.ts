@@ -93,9 +93,28 @@ export interface BibleCrossRef {
 }
 
 // LECTIO MODE & READING PLANS
+export type PlanType = 'sequential' | 'curated' | 'topical' | 'word_study' | 'chronological';
+
+export interface PassageRef {
+    book: string;
+    chapter: number;
+    verseStart?: number | null;
+    verseEnd?: number | null;
+    label?: string; // e.g. "The Beatitudes"
+}
+
+export interface CuratedPlanDay {
+    day: number;
+    title: string;              // e.g. "Day 1: The Nature of Faith"
+    topic?: string;
+    passages: PassageRef[];
+    notes?: string;
+}
+
 export interface ReadingPlanTrack {
     name: string;
     startBook: string;
+    endBook?: string;           // Optional boundary (e.g. "Romans" or "John")
     chaptersPerDay: number;
     currentBook: string;
     currentChapter: number;
@@ -105,11 +124,20 @@ export interface ReadingPlanTrack {
 export interface ReadingPlan {
     id: string;
     name: string;
+    type?: PlanType;
     status: 'active' | 'completed' | 'paused';
     startDate: number;
     endDate: number;
     tracks: ReadingPlanTrack[];
     folderId: string | null;
+    templateType?: 'freeform' | 'lectio_divina'; // 5-stage or standard
+    curatedSchedule?: CuratedPlanDay[];           // For topical, curated, word study, chronological
+    wordStudyMeta?: {                             // For word study plans
+        query: string;
+        strongNumber?: string;
+        definition?: string;
+        totalVerses: number;
+    };
 }
 
 export interface ReadingPlanHistory {
@@ -117,6 +145,8 @@ export interface ReadingPlanHistory {
     planId: string;
     completedAt: number;
     noteId?: string;
+    completedItems?: string[]; // Granular checkoffs: e.g. ["Genesis 1", "Genesis 2"]
+    readingDurationSeconds?: number;
 }
 
 // STUDY RESOURCE TYPES

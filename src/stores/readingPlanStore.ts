@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { db } from '@/lib/db';
-import type { ReadingPlan, ReadingPlanTrack, Note } from '@/types/database';
+import type { ReadingPlan, ReadingPlanTrack, Note, PlanType, CuratedPlanDay } from '@/types/database';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { v4 as uuidv4 } from 'uuid';
 import { fileSystem, type FileSystemDirectoryHandle } from '@/lib/filesystem/FileSystemService';
@@ -16,10 +16,27 @@ interface ReadingPlanState {
 
     // Actions
     loadPlans: () => Promise<void>;
-    createPlan: (name: string, startDate: number, endDate: number, tracks: Omit<ReadingPlanTrack, 'currentBook' | 'currentChapter'>[]) => Promise<ReadingPlan>;
+    createPlan: (
+        name: string,
+        startDate: number,
+        endDate: number,
+        tracks: Omit<ReadingPlanTrack, 'currentBook' | 'currentChapter'>[],
+        templateType?: 'freeform' | 'lectio_divina'
+    ) => Promise<ReadingPlan>;
+    createCuratedPlan: (
+        name: string,
+        startDate: number,
+        endDate: number,
+        type: PlanType,
+        curatedSchedule: CuratedPlanDay[],
+        templateType?: 'freeform' | 'lectio_divina',
+        wordStudyMeta?: ReadingPlan['wordStudyMeta']
+    ) => Promise<ReadingPlan>;
     startDailySession: (planId: string) => Promise<void>;
     pinVerseToActiveJournal: (verseText: string, reference: string) => Promise<void>;
     completeDailySession: () => Promise<void>;
+    toggleChapterCompletion: (planId: string, itemRef: string) => Promise<void>;
+    updateReadingDuration: (planId: string, durationSeconds: number) => Promise<void>;
     recalculatePlanGrace: (planId: string) => Promise<void>;
     deletePlan: (planId: string) => Promise<void>;
     exitLectioMode: () => void;
@@ -42,9 +59,10 @@ export const advanceChapters = (
     book: string,
     chapter: number,
     amount: number,
-    startBookName: string
-): { book: string; chapter: number } => {
-    const endBookName = getTrackGroupEndBook(startBookName);
+    startBookName: string,
+    explicitEndBook?: string
+): { book: string; chapter: number; isCompleted?: boolean } => {
+    const endBookName = explicitEndBook || getTrackGroupEndBook(startBookName);
     const startIndex = BIBLE_BOOKS.findIndex(b => b.name === startBookName);
     const endIndex = BIBLE_BOOKS.findIndex(b => b.name === endBookName);
     let currentBookIndex = BIBLE_BOOKS.findIndex(b => b.name === book);
@@ -60,21 +78,27 @@ export const advanceChapters = (
     while (currentBookIndex <= limitIndex) {
         const bookData = BIBLE_BOOKS[currentBookIndex];
         if (newChapter <= bookData.chapters) {
-            return { book: bookData.name, chapter: newChapter };
+            return { book: bookData.name, chapter: newChapter, isCompleted: false };
         }
 
         newChapter -= bookData.chapters;
         currentBookIndex++;
     }
 
+    // If an explicit endBook was set and we advanced beyond it, mark completed and clamp
+    if (explicitEndBook) {
+        const finalBookData = BIBLE_BOOKS[limitIndex] || BIBLE_BOOKS[BIBLE_BOOKS.length - 1];
+        return { book: finalBookData.name, chapter: finalBookData.chapters, isCompleted: true };
+    }
+
     // Wrapped around to the start of the track
-    return { book: BIBLE_BOOKS[firstIndex].name, chapter: 1 };
+    return { book: BIBLE_BOOKS[firstIndex].name, chapter: 1, isCompleted: false };
 };
 
 // Generates the daily reading plan track segments list
 export const getDailySegments = (track: ReadingPlanTrack): { book: string; chapters: number[] }[] => {
     const segments: { book: string; chapters: number[] }[] = [];
-    const endBook = getTrackGroupEndBook(track.startBook);
+    const endBook = track.endBook || getTrackGroupEndBook(track.startBook);
     const limitIndex = BIBLE_BOOKS.findIndex(b => b.name === endBook);
     
     let currentBookIndex = BIBLE_BOOKS.findIndex(b => b.name === track.currentBook);
@@ -108,8 +132,8 @@ export const getDailySegments = (track: ReadingPlanTrack): { book: string; chapt
         }
     }
 
-    // If we finished the Bible/track range and still have chapters remaining, wrap around
-    if (chaptersToGather > 0) {
+    // Only wrap around if NO explicit endBook was specified and track is cyclic
+    if (chaptersToGather > 0 && !track.endBook) {
         const firstBookIndex = BIBLE_BOOKS.findIndex(b => b.name === track.startBook);
         currentBookIndex = firstBookIndex !== -1 ? firstBookIndex : 0;
         currentChapter = 1;
@@ -222,7 +246,7 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 set({ activePlans: plans });
             },
 
-            createPlan: async (name, startDate, endDate, tracks) => {
+            createPlan: async (name, startDate, endDate, tracks, templateType = 'freeform') => {
                 // Dynamically import noteStore to avoid circular dependency
                 const { useNoteStore } = await import('@/stores/noteStore');
                 const noteStoreState = useNoteStore.getState();
@@ -231,13 +255,10 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 let targetFolderId: string | null = null;
 
                 if (isLocalMode) {
-                    // Check if local folder "Lectio Study Journals" exists on disk
                     const localFiles = noteStoreState.localFiles;
                     let localFolder = localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
                     if (!localFolder) {
-                        // Create the physical folder
                         await noteStoreState.createLocalFolder('Lectio Study Journals', null);
-                        // Refresh/find it from updated localFiles
                         const refreshedFiles = useNoteStore.getState().localFiles;
                         localFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
                     }
@@ -257,7 +278,6 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         targetFolderId = subFolder ? subFolder.id : localFolder.id;
                     }
                 } else {
-                    // Ensure a "Lectio Study Journals" DB folder exists
                     let folder = await db.folders.where('name').equals('Lectio Study Journals').first();
                     if (!folder) {
                         const timestamp = Date.now();
@@ -284,11 +304,82 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 const newPlan: ReadingPlan = {
                     id: `plan-${Date.now()}`,
                     name,
+                    type: 'sequential',
                     status: 'active',
                     startDate,
                     endDate,
                     tracks: fullTracks,
-                    folderId: targetFolderId
+                    folderId: targetFolderId,
+                    templateType
+                };
+
+                await db.readingPlans.add(newPlan);
+                if (isLocalMode) {
+                    await updateLocalPlanJson(newPlan);
+                }
+                await get().loadPlans();
+                return newPlan;
+            },
+
+            createCuratedPlan: async (name, startDate, endDate, type, curatedSchedule, templateType = 'lectio_divina', wordStudyMeta) => {
+                const { useNoteStore } = await import('@/stores/noteStore');
+                const noteStoreState = useNoteStore.getState();
+                const isLocalMode = noteStoreState.isLocalMode;
+
+                let targetFolderId: string | null = null;
+
+                if (isLocalMode) {
+                    const localFiles = noteStoreState.localFiles;
+                    let localFolder = localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                    if (!localFolder) {
+                        await noteStoreState.createLocalFolder('Lectio Study Journals', null);
+                        const refreshedFiles = useNoteStore.getState().localFiles;
+                        localFolder = refreshedFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
+                    }
+                    
+                    if (localFolder) {
+                        const sanitizedPlanName = sanitizePathName(name);
+                        let subFolder = useNoteStore.getState().localFiles.find(
+                            f => f.name === sanitizedPlanName && f.parentId === localFolder!.id && f.kind === 'directory'
+                        );
+                        if (!subFolder) {
+                            await noteStoreState.createLocalFolder(sanitizedPlanName, localFolder.id);
+                            const refreshedFiles = useNoteStore.getState().localFiles;
+                            subFolder = refreshedFiles.find(
+                                f => f.name === sanitizedPlanName && f.parentId === localFolder!.id && f.kind === 'directory'
+                            );
+                        }
+                        targetFolderId = subFolder ? subFolder.id : localFolder.id;
+                    }
+                } else {
+                    let folder = await db.folders.where('name').equals('Lectio Study Journals').first();
+                    if (!folder) {
+                        const timestamp = Date.now();
+                        folder = {
+                            id: uuidv4(),
+                            name: 'Lectio Study Journals',
+                            parentId: null,
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                            order: 0
+                        };
+                        await db.folders.add(folder);
+                    }
+                    targetFolderId = folder.id;
+                }
+
+                const newPlan: ReadingPlan = {
+                    id: `plan-${Date.now()}`,
+                    name,
+                    type,
+                    status: 'active',
+                    startDate,
+                    endDate,
+                    tracks: [],
+                    folderId: targetFolderId,
+                    templateType,
+                    curatedSchedule,
+                    wordStudyMeta
                 };
 
                 await db.readingPlans.add(newPlan);
@@ -329,19 +420,68 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 if (!existingHistory) {
                     const dateString = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
-                    // Generate a gorgeous pre-seeded template showing daily chapters to read
-                    let initialContent = `<h1 class="text-3xl font-black mb-4">Lectio Study Journal: ${dateString}</h1>`;
-                    initialContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-8">Daily reading companion for plan: <b>${plan.name}</b></p>`;
+                    // Determine passages summary for template
+                    let initialContent = '';
+                    const isCurated = plan.curatedSchedule && plan.curatedSchedule.length > 0;
 
-                    plan.tracks.forEach(track => {
-                        const segments = getDailySegments(track);
-                        const chaptersString = segments
-                            .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
-                            .join(', ');
+                    if (isCurated) {
+                        // Find current day in curated schedule based on completed history count
+                        const completedCount = await db.readingPlanHistory
+                            .where('planId')
+                            .equals(planId)
+                            .filter(h => h.completedAt > 0)
+                            .count();
+                        const activeCuratedDay = plan.curatedSchedule![completedCount] || plan.curatedSchedule![0];
+                        const passagesSummary = activeCuratedDay.passages.map(p => {
+                            const range = p.verseStart ? `:${p.verseStart}${p.verseEnd ? `-${p.verseEnd}` : ''}` : '';
+                            return `${p.book} ${p.chapter}${range}`;
+                        }).join(', ');
 
-                        initialContent += `<h2 class="text-xl font-bold mt-6 border-b border-light-border dark:border-dark-border pb-1">📖 ${track.name} (${chaptersString})</h2>`;
-                        initialContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key takeaways and inspired summaries for this track here...</p><br/>`;
-                    });
+                        if (plan.templateType === 'lectio_divina') {
+                            initialContent = `<h1 class="text-3xl font-black mb-2">Lectio Study Journal: ${dateString}</h1>`;
+                            initialContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-6">Plan: <b>${plan.name}</b> • Today: <b>${activeCuratedDay.title || passagesSummary}</b></p>`;
+                            if (plan.wordStudyMeta) {
+                                initialContent += `<div class="p-3 mb-6 rounded-xl bg-primary/10 border border-primary/20 text-xs font-serif leading-relaxed"><strong>Word Study:</strong> ${plan.wordStudyMeta.query} ${plan.wordStudyMeta.strongNumber ? `(${plan.wordStudyMeta.strongNumber})` : ''} - <em>${plan.wordStudyMeta.definition || ''}</em></div>`;
+                            }
+                            initialContent += `<section class="lectio-stage-1 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">📖 1. Lectio (Reading)</h2><p class="text-xs italic text-light-text-secondary mb-2">Read slowly and attentively. What word, phrase, or verse catches your attention?</p><blockquote><p><em>(Tap the Pin button next to any verse on the left to pin it here)</em></p></blockquote></section>`;
+                            initialContent += `<section class="lectio-stage-2 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">💡 2. Meditatio (Meditation)</h2><p class="text-xs italic text-light-text-secondary mb-2">Ruminate on the text. Why is God speaking this word to your heart today? What thoughts or convictions are stirred?</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-3 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">🙏 3. Oratio (Prayer)</h2><p class="text-xs italic text-light-text-secondary mb-2">Speak openly to God in prayer. Confess, praise, question, or petition Him in response to His word.</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-4 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">🕊️ 4. Contemplatio (Contemplation)</h2><p class="text-xs italic text-light-text-secondary mb-2">Rest in quiet stillness in God's presence beyond words. Allow the Truth to transform your inner soul.</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-5 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">⚡ 5. Actio (Action & Life Application)</h2><p class="text-xs italic text-light-text-secondary mb-2">How will you embody this revelation today? Name one concrete, tangible step of love or obedience.</p><p></p></section>`;
+                        } else {
+                            initialContent = `<h1 class="text-3xl font-black mb-4">Lectio Study Journal: ${dateString}</h1>`;
+                            initialContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-8">Daily companion for plan: <b>${plan.name}</b> (${passagesSummary})</p>`;
+                            initialContent += `<h2 class="text-xl font-bold mt-6 border-b border-light-border dark:border-dark-border pb-1">📖 Assigned Passages: ${passagesSummary}</h2>`;
+                            initialContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key reflections and notes for today's reading here...</p><br/>`;
+                        }
+                    } else {
+                        // Sequential track template
+                        const trackSummaries = plan.tracks.map(track => {
+                            const segments = getDailySegments(track);
+                            const chaptersString = segments
+                                .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
+                                .join(', ');
+                            return { title: track.name, chaptersSummary: chaptersString };
+                        });
+                        const passagesSummary = trackSummaries.map(t => `${t.title}: ${t.chaptersSummary}`).join(' • ');
+
+                        if (plan.templateType === 'lectio_divina') {
+                            initialContent = `<h1 class="text-3xl font-black mb-2">Lectio Study Journal: ${dateString}</h1>`;
+                            initialContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-6">Plan: <b>${plan.name}</b> • Readings: <b>${passagesSummary}</b></p>`;
+                            initialContent += `<section class="lectio-stage-1 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">📖 1. Lectio (Reading)</h2><p class="text-xs italic text-light-text-secondary mb-2">Read slowly and attentively. What word, phrase, or verse catches your attention?</p><blockquote><p><em>(Tap the Pin button next to any verse on the left to pin it here)</em></p></blockquote></section>`;
+                            initialContent += `<section class="lectio-stage-2 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">💡 2. Meditatio (Meditation)</h2><p class="text-xs italic text-light-text-secondary mb-2">Ruminate on the text. Why is God speaking this word to your heart today? What thoughts or convictions are stirred?</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-3 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">🙏 3. Oratio (Prayer)</h2><p class="text-xs italic text-light-text-secondary mb-2">Speak openly to God in prayer. Confess, praise, question, or petition Him in response to His word.</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-4 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">🕊️ 4. Contemplatio (Contemplation)</h2><p class="text-xs italic text-light-text-secondary mb-2">Rest in quiet stillness in God's presence beyond words. Allow the Truth to transform your inner soul.</p><p></p></section>`;
+                            initialContent += `<section class="lectio-stage-5 mb-6"><h2 class="text-lg font-bold text-primary flex items-center gap-2">⚡ 5. Actio (Action & Life Application)</h2><p class="text-xs italic text-light-text-secondary mb-2">How will you embody this revelation today? Name one concrete, tangible step of love or obedience.</p><p></p></section>`;
+                        } else {
+                            initialContent = `<h1 class="text-3xl font-black mb-4">Lectio Study Journal: ${dateString}</h1>`;
+                            initialContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-8">Daily reading companion for plan: <b>${plan.name}</b></p>`;
+                            trackSummaries.forEach(t => {
+                                initialContent += `<h2 class="text-xl font-bold mt-6 border-b border-light-border dark:border-dark-border pb-1">📖 ${t.title} (${t.chaptersSummary})</h2>`;
+                                initialContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key takeaways and inspired summaries for this track here...</p><br/>`;
+                            });
+                        }
+                    }
 
                     // Dynamically import noteStore to avoid circular dependency
                     const { useNoteStore } = await import('@/stores/noteStore');
@@ -362,12 +502,12 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         if (parentFolder) {
                             const sanitizedPlanName = sanitizePathName(plan.name);
                             let subFolder = useNoteStore.getState().localFiles.find(
-                                f => f.name === sanitizedPlanName && f.parentId === parentFolder.id && f.kind === 'directory'
+                                f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id && f.kind === 'directory'
                             );
                             if (!subFolder) {
                                 await noteStoreState.createLocalFolder(sanitizedPlanName, parentFolder.id);
                                 subFolder = useNoteStore.getState().localFiles.find(
-                                    f => f.name === sanitizedPlanName && f.parentId === parentFolder.id && f.kind === 'directory'
+                                    f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id && f.kind === 'directory'
                                 );
                             }
                             targetFolderId = subFolder ? subFolder.id : parentFolder.id;
@@ -396,7 +536,8 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                         id: historyId,
                         planId,
                         completedAt: 0, // 0 signifies in progress
-                        noteId
+                        noteId,
+                        completedItems: []
                     });
 
                     // Flush updated plan.json physically
@@ -417,6 +558,40 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 });
             },
 
+            toggleChapterCompletion: async (planId, itemRef) => {
+                const dateKey = new Date().toISOString().split('T')[0];
+                const historyId = `${planId}-${dateKey}`;
+                let history = await db.readingPlanHistory.get(historyId);
+                if (!history) {
+                    history = {
+                        id: historyId,
+                        planId,
+                        completedAt: 0,
+                        completedItems: []
+                    };
+                }
+                const completedItems = history.completedItems || [];
+                const updatedItems = completedItems.includes(itemRef)
+                    ? completedItems.filter(i => i !== itemRef)
+                    : [...completedItems, itemRef];
+                
+                await db.readingPlanHistory.put({
+                    ...history,
+                    completedItems: updatedItems
+                });
+            },
+
+            updateReadingDuration: async (planId, durationSeconds) => {
+                const dateKey = new Date().toISOString().split('T')[0];
+                const historyId = `${planId}-${dateKey}`;
+                const history = await db.readingPlanHistory.get(historyId);
+                if (history) {
+                    await db.readingPlanHistory.update(historyId, {
+                        readingDurationSeconds: (history.readingDurationSeconds || 0) + durationSeconds
+                    });
+                }
+            },
+
             pinVerseToActiveJournal: async (verseText, reference) => {
                 const { activeNoteId } = get();
                 if (!activeNoteId) return;
@@ -424,7 +599,6 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 // Format as a beautiful markdown/HTML blockquote in Tiptap format
                 const pinBlock = `<blockquote><p><strong>${reference}</strong> - ${verseText}</p></blockquote><p></p>`;
 
-                // Dynamically import noteStore to avoid circular dependency
                 const { useNoteStore } = await import('@/stores/noteStore');
                 const noteStoreState = useNoteStore.getState();
                 const isLocalMode = noteStoreState.isLocalMode;
@@ -435,7 +609,6 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     const currentNote = noteStoreState.currentNote;
                     if (currentNote && currentNote.id === activeNoteId) {
                         newContent = currentNote.content + pinBlock;
-                        // Save the note using noteStore's saveCurrentNote
                         await noteStoreState.saveCurrentNote(currentNote.title, newContent);
                     }
                 } else {
@@ -470,24 +643,36 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 const plan = await db.readingPlans.get(activePlanId);
                 if (!plan) return;
 
-                // 1. Advance track cursors based on chaptersPerDay
-                const updatedTracks = plan.tracks.map(track => {
-                    const nextPosition = advanceChapters(
-                        track.currentBook,
-                        track.currentChapter,
-                        track.chaptersPerDay,
-                        track.startBook
-                    );
-                    return {
-                        ...track,
-                        currentBook: nextPosition.book,
-                        currentChapter: nextPosition.chapter
-                    };
-                });
+                const isCurated = plan.curatedSchedule && plan.curatedSchedule.length > 0;
 
-                await db.readingPlans.update(activePlanId, {
-                    tracks: updatedTracks
-                });
+                if (!isCurated) {
+                    // 1. Advance track cursors based on chaptersPerDay and endBook
+                    let allTracksFinished = true;
+                    const updatedTracks = plan.tracks.map(track => {
+                        const nextPosition = advanceChapters(
+                            track.currentBook,
+                            track.currentChapter,
+                            track.chaptersPerDay,
+                            track.startBook,
+                            track.endBook
+                        );
+                        if (!nextPosition.isCompleted) {
+                            allTracksFinished = false;
+                        }
+                        return {
+                            ...track,
+                            currentBook: nextPosition.book,
+                            currentChapter: nextPosition.chapter
+                        };
+                    });
+
+                    const planStatus = (allTracksFinished && plan.tracks.some(t => !!t.endBook)) ? 'completed' : plan.status;
+
+                    await db.readingPlans.update(activePlanId, {
+                        tracks: updatedTracks,
+                        status: planStatus
+                    });
+                }
 
                 // 2. Mark history record as completed today
                 const dateKey = new Date().toISOString().split('T')[0];
@@ -496,77 +681,10 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     completedAt: Date.now()
                 });
 
-                // 3. AUTO-GENERATE NEXT DAY'S NOTE (Pre-seeding tomorrow's chapters)
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const nextDateKey = tomorrow.toISOString().split('T')[0];
-                const nextHistoryId = `${activePlanId}-${nextDateKey}`;
-                const nextExistingHistory = await db.readingPlanHistory.get(nextHistoryId);
-
+                // 3. Update local plan.json with new advanced state and notes manifest
                 const { useNoteStore } = await import('@/stores/noteStore');
                 const noteStoreState = useNoteStore.getState();
-                const isLocalMode = noteStoreState.isLocalMode;
-
-                if (!nextExistingHistory) {
-                    const nextNoteId = `note-lectio-${activePlanId}-${nextDateKey}`;
-                    const tomorrowString = tomorrow.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-
-                    // Generate pre-seeded template using UPDATED tracks!
-                    let nextContent = `<h1 class="text-3xl font-black mb-4">Lectio Study Journal: ${tomorrowString}</h1>`;
-                    nextContent += `<p class="text-xs text-light-text-secondary dark:text-dark-text-secondary italic mb-8">Daily reading companion for plan: <b>${plan.name}</b></p>`;
-
-                    updatedTracks.forEach(track => {
-                        const segments = getDailySegments(track);
-                        const chaptersString = segments
-                            .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
-                            .join(', ');
-
-                        nextContent += `<h2 class="text-xl font-bold mt-6 border-b border-light-border dark:border-dark-border pb-1">📖 ${track.name} (${chaptersString})</h2>`;
-                        nextContent += `<p class="text-sm italic text-light-text-disabled mt-2">Write down your key takeaways and inspired summaries for this track here...</p><br/>`;
-                    });
-
-                    const title = `Lectio Journal - ${tomorrowString}`;
-
-                    if (isLocalMode && noteStoreState.localDirectoryHandle) {
-                        let parentFolder = noteStoreState.localFiles.find(f => f.name === 'Lectio Study Journals' && f.kind === 'directory');
-                        if (parentFolder) {
-                            const sanitizedPlanName = sanitizePathName(plan.name);
-                            const subFolder = useNoteStore.getState().localFiles.find(
-                                f => f.name === sanitizedPlanName && f.parentId === parentFolder!.id && f.kind === 'directory'
-                            );
-                            const targetFolderId = subFolder ? subFolder.id : parentFolder.id;
-                            
-                            // Create next day physically
-                            await noteStoreState.createLocalNote(title, targetFolderId, nextContent, nextNoteId);
-                        }
-                    } else {
-                        // Create next day in DB
-                        const timestamp = Date.now();
-                        const nextNote: Note = {
-                            id: nextNoteId,
-                            title,
-                            content: nextContent,
-                            createdAt: timestamp,
-                            updatedAt: timestamp,
-                            folderId: plan.folderId,
-                            tags: ['lectio', plan.name.toLowerCase().replace(/[^a-z0-9]/g, '-')],
-                            type: 'text'
-                        };
-                        await db.notes.add(nextNote);
-                    }
-
-                    // Create blank history record for tomorrow
-                    await db.readingPlanHistory.put({
-                        id: nextHistoryId,
-                        planId: activePlanId,
-                        completedAt: 0,
-                        noteId: nextNoteId
-                    });
-                    console.log(`[Lectio Mode] Pre-generated next session note deterministically: ${nextNoteId}`);
-                }
-
-                // 4. Update local plan.json with new advanced state and notes manifest
-                if (isLocalMode) {
+                if (noteStoreState.isLocalMode) {
                     const latestPlan = await db.readingPlans.get(activePlanId);
                     if (latestPlan) {
                         await updateLocalPlanJson(latestPlan);
@@ -578,7 +696,7 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                     PlanSyncManager.broadcastPlanUpdate(activePlanId);
                 });
 
-                // 5. Clean up active state
+                // 4. Clean up active state
                 set({
                     activePlanId: null,
                     activeNoteId: null,

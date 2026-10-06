@@ -8,12 +8,17 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion, ReadingPlanTrack } from '@/types/database';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { downloadPlanIcs } from '@/lib/bible/icsExportService';
+import { LectioStudyPopover } from '@/components/bible/LectioStudyPopover';
+import { LECTIO_PRESETS, parsePastedCuratedText, type LectioPreset } from '@/lib/bible/lectioPresets';
 import {
     BookOpen,
     Calendar,
     Plus,
     Trash2,
     Play,
+    Pause,
+    Timer,
     CheckCircle2,
     ArrowLeft,
     X,
@@ -33,7 +38,12 @@ import {
     Copy,
     Check,
     Users,
-    Lock
+    Lock,
+    Maximize2,
+    Minimize2,
+    CheckSquare,
+    Square,
+    Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -46,9 +56,12 @@ export const LectioMode: React.FC = () => {
         readerStyle,
         loadPlans,
         createPlan,
+        createCuratedPlan,
         startDailySession,
         pinVerseToActiveJournal,
         completeDailySession,
+        toggleChapterCompletion,
+        updateReadingDuration,
         recalculatePlanGrace,
         deletePlan,
         exitLectioMode,
@@ -64,16 +77,34 @@ export const LectioMode: React.FC = () => {
         showToast(`Switched to ${nextTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
     };
 
-    // Local UI states
+    // Workspace Split & Focus states
+    const [zenFocus, setZenFocus] = useState(false);
+    const [splitRatio, setSplitRatio] = useState(50);
+
+    // Devotional Timer states
+    const [timerSeconds, setTimerSeconds] = useState(0);
+    const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+    // Subtle Inline Study Popover state
+    const [studyPopoverData, setStudyPopoverData] = useState<{
+        verse: { book: string; chapter: number; verse: number; text: string };
+        strongsId?: string | null;
+        wordText?: string | null;
+    } | null>(null);
+
+    // Plan Creation Modal states
     const [isCreating, setIsCreating] = useState(false);
+    const [creationTab, setCreationTab] = useState<'preset' | 'custom' | 'smart_paste'>('preset');
+    const [templateChoice, setTemplateChoice] = useState<'lectio_divina' | 'freeform'>('lectio_divina');
+    const [pastedScheduleText, setPastedScheduleText] = useState('');
     const [planName, setPlanName] = useState('');
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(
         new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     );
     const [tracksInput, setTracksInput] = useState<Omit<ReadingPlanTrack, 'currentBook' | 'currentChapter'>[]>([
-        { name: 'Old Testament', startBook: 'Genesis', chaptersPerDay: 3 },
-        { name: 'New Testament', startBook: 'Matthew', chaptersPerDay: 1 }
+        { name: 'Old Testament', startBook: 'Genesis', endBook: 'Malachi', chaptersPerDay: 3 },
+        { name: 'New Testament', startBook: 'Matthew', endBook: 'Revelation', chaptersPerDay: 1 }
     ]);
 
     // Header popovers
@@ -102,6 +133,40 @@ export const LectioMode: React.FC = () => {
     }, [loadPlans]);
 
     const activePlan = activePlans.find(p => p.id === activePlanId);
+
+    // Timer Interval Effect
+    useEffect(() => {
+        let interval: any = null;
+        if (isTimerRunning) {
+            interval = setInterval(() => {
+                setTimerSeconds(s => s + 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isTimerRunning]);
+
+    // Today's History & Granular Checkoffs query
+    const dateKey = new Date().toISOString().split('T')[0];
+    const todayHistoryId = activePlanId ? `${activePlanId}-${dateKey}` : null;
+    const todayHistory = useLiveQuery(async () => {
+        if (!todayHistoryId) return null;
+        return await db.readingPlanHistory.get(todayHistoryId);
+    }, [todayHistoryId]);
+    const completedItems = todayHistory?.completedItems || [];
+
+    // Curated plan determination
+    const isCuratedPlan = activePlan?.type === 'curated' || activePlan?.type === 'topical' || activePlan?.type === 'word_study' || activePlan?.type === 'chronological';
+    const completedHistoryCount = useLiveQuery(async () => {
+        if (!activePlanId) return 0;
+        return await db.readingPlanHistory.where('planId').equals(activePlanId).filter(h => h.completedAt > 0).count();
+    }, [activePlanId]) || 0;
+
+    const activeCuratedDay = useMemo(() => {
+        if (!activePlan?.curatedSchedule || activePlan.curatedSchedule.length === 0) return null;
+        return activePlan.curatedSchedule[completedHistoryCount] || activePlan.curatedSchedule[0];
+    }, [activePlan?.curatedSchedule, completedHistoryCount]);
 
     const isPlanShared = useMemo(() => {
         return !!activePlanId && !!localStorage.getItem(`plan-salt-${activePlanId}`);
@@ -139,7 +204,7 @@ export const LectioMode: React.FC = () => {
         }
     }, [installedVersions, versionId]);
 
-    // 4. Fetch Assigned Chapters for the Active Track
+    // 4. Fetch Assigned Chapters for the Active Track (for sequential plans)
     const activeTrack = activePlan?.tracks[selectedTrackIndex];
     const dailySegments = useMemo(() => {
         return activeTrack ? getDailySegments(activeTrack) : [];
@@ -147,7 +212,8 @@ export const LectioMode: React.FC = () => {
         activeTrack?.currentBook,
         activeTrack?.currentChapter,
         activeTrack?.chaptersPerDay,
-        activeTrack?.startBook
+        activeTrack?.startBook,
+        activeTrack?.endBook
     ]);
 
     // Flatten daily track segments into individual sequential pages for single-page reading
@@ -171,7 +237,7 @@ export const LectioMode: React.FC = () => {
 
     // 5. Fetch scriptures based on Reading Flow (Seamless Scroll vs Paginated Page-by-Page)
     useEffect(() => {
-        if (!isLectioModeActive || !activePlanId || !activeTrack || dailySegments.length === 0) {
+        if (!isLectioModeActive || !activePlanId || !activePlan) {
             setVerses([]);
             return;
         }
@@ -181,27 +247,42 @@ export const LectioMode: React.FC = () => {
             try {
                 const allVerses: BibleVerse[] = [];
                 
-                if (readerStyle === 'page') {
-                    const currentPage = pages[activePageIndex];
-                    if (currentPage) {
+                if (isCuratedPlan && activeCuratedDay) {
+                    // Fetch curated day's explicit passages (with verseStart & verseEnd support!)
+                    for (const p of activeCuratedDay.passages) {
                         const chapterVerses = await db.bibleVerses
                             .where('[versionId+book+chapter]')
-                            .equals([versionId, currentPage.book, currentPage.chapter])
+                            .equals([versionId, p.book, p.chapter])
                             .sortBy('verse');
-                        allVerses.push(...chapterVerses);
+                        const filtered = p.verseStart != null
+                            ? chapterVerses.filter(v => v.verse >= p.verseStart! && (p.verseEnd == null || v.verse <= p.verseEnd!))
+                            : chapterVerses;
+                        allVerses.push(...filtered);
                     }
-                } else {
-                    // Classic Stacked Scroll Sequential View
-                    for (const segment of dailySegments) {
-                        for (const ch of segment.chapters) {
+                } else if (activeTrack && dailySegments.length > 0) {
+                    if (readerStyle === 'page') {
+                        const currentPage = pages[activePageIndex];
+                        if (currentPage) {
                             const chapterVerses = await db.bibleVerses
                                 .where('[versionId+book+chapter]')
-                                .equals([versionId, segment.book, ch])
+                                .equals([versionId, currentPage.book, currentPage.chapter])
                                 .sortBy('verse');
                             allVerses.push(...chapterVerses);
                         }
+                    } else {
+                        // Classic Stacked Scroll Sequential View
+                        for (const segment of dailySegments) {
+                            for (const ch of segment.chapters) {
+                                const chapterVerses = await db.bibleVerses
+                                    .where('[versionId+book+chapter]')
+                                    .equals([versionId, segment.book, ch])
+                                    .sortBy('verse');
+                                allVerses.push(...chapterVerses);
+                            }
+                        }
                     }
                 }
+
                 const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
                 const decryptedAll = await decryptVerses(allVerses);
                 setVerses(decryptedAll);
@@ -217,6 +298,9 @@ export const LectioMode: React.FC = () => {
     }, [
         isLectioModeActive,
         activePlanId,
+        activePlan,
+        isCuratedPlan,
+        activeCuratedDay,
         selectedTrackIndex,
         versionId,
         readerStyle,
@@ -225,9 +309,27 @@ export const LectioMode: React.FC = () => {
         activeTrack?.currentChapter,
         activeTrack?.chaptersPerDay,
         activeTrack?.startBook,
+        activeTrack?.endBook,
         pages,
         dailySegments
     ]);
+
+    // Granular chapter checklist items for today's session
+    const currentChecklistItems = useMemo(() => {
+        if (isCuratedPlan && activeCuratedDay) {
+            return activeCuratedDay.passages.map(p => {
+                const range = p.verseStart ? `:${p.verseStart}${p.verseEnd ? `-${p.verseEnd}` : ''}` : '';
+                return `${p.book} ${p.chapter}${range}`;
+            });
+        }
+        const list: string[] = [];
+        dailySegments.forEach(seg => {
+            seg.chapters.forEach(ch => {
+                list.push(`${seg.book} ${ch}`);
+            });
+        });
+        return list;
+    }, [isCuratedPlan, activeCuratedDay, dailySegments]);
 
     // Click interceptor inside editor for Scripture links or blockquotes to slide up PiP drawer
     const handleJournalPanelClick = async (e: React.MouseEvent) => {
@@ -316,25 +418,32 @@ export const LectioMode: React.FC = () => {
     };
 
     // Preset Creators for faster onboarding
-    const createPresetPlan = async (type: '24ch' | 'canonical') => {
-        const startTimestamp = new Date(startDate).getTime();
-        const endTimestamp = new Date(endDate).getTime();
+    const createPresetPlan = async (presetId: string) => {
+        const preset = LECTIO_PRESETS.find(p => p.id === presetId);
+        if (!preset) return;
 
-        if (type === '24ch') {
-            await createPlan('Lectio 24-Chapter Daily', startTimestamp, endTimestamp, [
-                { name: 'Old Testament Reading', startBook: 'Genesis', chaptersPerDay: 10 },
-                { name: 'New Testament Reading', startBook: 'Matthew', chaptersPerDay: 10 },
-                { name: 'Psalms', startBook: 'Psalms', chaptersPerDay: 2 },
-                { name: 'Proverbs', startBook: 'Proverbs', chaptersPerDay: 2 }
-            ]);
-            showToast('Lectio 24-Chapter Plan created!', 'success');
+        const startTimestamp = new Date(startDate).getTime();
+        const endTimestamp = startTimestamp + (preset.durationDays * 24 * 60 * 60 * 1000);
+
+        if (preset.type === 'topical' || preset.type === 'curated' || preset.type === 'chronological') {
+            await createCuratedPlan(
+                preset.title,
+                startTimestamp,
+                endTimestamp,
+                preset.type,
+                preset.curatedSchedule || [],
+                preset.templateType || 'lectio_divina'
+            );
         } else {
-            await createPlan('One-Year Canonical Plan', startTimestamp, endTimestamp, [
-                { name: 'Old Testament', startBook: 'Genesis', chaptersPerDay: 3 },
-                { name: 'New Testament', startBook: 'Matthew', chaptersPerDay: 1 }
-            ]);
-            showToast('One-Year Plan created!', 'success');
+            await createPlan(
+                preset.title,
+                startTimestamp,
+                endTimestamp,
+                preset.tracks || [],
+                preset.templateType || 'freeform'
+            );
         }
+        showToast(`Plan "${preset.title}" created successfully!`, 'success');
         setIsCreating(false);
     };
 
@@ -348,10 +457,58 @@ export const LectioMode: React.FC = () => {
         const startTimestamp = new Date(startDate).getTime();
         const endTimestamp = new Date(endDate).getTime();
 
-        await createPlan(planName, startTimestamp, endTimestamp, tracksInput);
-        showToast(`Plan "${planName}" created successfully!`, 'success');
+        if (creationTab === 'smart_paste') {
+            const schedule = parsePastedCuratedText(pastedScheduleText);
+            if (schedule.length === 0) {
+                showToast('Could not parse any scripture passages. Please check the format.', 'error');
+                return;
+            }
+            await createCuratedPlan(
+                planName,
+                startTimestamp,
+                endTimestamp,
+                'curated',
+                schedule,
+                templateChoice
+            );
+            showToast(`Custom topical plan "${planName}" created with ${schedule.length} days!`, 'success');
+        } else {
+            await createPlan(planName, startTimestamp, endTimestamp, tracksInput, templateChoice);
+            showToast(`Plan "${planName}" created successfully!`, 'success');
+        }
         setIsCreating(false);
         setPlanName('');
+        setPastedScheduleText('');
+    };
+
+    const formatDuration = (totalSeconds: number) => {
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleDividerPointerDown = (e: React.PointerEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const initialRatio = splitRatio;
+        const container = (e.currentTarget as HTMLElement).parentElement;
+        if (!container) return;
+        const containerWidth = container.getBoundingClientRect().width;
+
+        const onPointerMove = (moveEvent: PointerEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const deltaPercent = (deltaX / containerWidth) * 100;
+            const newRatio = Math.min(80, Math.max(20, initialRatio + deltaPercent));
+            setSplitRatio(newRatio);
+        };
+
+        const onPointerUp = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
     };
 
     // Render nothing if Lectio mode is entirely inactive in the Zustand store
@@ -422,8 +579,30 @@ export const LectioMode: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Header Toolbar: Version Picker, Settings Popover Toggle, Complete Button */}
+                    {/* Header Toolbar: Version Picker, Settings Popover Toggle, Timer, Zen Focus, Complete Button */}
                     <div className="flex items-center gap-2 relative">
+                        {/* Devotional Timer */}
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border rounded-xl text-xs font-mono font-bold text-light-text-secondary dark:text-dark-text-secondary">
+                            <Timer size={13} className={isTimerRunning ? "text-primary animate-pulse" : "opacity-60"} />
+                            <span>{formatDuration(timerSeconds)}</span>
+                            <button
+                                onClick={() => setIsTimerRunning(!isTimerRunning)}
+                                className="p-0.5 hover:text-primary transition-colors ml-0.5"
+                                title={isTimerRunning ? "Pause Timer" : "Start Devotional Timer"}
+                            >
+                                {isTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                            </button>
+                        </div>
+
+                        {/* Zen Focus Toggle Button (Desktop & Tablet) */}
+                        <button
+                            onClick={() => setZenFocus(!zenFocus)}
+                            className={`p-2 rounded-full transition-all duration-200 hover:bg-light-background dark:hover:bg-dark-background ${zenFocus ? 'text-primary bg-primary/10' : 'text-light-text-secondary dark:text-dark-text-secondary'}`}
+                            title={zenFocus ? "Exit Zen Focus (Show Journal)" : "Zen Focus (Full Scripture View)"}
+                        >
+                            {zenFocus ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        </button>
+
                         <select
                             value={versionId}
                             onChange={(e) => setVersionId(e.target.value)}
@@ -508,6 +687,7 @@ export const LectioMode: React.FC = () => {
                             onClick={() => {
                                 if (window.confirm('Mark today\'s reading segments as complete and advance?')) {
                                     completeDailySession();
+                                    updateReadingDuration(activePlan.id, timerSeconds);
                                     showToast('Scribe session completed! Advanced chapter tracks.', 'success');
                                 }
                             }}
@@ -519,30 +699,73 @@ export const LectioMode: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Track Selector Bar */}
+                {/* Track Selector Bar (or Curated Day Indicator) */}
                 <div className="bg-light-sidebar/55 dark:bg-dark-sidebar/45 border-b border-light-border dark:border-dark-border py-2 px-4 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
-                    {activePlan.tracks.map((track, idx) => {
-                        const segments = getDailySegments(track);
-                        const labelString = segments
-                            .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
-                            .join(', ');
+                    {isCuratedPlan ? (
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-primary/20 border border-primary text-primary text-xs font-black uppercase tracking-wider rounded-lg">
+                                Day {completedHistoryCount + 1}: {activeCuratedDay?.title || 'Daily Passage'}
+                            </span>
+                            {activeCuratedDay?.topic && (
+                                <span className="text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary italic">
+                                    "{activeCuratedDay.topic}"
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        activePlan.tracks.map((track, idx) => {
+                            const segments = getDailySegments(track);
+                            const labelString = segments
+                                .map(s => `${s.book} ${s.chapters[0]}${s.chapters.length > 1 ? `-${s.chapters[s.chapters.length - 1]}` : ''}`)
+                                .join(', ');
 
-                        return (
-                            <button
-                                key={track.name}
-                                onClick={() => {
-                                    setSelectedTrackIndex(idx);
-                                }}
-                                className={`px-4 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border transition-all shrink-0 active:scale-98 ${selectedTrackIndex === idx
-                                    ? 'bg-primary/20 border-primary text-primary shadow-sm'
-                                    : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
-                                    }`}
-                            >
-                                {track.name}: <span className="font-bold text-[10px] opacity-75">{labelString}</span>
-                            </button>
-                        );
-                    })}
+                            return (
+                                <button
+                                    key={track.name}
+                                    onClick={() => {
+                                        setSelectedTrackIndex(idx);
+                                    }}
+                                    className={`px-4 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border transition-all shrink-0 active:scale-98 ${selectedTrackIndex === idx
+                                        ? 'bg-primary/20 border-primary text-primary shadow-sm'
+                                        : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                        }`}
+                                >
+                                    {track.name}: <span className="font-bold text-[10px] opacity-75">{labelString}</span>
+                                </button>
+                            );
+                        })
+                    )}
                 </div>
+
+                {/* Daily Granular Chapter Checklist Bar */}
+                {currentChecklistItems.length > 0 && (
+                    <div className="bg-light-surface/90 dark:bg-dark-surface/90 border-b border-light-border dark:border-dark-border py-1.5 px-4 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 text-xs">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-light-text-disabled shrink-0 flex items-center gap-1">
+                            <CheckCircle2 size={12} /> Assigned:
+                        </span>
+                        {currentChecklistItems.map(item => {
+                            const isDone = completedItems.includes(item);
+                            return (
+                                <button
+                                    key={item}
+                                    onClick={() => {
+                                        if (activePlan) {
+                                            toggleChapterCompletion(activePlan.id, item);
+                                        }
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all shrink-0 border ${
+                                        isDone
+                                            ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
+                                            : 'bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:border-primary/40'
+                                    }`}
+                                >
+                                    {isDone ? <CheckSquare size={12} className="text-green-500" /> : <Square size={12} />}
+                                    <span>{item}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Mobile Traditional Tap-to-Switch Header (Only visible on mobile) */}
                 {isMobile && (
@@ -572,7 +795,14 @@ export const LectioMode: React.FC = () => {
                 <div className="flex-1 flex overflow-hidden relative">
                     {/* LEFT PANEL: Clean Scripture Reader */}
                     <div
-                        className={`flex-1 h-full flex flex-col bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border overflow-hidden relative ${isMobile && activeMobileTab !== 'read' ? 'hidden' : 'block'
+                        style={{
+                            width: isMobile
+                                ? '100%'
+                                : zenFocus
+                                    ? '100%'
+                                    : `${splitRatio}%`
+                        }}
+                        className={`h-full flex flex-col bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border overflow-hidden relative ${isMobile && activeMobileTab !== 'read' ? 'hidden' : 'flex'
                             }`}
                     >
                         <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar flex flex-col">
@@ -612,7 +842,18 @@ export const LectioMode: React.FC = () => {
                                                                     : 'hover:bg-primary/10'
                                                                     }`}
                                                             >
-                                                                <sup className="text-[10px] font-sans font-bold opacity-50 mr-0.5 select-none">{v.verse}</sup>
+                                                                <sup
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setStudyPopoverData({
+                                                                            verse: { book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }
+                                                                        });
+                                                                    }}
+                                                                    className="text-[10px] font-sans font-bold opacity-50 mr-1 select-none hover:text-primary hover:opacity-100 hover:scale-125 inline-block transition-transform cursor-pointer"
+                                                                    title="Lookup Strong's & Cross-References"
+                                                                >
+                                                                    {v.verse}
+                                                                </sup>
                                                                 {v.text}
                                                             </span>
                                                         ))}
@@ -643,7 +884,18 @@ export const LectioMode: React.FC = () => {
                                                                                 : 'hover:bg-primary/10'
                                                                                 }`}
                                                                         >
-                                                                            <sup className="text-[10px] font-sans font-bold opacity-50 mr-0.5 select-none">{v.verse}</sup>
+                                                                            <sup
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setStudyPopoverData({
+                                                                                        verse: { book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }
+                                                                                    });
+                                                                                }}
+                                                                                className="text-[10px] font-sans font-bold opacity-50 mr-1 select-none hover:text-primary hover:opacity-100 hover:scale-125 inline-block transition-transform cursor-pointer"
+                                                                                title="Lookup Strong's & Cross-References"
+                                                                            >
+                                                                                {v.verse}
+                                                                            </sup>
                                                                             {v.text}
                                                                         </span>
                                                                     ))}
@@ -729,10 +981,28 @@ export const LectioMode: React.FC = () => {
                         </AnimatePresence>
                     </div>
 
+                    {/* Resizable Divider Handle (Hidden on Mobile or Zen Focus) */}
+                    {!isMobile && !zenFocus && (
+                        <div
+                            onPointerDown={handleDividerPointerDown}
+                            className="w-1.5 hover:w-2 bg-light-border dark:border-dark-border hover:bg-primary/50 cursor-col-resize transition-all shrink-0 relative group flex items-center justify-center select-none z-20"
+                            title="Drag to resize Scripture / Journal split"
+                        >
+                            <div className="h-8 w-1 bg-light-text-disabled group-hover:bg-primary rounded-full transition-colors" />
+                        </div>
+                    )}
+
                     {/* RIGHT PANEL: Daily Summary Journal Editor */}
                     <div
                         onClick={handleJournalPanelClick}
-                        className={`flex-1 h-full flex flex-col bg-white dark:bg-dark-surface overflow-hidden relative ${isMobile && activeMobileTab !== 'journal' ? 'hidden' : 'block'
+                        style={{
+                            width: isMobile
+                                ? '100%'
+                                : zenFocus
+                                    ? '0%'
+                                    : `${100 - splitRatio}%`
+                        }}
+                        className={`h-full flex flex-col bg-white dark:bg-dark-surface overflow-hidden relative ${zenFocus || (isMobile && activeMobileTab !== 'journal') ? 'hidden' : 'flex'
                             }`}
                     >
                         {activeNoteId ? (
@@ -760,6 +1030,23 @@ export const LectioMode: React.FC = () => {
                         </AnimatePresence>
                     </div>
                 </div>
+
+                {/* Inline Study Popover (Strong's Concordance + TSK Cross-References) */}
+                <AnimatePresence>
+                    {studyPopoverData && (
+                        <LectioStudyPopover
+                            verse={studyPopoverData.verse}
+                            strongsId={studyPopoverData.strongsId}
+                            wordText={studyPopoverData.wordText}
+                            versionId={versionId}
+                            onClose={() => setStudyPopoverData(null)}
+                            onPinVerse={async (text: string, ref: string) => {
+                                await pinVerseToActiveJournal(text, ref);
+                                showToast(`Pinned ${ref} to study notes!`, 'success');
+                            }}
+                        />
+                    )}
+                </AnimatePresence>
             </div>
         );
     }
@@ -807,182 +1094,367 @@ export const LectioMode: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-2xl p-6 shadow-xl space-y-6"
+                        className="bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-3xl p-6 md:p-8 shadow-xl space-y-6"
                     >
-                        <div className="flex items-center justify-between border-b border-light-border dark:border-dark-border pb-3">
-                            <h3 className="text-base font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                                <PlusCircle size={18} />
-                                <span>Create Scripture Plan</span>
-                            </h3>
+                        <div className="flex items-center justify-between border-b border-light-border dark:border-dark-border pb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                                    <PlusCircle size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black uppercase text-light-text-primary dark:text-dark-text-primary tracking-wider">
+                                        Create Scripture Study Plan
+                                    </h3>
+                                    <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary font-medium">
+                                        Select from curated classical schedules, custom book tracks, or paste your own study list
+                                    </p>
+                                </div>
+                            </div>
                             <button
                                 onClick={() => setIsCreating(false)}
-                                className="text-xs font-bold uppercase tracking-wider text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary"
+                                className="px-3 py-1.5 rounded-xl border border-light-border dark:border-dark-border text-xs font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-all"
                             >
                                 Back
                             </button>
                         </div>
 
-                        {/* Form Presets */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div
-                                onClick={() => createPresetPlan('24ch')}
-                                className="bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border hover:border-primary/50 rounded-xl p-4 cursor-pointer text-left transition-all hover:shadow-md"
+                        {/* Top Category Tabs */}
+                        <div className="grid grid-cols-3 gap-2 bg-light-background dark:bg-dark-background/60 p-1.5 rounded-2xl border border-light-border dark:border-dark-border">
+                            <button
+                                type="button"
+                                onClick={() => setCreationTab('preset')}
+                                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                                    creationTab === 'preset'
+                                        ? 'bg-light-surface dark:bg-dark-surface text-primary shadow-sm border border-light-border dark:border-dark-border'
+                                        : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary'
+                                }`}
                             >
-                                <h4 className="text-xs font-black uppercase text-primary mb-1">📖 The Lectio 24-Chapter Devotional</h4>
-                                <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
-                                    Our optimized deep-study preset: read 10 chapters Old Testament, 10 chapters New Testament, 2 Psalms, and 2 Proverbs daily.
-                                </p>
-                            </div>
-                            <div
-                                onClick={() => createPresetPlan('canonical')}
-                                className="bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border hover:border-primary/50 rounded-xl p-4 cursor-pointer text-left transition-all hover:shadow-md"
+                                <Sparkles size={14} />
+                                <span className="hidden sm:inline">Curated</span> Presets
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCreationTab('custom')}
+                                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                                    creationTab === 'custom'
+                                        ? 'bg-light-surface dark:bg-dark-surface text-primary shadow-sm border border-light-border dark:border-dark-border'
+                                        : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary'
+                                }`}
                             >
-                                <h4 className="text-xs font-black uppercase text-primary mb-1">📅 Classical One-Year Canonical</h4>
-                                <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
-                                    The standard daily devotional route: read 3 chapters Old Testament and 1 chapter New Testament daily to complete in a year.
-                                </p>
-                            </div>
+                                <Layers size={14} />
+                                <span className="hidden sm:inline">Custom</span> Tracks
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCreationTab('smart_paste')}
+                                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                                    creationTab === 'smart_paste'
+                                        ? 'bg-light-surface dark:bg-dark-surface text-primary shadow-sm border border-light-border dark:border-dark-border'
+                                        : 'text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text-primary'
+                                }`}
+                            >
+                                <FileText size={14} />
+                                <span className="hidden sm:inline">Smart</span> Paste
+                            </button>
                         </div>
 
-                        <div className="flex items-center gap-3 my-4">
-                            <div className="flex-1 h-[1px] bg-light-border dark:bg-dark-border" />
-                            <span className="text-[10px] uppercase font-black tracking-widest text-light-text-disabled">Or Build Custom Plan</span>
-                            <div className="flex-1 h-[1px] bg-light-border dark:bg-dark-border" />
-                        </div>
-
-                        {/* Custom Form */}
-                        <form onSubmit={handleCreateCustomPlan} className="space-y-4 text-left">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Plan Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={planName}
-                                    onChange={(e) => setPlanName(e.target.value)}
-                                    placeholder="e.g. Forgiveness Study, Whole Bible, Grace plan..."
-                                    className="input py-2.5 rounded-xl text-sm"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Start Date</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="input py-2.5 rounded-xl text-sm"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">End Date</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="input py-2.5 rounded-xl text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Tracks List */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Scripture Chapter Tracks</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setTracksInput([
-                                            ...tracksInput,
-                                            { name: 'Custom Track', startBook: 'Genesis', chaptersPerDay: 1 }
-                                        ])}
-                                        className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest flex items-center gap-1"
-                                    >
-                                        <Plus size={12} />
-                                        <span>Add Track</span>
-                                    </button>
-                                </div>
-
-                                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                                    {tracksInput.map((track, idx) => (
-                                        <div key={idx} className="bg-light-background dark:bg-dark-background/60 p-3 rounded-xl border border-light-border dark:border-dark-border flex flex-col md:flex-row gap-3">
-                                            <div className="flex-1">
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={track.name}
-                                                    onChange={(e) => {
-                                                        const copy = [...tracksInput];
-                                                        copy[idx].name = e.target.value;
-                                                        setTracksInput(copy);
-                                                    }}
-                                                    placeholder="Track Name"
-                                                    className="w-full bg-transparent border-b border-light-border dark:border-dark-border text-xs font-bold py-1 focus:outline-none focus:border-primary"
-                                                />
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <select
-                                                    value={track.startBook}
-                                                    onChange={(e) => {
-                                                        const copy = [...tracksInput];
-                                                        copy[idx].startBook = e.target.value;
-                                                        setTracksInput(copy);
-                                                    }}
-                                                    className="bg-transparent border-b border-light-border dark:border-dark-border text-xs py-1 focus:outline-none focus:border-primary cursor-pointer font-semibold bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
-                                                >
-                                                    {BIBLE_BOOKS.map(b => (
-                                                        <option 
-                                                            key={b.name} 
-                                                            value={b.name}
-                                                            className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
-                                                        >
-                                                            {b.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    <input
-                                                        type="number"
-                                                        required
-                                                        min={1}
-                                                        max={150}
-                                                        value={track.chaptersPerDay}
-                                                        onChange={(e) => {
-                                                            const copy = [...tracksInput];
-                                                            copy[idx].chaptersPerDay = Math.max(1, Number(e.target.value));
-                                                            setTracksInput(copy);
-                                                        }}
-                                                        className="w-12 bg-transparent border-b border-light-border dark:border-dark-border text-xs text-center py-1 focus:outline-none focus:border-primary font-bold"
-                                                    />
-                                                    <span className="text-[10px] text-light-text-disabled font-medium uppercase">ch/day</span>
+                        {/* TAB 1: CURATED PRESETS */}
+                        {creationTab === 'preset' && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
+                                    {LECTIO_PRESETS.map((preset: LectioPreset) => (
+                                        <div
+                                            key={preset.id}
+                                            onClick={() => createPresetPlan(preset.id)}
+                                            className="bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border hover:border-primary/50 hover:shadow-md rounded-2xl p-4 cursor-pointer text-left transition-all group flex flex-col justify-between space-y-3"
+                                        >
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                        {preset.durationDays} Days
+                                                    </span>
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider text-light-text-disabled">
+                                                        {preset.type}
+                                                    </span>
                                                 </div>
-
-                                                {tracksInput.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setTracksInput(tracksInput.filter((_, i) => i !== idx))}
-                                                        className="p-1 hover:bg-red-500/10 text-red-500 rounded transition-colors"
-                                                        title="Delete Track"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                )}
+                                                <h4 className="text-sm font-serif font-bold text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors">
+                                                    {preset.title}
+                                                </h4>
+                                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary leading-relaxed line-clamp-2">
+                                                    {preset.description}
+                                                </p>
                                             </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    createPresetPlan(preset.id);
+                                                }}
+                                                className="w-full py-2 bg-light-surface dark:bg-dark-surface group-hover:bg-primary group-hover:text-white border border-light-border dark:border-dark-border group-hover:border-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary transition-all flex items-center justify-center gap-1.5"
+                                            >
+                                                <Play size={10} />
+                                                <span>Start Plan</span>
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
                             </div>
+                        )}
 
-                            <button
-                                type="submit"
-                                className="w-full py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/25 active:scale-98 transition-all shrink-0"
-                            >
-                                Build Plan
-                            </button>
-                        </form>
+                        {/* TAB 2: CUSTOM SEQUENTIAL TRACKS */}
+                        {creationTab === 'custom' && (
+                            <form onSubmit={handleCreateCustomPlan} className="space-y-4 text-left">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Plan Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={planName}
+                                        onChange={(e) => setPlanName(e.target.value)}
+                                        placeholder="e.g. Romans Deep Dive, Whole Bible, Gospels in 90 Days..."
+                                        className="input py-2.5 rounded-xl text-sm"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Start Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="input py-2.5 rounded-xl text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">End Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="input py-2.5 rounded-xl text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Template Selection */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Journal Template Style</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTemplateChoice('lectio_divina')}
+                                            className={`p-3 rounded-xl border text-left transition-all ${
+                                                templateChoice === 'lectio_divina'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                            }`}
+                                        >
+                                            <p className="text-xs font-black uppercase tracking-wider">🌿 5-Stage Lectio Divina</p>
+                                            <p className="text-[10px] opacity-75 mt-0.5">Lectio, Meditatio, Oratio, Contemplatio & Actio</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTemplateChoice('freeform')}
+                                            className={`p-3 rounded-xl border text-left transition-all ${
+                                                templateChoice === 'freeform'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
+                                            }`}
+                                        >
+                                            <p className="text-xs font-black uppercase tracking-wider">📝 Freeform Journal</p>
+                                            <p className="text-[10px] opacity-75 mt-0.5">Clean notes with scripture citation headers</p>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Tracks List */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Scripture Chapter Tracks</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTracksInput([
+                                                ...tracksInput,
+                                                { name: 'Custom Track', startBook: 'Genesis', endBook: 'Revelation', chaptersPerDay: 1 }
+                                            ])}
+                                            className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest flex items-center gap-1"
+                                        >
+                                            <Plus size={12} />
+                                            <span>Add Track</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                        {tracksInput.map((track, idx) => (
+                                            <div key={idx} className="bg-light-background dark:bg-dark-background/60 p-3.5 rounded-2xl border border-light-border dark:border-dark-border flex flex-col md:flex-row gap-3">
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        value={track.name}
+                                                        onChange={(e) => {
+                                                            const copy = [...tracksInput];
+                                                            copy[idx].name = e.target.value;
+                                                            setTracksInput(copy);
+                                                        }}
+                                                        placeholder="Track Name (e.g. Epistles)"
+                                                        className="w-full bg-transparent border-b border-light-border dark:border-dark-border text-xs font-bold py-1 focus:outline-none focus:border-primary"
+                                                    />
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px] text-light-text-disabled font-bold uppercase">From:</span>
+                                                        <select
+                                                            value={track.startBook}
+                                                            onChange={(e) => {
+                                                                const copy = [...tracksInput];
+                                                                copy[idx].startBook = e.target.value;
+                                                                setTracksInput(copy);
+                                                            }}
+                                                            className="bg-transparent border-b border-light-border dark:border-dark-border text-xs py-1 focus:outline-none focus:border-primary cursor-pointer font-semibold bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                                                        >
+                                                            {BIBLE_BOOKS.map(b => (
+                                                                <option key={b.name} value={b.name}>{b.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px] text-light-text-disabled font-bold uppercase">To:</span>
+                                                        <select
+                                                            value={track.endBook || 'Revelation'}
+                                                            onChange={(e) => {
+                                                                const copy = [...tracksInput];
+                                                                copy[idx].endBook = e.target.value;
+                                                                setTracksInput(copy);
+                                                            }}
+                                                            className="bg-transparent border-b border-light-border dark:border-dark-border text-xs py-1 focus:outline-none focus:border-primary cursor-pointer font-semibold bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                                                        >
+                                                            {BIBLE_BOOKS.map(b => (
+                                                                <option key={b.name} value={b.name}>{b.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min={1}
+                                                            max={150}
+                                                            value={track.chaptersPerDay}
+                                                            onChange={(e) => {
+                                                                const copy = [...tracksInput];
+                                                                copy[idx].chaptersPerDay = Math.max(1, Number(e.target.value));
+                                                                setTracksInput(copy);
+                                                            }}
+                                                            className="w-12 bg-transparent border-b border-light-border dark:border-dark-border text-xs text-center py-1 focus:outline-none focus:border-primary font-bold"
+                                                        />
+                                                        <span className="text-[10px] text-light-text-disabled font-medium uppercase">ch/day</span>
+                                                    </div>
+
+                                                    {tracksInput.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setTracksInput(tracksInput.filter((_, i) => i !== idx))}
+                                                            className="p-1 hover:bg-red-500/10 text-red-500 rounded transition-colors"
+                                                            title="Delete Track"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/25 active:scale-98 transition-all shrink-0"
+                                >
+                                    Build Custom Plan
+                                </button>
+                            </form>
+                        )}
+
+                        {/* TAB 3: SMART TEXT PASTE (Topical / Curated / Word Study) */}
+                        {creationTab === 'smart_paste' && (
+                            <form onSubmit={handleCreateCustomPlan} className="space-y-4 text-left">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Plan Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={planName}
+                                        onChange={(e) => setPlanName(e.target.value)}
+                                        placeholder="e.g. 30 Days on Faith, Wisdom Literature, Word Study: Grace..."
+                                        className="input py-2.5 rounded-xl text-sm"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Start Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="input py-2.5 rounded-xl text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Journal Template Style</label>
+                                        <select
+                                            value={templateChoice}
+                                            onChange={(e: any) => setTemplateChoice(e.target.value)}
+                                            className="input py-2.5 rounded-xl text-xs font-bold"
+                                        >
+                                            <option value="lectio_divina">🌿 5-Stage Lectio Divina</option>
+                                            <option value="freeform">📝 Freeform Notes</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
+                                            Paste Passage Schedule
+                                        </label>
+                                        {pastedScheduleText.trim() && (
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                                                {parsePastedCuratedText(pastedScheduleText).length} Days Parsed
+                                            </span>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        required
+                                        rows={8}
+                                        value={pastedScheduleText}
+                                        onChange={(e) => setPastedScheduleText(e.target.value)}
+                                        placeholder={"Paste reading schedule lines here...\n\nExample:\nDay 1: Genesis 1:1-2:3\nDay 2: Romans 8:1-39\nDay 3: Psalm 23:1-6\nDay 4: Hebrews 11:1-40\nDay 5: John 15:1-17"}
+                                        className="w-full bg-light-background dark:bg-dark-background/60 border border-light-border dark:border-dark-border rounded-2xl p-3 text-xs font-mono focus:outline-none focus:border-primary custom-scrollbar"
+                                    />
+                                    <p className="text-[10px] text-light-text-disabled">
+                                        Supports partial chapters, single psalms, verses, and multiple passages per day separated by commas or semicolons.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={parsePastedCuratedText(pastedScheduleText).length === 0}
+                                    className="w-full py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/25 active:scale-98 transition-all shrink-0 disabled:opacity-50"
+                                >
+                                    Build Topical / Curated Plan
+                                </button>
+                            </form>
+                        )}
                     </motion.div>
                 ) : (
                     /* PLANS LISTING & METRICS VIEW */
@@ -1071,6 +1543,20 @@ export const LectioMode: React.FC = () => {
                                                 >
                                                     <Play size={12} fill="white" />
                                                     <span>Study Session</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        downloadPlanIcs(plan);
+                                                        showToast(`Exported "${plan.name}" to Calendar (.ics)`, 'success');
+                                                    }}
+                                                    className="p-2.5 rounded-xl border border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-colors group/btn relative"
+                                                    title="Export to Calendar (.ics)"
+                                                >
+                                                    <Calendar size={16} />
+                                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-gray-900 text-white text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-md">
+                                                        Calendar (.ics)
+                                                    </div>
                                                 </button>
 
                                                 <button

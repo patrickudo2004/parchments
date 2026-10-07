@@ -98,7 +98,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                                     </a>
                                 </li>
                                 <li>
-                                    <a href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/parchments_${APP_VERSION}_amd64.deb`} className="hover:text-white transition-colors flex items-center gap-2 text-xs">
+                                    <a href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_amd64.deb`} className="hover:text-white transition-colors flex items-center gap-2 text-xs">
                                         Linux (.deb)
                                     </a>
                                 </li>

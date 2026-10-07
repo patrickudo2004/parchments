@@ -119,7 +119,7 @@ export const LandingPage: React.FC = () => {
                                     <span>🐧 Linux (.AppImage)</span>
                                 </a>
                                 <a
-                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/parchments_${APP_VERSION}_amd64.deb`}
+                                    href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_amd64.deb`}
                                     className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                                 >
                                     <span>🐧 Linux (.deb)</span>

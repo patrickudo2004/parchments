@@ -94,12 +94,15 @@ jobs:
       - name: rename apk
         run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/parchments-android.apk
 
-      - name: upload release asset
-        uses: softprops/action-gh-release@v2
+      - name: archive apk artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: android/app/build/outputs/apk/release/parchments-android.apk
-          tag_name: ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+          name: parchments-android-apk
+          path: android/app/build/outputs/apk/release/parchments-android.apk
+
+      - name: upload release asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} android/app/build/outputs/apk/release/parchments-android.apk --clobber

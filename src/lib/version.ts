@@ -1,8 +1,8 @@
-export const APP_VERSION = '0.2.2';
+export const APP_VERSION = '0.2.3';
 
 export const VERSION_INFO = {
     latest: APP_VERSION,
     min_required: '0.1.0-beta.7',
     download_url: 'https://github.com/patrickudo2004/parchments/releases/latest',
-    message: 'Parchments v0.2.2: Interactive Storage Foundation canvas, 1-click browser-to-local note migration assistant, clean zen startup with default closed sidebars, and enhanced touch ergonomics.'
+    message: 'Parchments v0.2.3: Modern Bento Grid showcase, high-res UI crops, desktop launch stability fix, and enhanced touch ergonomics.'
 };

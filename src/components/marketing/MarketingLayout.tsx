@@ -17,24 +17,33 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                         <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
                     </a>
 
-                    <div className="hidden md:flex items-center gap-8">
+                    <div className="hidden md:flex items-center gap-6 lg:gap-8">
                         <a href="#features" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Features</a>
+                        <a href="#workflows" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Workflows</a>
+                        <a href="#comparison" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Comparison</a>
                         <a href="/guide" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Guide</a>
                         <a href="/releases" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Releases</a>
                         <a href="#download" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Download</a>
-                        <a href="https://github.com/patrickudo2004/parchments" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
-                            <Github size={20} />
+                        <a href="https://github.com/patrickudo2004/parchments" target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors" title="GitHub Repository">
+                            <Github size={18} />
                         </a>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <a
+                            href="/app"
+                            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-full transition-all border border-white/10 flex items-center gap-1.5 shadow-sm active:scale-95"
+                            title="Launch interactive web app without installing"
+                        >
+                            <span>Try Web App</span>
+                        </a>
                         <a
                             href="#download"
                             onClick={(e) => {
                                 e.preventDefault();
                                 document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
                             }}
-                            className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-[#121212] text-xs font-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
                         >
                             Get Beta
                         </a>

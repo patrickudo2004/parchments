@@ -5,6 +5,7 @@ import { db, dbHelpers } from '@/lib/db';
 import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 import { MarkdownService } from '@/lib/markdown/MarkdownService';
+import { useUIStore } from '@/stores/uiStore';
 
 
 export const UNTITLED_NOTE = 'Untitled Note';
@@ -768,6 +769,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 pendingMigrationCount: dbNotesCount,
                 isMigrationModalOpen: shouldPromptMigration
             });
+
+            // Auto-reveal left sidebar on folder connection (Option A)
+            useUIStore.getState().openLeftSidebar('files');
         } catch (error) {
             console.error('Failed to open directory:', error);
             // User likely cancelled, do nothing
@@ -780,6 +784,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             set({ storageFoundation: 'browser', isLocalMode: false, hasStudyspace: true });
             await get().loadFolders();
             await get().loadNotes();
+
+            // Auto-reveal left sidebar on workspace initialization (Option A)
+            useUIStore.getState().openLeftSidebar('files');
         } else {
             await get().openLocalFolder();
         }

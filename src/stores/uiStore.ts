@@ -87,6 +87,8 @@ interface UIStore {
     toggleNoFolderModal: (isOpen?: boolean) => void;
     togglePairingModal: (mode?: 'host' | 'client' | null) => void;
     toggleLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
+    openLeftSidebar: (content?: 'files' | 'outline' | 'voice') => void;
+    closeLeftSidebar: () => void;
     toggleRightSidebar: (content?: 'bible' | 'search' | 'lexicon' | 'crossrefs' | 'pins' | 'connections' | 'assistant' | 'commentary' | 'dictionary') => void;
     toggleLeftSidebarFloating: () => void;
     toggleRightSidebarFloating: () => void;
@@ -130,7 +132,7 @@ export const useUIStore = create<UIStore>()(
             highAccuracyTranscription: false,
 
             leftSidebarWidth: 280,
-            isLeftSidebarOpen: true,
+            isLeftSidebarOpen: false,
             isLeftSidebarFloating: false,
             isRightSidebarFloating: false,
             leftSidebarContent: 'files',
@@ -328,6 +330,8 @@ export const useUIStore = create<UIStore>()(
             updateSettings: (newSettings) => set((state) => ({ ...state, ...newSettings })),
             setLeftSidebarWidth: (width) => set({ leftSidebarWidth: width }),
             setRightSidebarWidth: (width) => set({ rightSidebarWidth: width }),
+            openLeftSidebar: (content) => set({ isLeftSidebarOpen: true, leftSidebarContent: content || 'files' }),
+            closeLeftSidebar: () => set({ isLeftSidebarOpen: false, leftSidebarContent: null }),
             openRightSidebar: (content) => set({ rightSidebarOpen: true, rightSidebarContent: content }),
             closeRightSidebar: () => set({ rightSidebarOpen: false, rightSidebarContent: null }),
             setEditorStats: (words, characters) => set({ wordCount: words, characterCount: characters }),

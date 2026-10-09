@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BookOpen,
     FilePlus,
@@ -33,8 +33,15 @@ export const EmptyState: React.FC = () => {
         reconnectLocalFolder
     } = useNoteStore();
 
-    const { openRightSidebar } = useUIStore();
+    const { openRightSidebar, isLeftSidebarOpen, closeLeftSidebar } = useUIStore();
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+
+    // Option A: Ensure sidebars are cleanly closed on welcome screen / initial launch
+    useEffect(() => {
+        if (!hasStudyspace && isLeftSidebarOpen) {
+            closeLeftSidebar();
+        }
+    }, [hasStudyspace, isLeftSidebarOpen, closeLeftSidebar]);
 
     const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
     const isNativeApp = typeof window !== 'undefined' && (
@@ -47,11 +54,11 @@ export const EmptyState: React.FC = () => {
     // First Launch / No Studyspace Choice Screen
     if (!hasStudyspace) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-start lg:justify-center p-4 sm:p-6 md:p-10 overflow-y-auto animate-in fade-in duration-500">
-                <div className="w-full max-w-4xl mx-auto flex flex-col items-center text-center my-auto py-6">
+            <div className="flex-1 flex flex-col items-center justify-start overflow-y-auto px-4 sm:px-6 md:px-10 pt-10 sm:pt-14 md:pt-16 pb-20 animate-in fade-in duration-500">
+                <div className="w-full max-w-4xl mx-auto flex flex-col items-center text-center">
 
                     {/* Logo & Welcome Header */}
-                    <div className="mb-6 relative">
+                    <div className="mb-6 relative mt-2 sm:mt-4">
                         <div className="absolute inset-0 bg-primary/15 rounded-full blur-2xl animate-pulse" />
                         <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-light-surface dark:bg-[#141414] border border-light-border dark:border-white/10 shadow-xl flex items-center justify-center p-3">
                             <img src="/logo.png" alt="Parchments" className="w-full h-full object-contain" />

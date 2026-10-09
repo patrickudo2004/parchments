@@ -19,6 +19,7 @@ import { ReleasesPage } from '@/components/marketing/ReleasesPage';
 import { useNoteStore } from '@/stores/noteStore';
 import { Capacitor } from '@capacitor/core';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
+import { Analytics } from '@vercel/analytics/react';
 
 const App: React.FC = () => {
     useSpaceSync();
@@ -49,7 +50,9 @@ const App: React.FC = () => {
     }
 
     return (
-        <Routes>
+        <>
+            <Analytics />
+            <Routes>
             <Route path="/" element={
                 isNativeApp ? <Navigate to="/app" replace /> : <LandingPage />
             } />
@@ -78,6 +81,7 @@ const App: React.FC = () => {
                 </div>
             } />
         </Routes>
+        </>
     );
 };
 

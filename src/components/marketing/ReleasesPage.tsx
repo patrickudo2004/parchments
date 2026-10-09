@@ -15,9 +15,32 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.2.2 (Beta)",
+        date: "October 9, 2026",
+        isLatest: true,
+        description: "Storage foundation launch, non-destructive note migration assistant, clean distraction-free startup with default closed sidebars, MenuBar clearance polish, and multi-platform OS release synchronization.",
+        features: [
+            "Interactive Storage Foundation Welcome Canvas: Clear side-by-side selection between Local Computer Folder (.md markdown on your hard drive) and Browser Database (private offline IndexedDB).",
+            "1-Click Non-Destructive Migration Assistant: Automatically prompts and copies existing browser database notes and folders into any newly connected local folder as standard Markdown files with YAML frontmatter without data loss.",
+            "Zen Workspace Startup: Sidebars default to closed on initial launch for a clean, distraction-free central canvas across desktop and mobile, with automatic file tree revelation when opening a folder or selecting a workspace.",
+            "Visual Polish & Top Clearance: Optimized vertical layout guaranteeing clear spacing and breathing room for the Parchments logo, Storage Foundation badge, and Welcome header beneath the top MenuBar across all display resolutions.",
+            "Touch Ergonomics & Native Safeguards: Enhanced touch targets (>= 48px), mobile browser file system restriction alerts, 30-day reconnection guard cards, and direct scripture reader quick pills."
+        ],
+        improvements: [
+            "Clean Panoramic Welcome Screen: Welcome cards utilize the full display width without being squeezed by default-open drawers.",
+            "Android Capacitor Filesystem Linking: Fully integrated @capacitor/filesystem plugin in native Gradle settings and build configurations.",
+            "CI/CD Multi-Platform Alignment: Perfect version synchronization across Rust backend crates, npm dependencies, Android Gradle configs, and release packagers."
+        ],
+        fixes: [
+            "Resolved top boundary clipping on smaller laptop displays caused by flexbox vertical centering.",
+            "Fixed sidebar toggle desynchronization between localStorage persistence and first-launch states.",
+            "Synchronized Tauri 2.12.1 crate and CLI dependencies to prevent CI release mismatches."
+        ]
+    },
+    {
         version: "v0.2.1 (Beta)",
         date: "October 6, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Comprehensive release: Sunday Pulpit Deck, target countdown preaching timer with overtime warnings, clicker-safe stage Mini Bible, academic citation engine (SBL & Chicago), continuous flow reading mode, compound scripture parsing, Lectio streak calendar, and hardened multi-platform OS builds.",
         features: [
             "Sunday Pulpit Deck & Rapid Note Switching: The Pulpit Mode top bar now features quick-access pills (#1, #2, #3, #4) for seamless multi-part sermon delivery, announcements, and communion liturgy, with dedicated Alt+1 through Alt+4 shortcuts.",

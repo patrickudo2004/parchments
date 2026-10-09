@@ -244,11 +244,22 @@ interface NoteStore {
     activeWorkspaceId: string | null;
     setActiveWorkspaceId: (id: string | null) => void;
     createWorkspace: (name: string) => Promise<void>;
+    storageFoundation: 'local' | 'browser' | null;
+    lastLocalFolderName: string | null;
+    isMigrationModalOpen: boolean;
+    pendingMigrationCount: number;
+    setIsMigrationModalOpen: (open: boolean) => void;
+    selectStorageFoundation: (type: 'local' | 'browser') => Promise<void>;
+    reconnectLocalFolder: () => Promise<void>;
+    migrateBrowserNotesToLocalFolder: () => Promise<{ migratedNotes: number; migratedFolders: number }>;
 }
 
 const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
 const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 const autoSandbox = isCapacitor || isMobileOrTabletViewport || !isFileSystemSupported;
+
+const savedStorageFoundation = typeof window !== 'undefined' ? (localStorage.getItem('parchments-storage-foundation') as 'local' | 'browser' | null) : null;
+const savedLastFolderName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,
@@ -257,11 +268,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     isLoading: false,
     selectedFolderId: null,
     setSelectedFolderId: (id) => set({ selectedFolderId: id }),
-    isLocalMode: !autoSandbox,
+    storageFoundation: savedStorageFoundation,
+    lastLocalFolderName: savedLastFolderName,
+    isMigrationModalOpen: false,
+    pendingMigrationCount: 0,
+    setIsMigrationModalOpen: (open) => set({ isMigrationModalOpen: open }),
+    isLocalMode: savedStorageFoundation === 'local' ? !autoSandbox : false,
     localDirectoryHandle: null,
     localFiles: [],
     currentFileHandle: null,
-    hasStudyspace: autoSandbox,
+    hasStudyspace: savedStorageFoundation === 'browser' || (savedStorageFoundation === 'local' && autoSandbox),
     isWorkspaceLocked: false,
     lockedNotesBuffer: [],
     activeWorkspaceId: null,
@@ -336,7 +352,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     loadFolders: async () => {
         let folders = await db.folders.toArray();
-        const { isLocalMode } = get();
+        const { isLocalMode, storageFoundation } = get();
         
         if (!isLocalMode) {
             // Find folders with parentId === null
@@ -388,9 +404,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             set({ activeWorkspaceId: activeId });
         }
         
+        const hasChosenFoundation = storageFoundation !== null;
         set({
             folders,
-            hasStudyspace: !isLocalMode ? true : (folders.length > 0 || get().hasStudyspace)
+            hasStudyspace: !hasChosenFoundation ? false : (!isLocalMode ? true : (folders.length > 0 || get().hasStudyspace))
         });
     },
 
@@ -734,16 +751,92 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 parentId: f.parentId
             }));
 
+            localStorage.setItem('parchments-storage-foundation', 'local');
+            localStorage.setItem('parchments-last-folder-name', handle.name);
+
+            // Check if there are existing notes in db.notes that can be migrated
+            const dbNotesCount = await db.notes.count();
+            const shouldPromptMigration = dbNotesCount > 0;
+
             set({
                 isLocalMode: true,
+                storageFoundation: 'local',
+                lastLocalFolderName: handle.name,
                 localDirectoryHandle: handle,
                 localFiles: get().sortLocalItems(files),
                 hasStudyspace: true,
+                pendingMigrationCount: dbNotesCount,
+                isMigrationModalOpen: shouldPromptMigration
             });
         } catch (error) {
             console.error('Failed to open directory:', error);
             // User likely cancelled, do nothing
         }
+    },
+
+    selectStorageFoundation: async (type: 'local' | 'browser') => {
+        if (type === 'browser') {
+            localStorage.setItem('parchments-storage-foundation', 'browser');
+            set({ storageFoundation: 'browser', isLocalMode: false, hasStudyspace: true });
+            await get().loadFolders();
+            await get().loadNotes();
+        } else {
+            await get().openLocalFolder();
+        }
+    },
+
+    reconnectLocalFolder: async () => {
+        await get().openLocalFolder();
+    },
+
+    migrateBrowserNotesToLocalFolder: async () => {
+        const { localDirectoryHandle, refreshLocalFiles } = get();
+        if (!localDirectoryHandle) {
+            throw new Error('No local directory handle is available');
+        }
+
+        const allFolders = await db.folders.toArray();
+        const allNotes = await db.notes.toArray();
+        const folderHandleMap = new Map<string, FileSystemDirectoryHandle>();
+
+        // Sort folders so parents are created before children
+        const sortedFolders = [...allFolders].sort((a, b) => {
+            if (a.parentId === null && b.parentId !== null) return -1;
+            if (a.parentId !== null && b.parentId === null) return 1;
+            return 0;
+        });
+
+        for (const f of sortedFolders) {
+            try {
+                const parentHandle = f.parentId ? (folderHandleMap.get(f.parentId) || localDirectoryHandle) : localDirectoryHandle;
+                const safeName = (f.name || 'Folder').replace(/[\\/:*?"<>|]/g, '-').trim() || 'Folder';
+                const createdDir = await fileSystem.createDirectory(parentHandle, safeName);
+                folderHandleMap.set(f.id, createdDir);
+            } catch (err) {
+                console.warn(`Failed to create directory for folder ${f.name}:`, err);
+            }
+        }
+
+        let migratedCount = 0;
+        for (const note of allNotes) {
+            try {
+                const destDir = note.folderId ? (folderHandleMap.get(note.folderId) || localDirectoryHandle) : localDirectoryHandle;
+                const safeTitle = (note.title || 'Untitled Note').replace(/[\\/:*?"<>|]/g, '-').trim() || 'Untitled Note';
+                const fileName = `${safeTitle}.md`;
+                const markdown = MarkdownService.htmlToMarkdown(note.content || '', {
+                    title: note.title,
+                    tags: note.tags,
+                    ...(note.metadata || {})
+                });
+                await fileSystem.createFile(destDir, fileName, markdown);
+                migratedCount++;
+            } catch (err) {
+                console.warn(`Failed to export note ${note.title}:`, err);
+            }
+        }
+
+        await refreshLocalFiles();
+        return { migratedNotes: migratedCount, migratedFolders: folderHandleMap.size };
     },
 
     openLooseFile: async () => {
@@ -1502,8 +1595,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     setLocalMode: (enabled) => {
+        if (!enabled) {
+            localStorage.setItem('parchments-storage-foundation', 'browser');
+        } else {
+            localStorage.setItem('parchments-storage-foundation', 'local');
+        }
         set({
             isLocalMode: enabled,
+            storageFoundation: enabled ? 'local' : 'browser',
             hasStudyspace: !enabled ? true : get().hasStudyspace,
             currentNote: null,
             selectedFolderId: null

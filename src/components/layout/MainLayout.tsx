@@ -36,6 +36,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { UpdateBanner, VersionLockModal } from './VersioningUI';
 import { LectioMode } from '@/components/bible/LectioMode';
 import { HostApprovalToast } from '@/components/sync/HostApprovalToast';
+import { MigrationModal } from '@/components/notes/MigrationModal';
 
 
 interface MainLayoutProps {
@@ -474,9 +475,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                 <div key="no-folder-modal-wrapper" className="pointer-events-auto">
                                     <ConfirmModal
                                         isOpen={isNoFolderModalOpen}
-                                        title="Open Studyspace"
-                                        message="You need to open a local folder to begin creating notes. Select a folder on your device where your study sessions will be saved."
-                                        confirmLabel="Open Folder"
+                                        title="Choose Storage Foundation"
+                                        message="To begin creating notes, please choose where your study library lives: connect a local folder on your computer or start with your offline browser database."
+                                        confirmLabel="Choose Local Folder"
                                         onConfirm={() => {
                                             toggleNoFolderModal(false);
                                             openLocalFolder();
@@ -492,6 +493,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {/* Global Modals */}
             <LectioMode />
             <HostApprovalToast />
+            <MigrationModal />
             <CommandPalette
                 isOpen={isSearchModalOpen}
                 initialQuery={searchQuery}

@@ -15,9 +15,31 @@ Parchments is engineered on three uncompromising principles:
 
 ## 🚀 Getting Started
 
-### 1. Opening a Studyspace (Local Folder vs. Browser DB)
-* **Local Folder Mode (Recommended)**: Click the **Folder (📁)** icon in the left explorer or tap **"Open Studyspace"**. Select any folder on your device (e.g. `Documents/Sermons`). Every note is saved as a standard `.md` (Markdown) file on your hard drive with zero proprietary lock-in.
-* **Browser Database Mode**: On mobile browsers or sandboxed environments, notes are automatically persisted in encrypted local IndexedDB storage.
+### 1. Storage Foundations: Local Computer Folder vs. Browser Database
+Parchments is a **100% offline-first and private** application. Zero notes or scripture data are ever sent to remote cloud servers. Upon initial launch, Parchments offers two foundation options:
+
+* **Local Computer Folder (Recommended for PC & Mac)**:
+  * Notes and sermon manuscripts are saved directly as portable, open-standard **`.md` (Markdown)** files in an actual directory on your computer's hard drive (e.g. `Documents/Sermons`).
+  * Files are immediately readable and editable in Obsidian, VS Code, or Word.
+  * Completely protected from browser history, cache, or cookie clearing.
+  * **Browser Security Invariant**: Web browsers run in an isolated sandbox and cannot silently read your computer's drive on launch. You must click **"Choose Folder on PC/Mac"** and grant browser permission to link your folder.
+
+* **Browser Database (Instant & Mobile-Ready)**:
+  * Notes are saved securely inside your browser's private client database (**IndexedDB**) using client-side encryption.
+  * Requires zero filesystem permissions or folder selection.
+  * Works out-of-the-box on mobile smartphones (iOS Safari, Android Chrome) and tablets.
+  * Ideal for quick devotional reflections, testing, and touch devices.
+
+#### 🔄 1-Click Non-Destructive Migration Assistant
+If you start in Browser Database mode and later decide to link a local folder on your computer:
+1. Open the left sidebar workspace dropdown and click **"Open Local Folder..."**.
+2. Select your desired folder on your PC or Mac.
+3. Parchments automatically detects your existing browser notes and prompts: **"Copy Browser Notes to Local Folder?"**.
+4. Selecting **"Copy Notes"** converts all your notes and folder hierarchies into `.md` Markdown files with YAML frontmatter inside your chosen folder.
+5. **Zero Data Loss Guarantee**: Your original notes remain safely preserved in the Browser Database as a fail-safe backup.
+
+#### 🔄 Reconnection Guard on Browser Reload
+Under W3C web security rules, when you refresh your browser tab, physical drive read/write access pauses until you interact with the page. Parchments remembers your previous folder name (e.g. `'Sermons'`) and surfaces an instant **"Reconnect Folder"** action in the sidebar and canvas, ensuring your library is restored with a single click.
 
 ### 2. The Tri-Pane Workspace
 * **Left Sidebar (Explorer & Outline)**: Manage your library with hierarchical folders, reorder headings via drag-and-drop, and capture voice notes.

@@ -17,7 +17,11 @@ import {
     Pin,
     Share2,
     BookOpen,
-    Database
+    Database,
+    HardDrive,
+    X,
+    ArrowRight,
+    RotateCcw
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
@@ -45,10 +49,29 @@ export const FilesSidebar: React.FC = () => {
         setActiveWorkspaceId,
         createWorkspace,
         localDirectoryHandle,
-        setLocalMode
+        setLocalMode,
+        storageFoundation,
+        lastLocalFolderName,
+        reconnectLocalFolder
     } = useNoteStore();
 
     const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
+    const [isReminderDismissed, setIsReminderDismissed] = useState(() => {
+        try {
+            const dismissedAt = localStorage.getItem('parchments-dismiss-browser-reminder');
+            if (!dismissedAt) return false;
+            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+            return Date.now() - parseInt(dismissedAt, 10) < thirtyDays;
+        } catch {
+            return false;
+        }
+    });
+
+    const handleDismissReminder = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        localStorage.setItem('parchments-dismiss-browser-reminder', Date.now().toString());
+        setIsReminderDismissed(true);
+    };
 
     const renderWorkspaceSwitcher = () => {
         const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
@@ -906,33 +929,58 @@ export const FilesSidebar: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
                 {!hasStudyspace ? (
-                    <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
-                        <div className="w-12 h-12 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm">
-                            <Folder className="text-light-text-disabled" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">No Studyspace</p>
-                            <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Open a local folder or continue with your offline browser database.</p>
-                        </div>
-                        <div className="w-full space-y-2">
-                            <button
-                                onClick={() => {
-                                    setLocalMode(false);
-                                }}
-                                className="w-full py-2 bg-primary text-[#121212] text-xs font-black rounded-lg shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                            >
-                                Use Browser Database (Offline)
-                            </button>
-                            {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                    storageFoundation === 'local' && lastLocalFolderName ? (
+                        <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
+                                <RotateCcw size={22} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">Reconnect Studyspace</p>
+                                <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Resume editing files in <strong className="text-primary font-bold">'{lastLocalFolderName}'</strong>.</p>
+                            </div>
+                            <div className="w-full space-y-2">
                                 <button
-                                    onClick={openLocalFolder}
-                                    className="w-full py-1.5 border border-primary/30 text-primary text-xs font-semibold rounded-lg hover:bg-primary/5 transition-all"
+                                    onClick={reconnectLocalFolder}
+                                    className="w-full py-2.5 bg-primary text-[#121212] text-xs font-black rounded-xl shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer min-h-[44px] touch-manipulation flex items-center justify-center gap-2"
                                 >
-                                    Open Local Folder
+                                    <HardDrive size={14} />
+                                    <span>Reconnect Folder</span>
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => setLocalMode(false)}
+                                    className="w-full py-2 border border-light-border dark:border-white/10 text-light-text-secondary hover:text-light-text-primary text-xs font-semibold rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer min-h-[40px] touch-manipulation"
+                                >
+                                    Switch to Browser DB
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
+                            <div className="w-12 h-12 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center border border-light-border dark:border-dark-border shadow-sm">
+                                <Folder className="text-light-text-disabled" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary uppercase tracking-wider mb-1">No Studyspace</p>
+                                <p className="text-[10px] text-light-text-secondary leading-relaxed px-2">Open a local folder or continue with your offline browser database.</p>
+                            </div>
+                            <div className="w-full space-y-2">
+                                <button
+                                    onClick={() => setLocalMode(false)}
+                                    className="w-full py-2 bg-primary text-[#121212] text-xs font-black rounded-lg shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer min-h-[44px] touch-manipulation"
+                                >
+                                    Use Browser Database (Offline)
+                                </button>
+                                {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                                    <button
+                                        onClick={openLocalFolder}
+                                        className="w-full py-2 border border-primary/30 text-primary text-xs font-semibold rounded-lg hover:bg-primary/5 transition-all cursor-pointer min-h-[40px] touch-manipulation"
+                                    >
+                                        Open Local Folder
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )
                 ) : isExplorerEmpty ? (
                     <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4">
                         <div className="w-10 h-10 rounded-full bg-light-background dark:bg-dark-background flex items-center justify-center">
@@ -941,13 +989,40 @@ export const FilesSidebar: React.FC = () => {
                         <p className="text-[10px] text-light-text-secondary font-medium italic">This studyspace is empty.</p>
                         <button
                             onClick={handleCreateNote}
-                            className="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-lg border border-primary/20 hover:bg-primary/20 transition-all"
+                            className="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-lg border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer min-h-[40px] touch-manipulation"
                         >
                             + Create First Note
                         </button>
                     </div>
                 ) : (
                     <>
+                        {/* Periodic dismissible reminder for Browser DB users on desktop */}
+                        {!isLocalMode && !isReminderDismissed && typeof window !== 'undefined' && 'showDirectoryPicker' in window && notes.length > 0 && (
+                            <div className="mb-3 p-3 bg-primary/10 border border-primary/20 rounded-2xl flex flex-col gap-1.5 animate-in fade-in duration-300">
+                                <div className="flex items-start justify-between gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1">
+                                        <HardDrive size={12} /> Local Disk Tip
+                                    </span>
+                                    <button
+                                        onClick={handleDismissReminder}
+                                        className="text-light-text-secondary hover:text-light-text-primary p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                                        title="Dismiss for 30 days"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-light-text-secondary leading-tight">
+                                    Saving in browser DB. Want notes saved as physical <strong className="text-light-text-primary dark:text-white">.md files</strong> on your laptop?
+                                </p>
+                                <button
+                                    onClick={openLocalFolder}
+                                    className="text-[11px] font-bold text-primary hover:underline text-left cursor-pointer flex items-center gap-1 mt-0.5"
+                                >
+                                    <span>Link Computer Folder</span>
+                                    <ArrowRight size={11} />
+                                </button>
+                            </div>
+                        )}
                         {rootItems.map(item => renderTreeItem(item, 0))}
                     </>
                 )}

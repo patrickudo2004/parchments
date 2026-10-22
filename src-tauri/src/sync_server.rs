@@ -4,7 +4,7 @@ use tauri::Emitter;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
-use tokio_tungstenite::{accept_async, accept_hdr_async, tungstenite::Message};
+use tokio_tungstenite::{accept_hdr_async, tungstenite::Message};
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 use rand::Rng;
 
@@ -100,11 +100,12 @@ pub async fn start_server(
     note_title: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(u16, String, String), String> {
-    let mut s = state.lock().unwrap();
-
     // If already running, return existing session info
-    if let Some(session) = &s.session {
-        return Ok((session.port, session.token.clone(), session.code.clone()));
+    {
+        let s = state.lock().unwrap();
+        if let Some(session) = &s.session {
+            return Ok((session.port, session.token.clone(), session.code.clone()));
+        }
     }
 
     let code = generate_code();
@@ -113,23 +114,27 @@ pub async fn start_server(
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     // Bind to preferred port 48921 (falls back to 48922..48941 if busy)
+    // Await occurs here without holding any MutexGuard
     let listener = bind_port(48921).await?;
     let port = listener
         .local_addr()
         .map_err(|e| e.to_string())?
         .port();
 
-    s.session = Some(SyncSession {
-        port,
-        token: token.clone(),
-        code: code.clone(),
-        note_id,
-        note_title,
-        peers: Vec::new(),
-    });
-    s.pending = Vec::new();
-    s.tx = Some(tx.clone());
-    s.shutdown_tx = Some(shutdown_tx);
+    {
+        let mut s = state.lock().unwrap();
+        s.session = Some(SyncSession {
+            port,
+            token: token.clone(),
+            code: code.clone(),
+            note_id,
+            note_title,
+            peers: Vec::new(),
+        });
+        s.pending = Vec::new();
+        s.tx = Some(tx.clone());
+        s.shutdown_tx = Some(shutdown_tx);
+    }
 
     let state_clone = state.clone();
     let token_clone = token.clone();

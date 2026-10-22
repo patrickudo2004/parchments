@@ -58,6 +58,9 @@ export const MenuBar: React.FC = () => {
             case 'Export to Markdown': openExportModal('md'); break;
             case 'Export to PDF': openExportModal('pdf'); break;
             case 'Export to Word': openExportModal('docx'); break;
+            case 'Print':
+                window.print();
+                break;
             case 'Settings':
                 toggleSettingsModal();
                 break;

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Mic, Square, Trash2, Pause, Play, CheckCircle, X as CloseIcon } from 'lucide-react';
+import { Mic, Square, Trash2, Pause, Play, CheckCircle, X as CloseIcon, Sparkles } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
+import { getSupportedAudioMimeType, type AudioMimeInfo } from '@/lib/voice/audioMime';
 
 interface VoiceRecorderProps {
     onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
@@ -17,6 +18,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const [volumeScale, setVolumeScale] = useState(1.0);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
+
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<any>(null);
     const transcriptRef = useRef<string>('');
@@ -27,6 +29,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+    const isRecordingRef = useRef<boolean>(false);
+    const selectedMimeRef = useRef<AudioMimeInfo>({ mimeType: 'audio/webm', extension: 'webm' });
+
+    // Check if browser has native Web Speech API
+    const hasLiveSpeechApi = typeof window !== 'undefined' &&
+        Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
     // cleanup stream on unmount or change
     useEffect(() => {
@@ -37,9 +45,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
         };
     }, [stream]);
 
-    // cleanup timer on unmount
+    // cleanup timer and resources on unmount
     useEffect(() => {
         return () => {
+            isRecordingRef.current = false;
             if (timerRef.current) {
                 clearInterval(timerRef.current);
             }
@@ -47,7 +56,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 cancelAnimationFrame(animationFrameRef.current);
             }
             if (audioContextRef.current) {
-                audioContextRef.current.close();
+                audioContextRef.current.close().catch(() => {});
+            }
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.abort();
+                } catch {}
             }
         };
     }, []);
@@ -55,41 +69,40 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const analyzeVolume = () => {
         if (!analyserRef.current || !audioContextRef.current) return;
 
-        // Ensure context is running (browsers often suspend until user interaction)
         if (audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume();
+            audioContextRef.current.resume().catch(() => {});
         }
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteTimeDomainData(dataArray);
 
-        // Find the peak amplitude (loudest point in the buffer)
         let max = 0;
         for (let i = 0; i < dataArray.length; i++) {
-            const val = Math.abs(dataArray[i] - 128); // Center is 128 for 8-bit PCM
+            const val = Math.abs(dataArray[i] - 128);
             if (val > max) max = val;
         }
 
-        // Map peak (0-128) to scale (1.0-1.3)
-        // 128 is full volume in 8-bit time domain data.
-        // We use a lower ceiling (e.g. 64) for sensitivity so mild speaking causes a visible pulse.
         const sensitivity = 4.0;
-        const normalized = Math.min(max * sensitivity / 128, 1);
-        const scale = 1.0 + (normalized * 0.4);
+        const normalized = Math.min((max * sensitivity) / 128, 1);
+        const scale = 1.0 + normalized * 0.4;
 
         setVolumeScale(scale);
-
-        // Continue animation loop
         animationFrameRef.current = requestAnimationFrame(analyzeVolume);
     };
 
     const startRecording = async () => {
         try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                }
+            });
             setStream(audioStream);
 
-            // Set up Web Audio API for volume analysis
-            const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+            // Web Audio setup for volume reactivity
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             const audioContext = new AudioContextClass();
             const analyser = audioContext.createAnalyser();
             const source = audioContext.createMediaStreamSource(audioStream);
@@ -101,58 +114,99 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             audioContextRef.current = audioContext;
             analyserRef.current = analyser;
 
-            const mediaRecorder = new MediaRecorder(audioStream);
+            // Negotiate best supported container
+            const mimeInfo = getSupportedAudioMimeType();
+            selectedMimeRef.current = mimeInfo;
+
+            let mediaRecorder: MediaRecorder;
+            if (mimeInfo.mimeType) {
+                try {
+                    mediaRecorder = new MediaRecorder(audioStream, { mimeType: mimeInfo.mimeType });
+                } catch {
+                    mediaRecorder = new MediaRecorder(audioStream);
+                }
+            } else {
+                mediaRecorder = new MediaRecorder(audioStream);
+            }
+
             mediaRecorderRef.current = mediaRecorder;
             chunksRef.current = [];
 
             mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) {
+                if (e.data && e.data.size > 0) {
                     chunksRef.current.push(e.data);
                 }
             };
 
-            mediaRecorder.start();
+            mediaRecorder.start(250); // 250ms chunks for responsive streaming
+            isRecordingRef.current = true;
             setStatus('recording');
 
-            // Initialize Speech Recognition
+            // Initialize Speech Recognition with Auto-Restart Supervisor
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'en-US';
+                try {
+                    const recognition = new SpeechRecognition();
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+                    recognition.lang = 'en-US';
 
-                recognition.onresult = (event: any) => {
-                    let interim = '';
-                    let newFinal = '';
+                    recognition.onresult = (event: any) => {
+                        let interim = '';
+                        let newFinal = '';
 
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            newFinal += event.results[i][0].transcript;
-                        } else {
-                            interim += event.results[i][0].transcript;
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                newFinal += event.results[i][0].transcript;
+                            } else {
+                                interim += event.results[i][0].transcript;
+                            }
                         }
-                    }
 
-                    if (newFinal) {
-                        transcriptRef.current += newFinal + ' ';
-                        setTranscript(transcriptRef.current);
-                    }
-                    setInterimTranscript(interim);
-                };
+                        if (newFinal) {
+                            const trimmed = newFinal.trim();
+                            transcriptRef.current = transcriptRef.current
+                                ? `${transcriptRef.current.trim()} ${trimmed}`
+                                : trimmed;
+                            setTranscript(transcriptRef.current);
+                        }
+                        setInterimTranscript(interim);
+                    };
 
-                recognition.onerror = (event: any) => {
-                    console.error('Speech recognition error:', event.error);
-                };
+                    // Auto-restart loop to conquer the browser VAD silence timeout death-spiral
+                    recognition.onend = () => {
+                        if (isRecordingRef.current) {
+                            try {
+                                recognition.start();
+                            } catch {
+                                setTimeout(() => {
+                                    if (isRecordingRef.current) {
+                                        try {
+                                            recognition.start();
+                                        } catch {}
+                                    }
+                                }, 300);
+                            }
+                        }
+                    };
 
-                recognition.start();
-                recognitionRef.current = recognition;
+                    recognition.onerror = (event: any) => {
+                        // Suppress expected pause errors, let onend handle reconnection
+                        if (event.error !== 'no-speech' && event.error !== 'network') {
+                            console.warn('[VoiceRecorder] Speech recognition notice:', event.error);
+                        }
+                    };
+
+                    recognition.start();
+                    recognitionRef.current = recognition;
+                } catch (recErr) {
+                    console.warn('[VoiceRecorder] Could not start live speech recognition:', recErr);
+                }
             }
 
-            // Start volume analysis
             analyzeVolume();
 
-            // Start Timer
+            // Start timer
             startTimeRef.current = Date.now();
             pausedTimeRef.current = 0;
             timerRef.current = window.setInterval(() => {
@@ -160,8 +214,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             }, 1000);
 
         } catch (err) {
-            console.error("Error accessing microphone:", err);
-            setAlertMessage("Could not access microphone. Please allow permissions.");
+            console.error('[VoiceRecorder] Error accessing microphone:', err);
+            setAlertMessage('Could not access microphone. Please allow microphone permissions in your browser or system settings.');
             setIsAlertOpen(true);
             onCancel();
         }
@@ -169,9 +223,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
 
     const pauseRecording = () => {
         if (mediaRecorderRef.current && status === 'recording') {
+            isRecordingRef.current = false;
             mediaRecorderRef.current.pause();
             setStatus('paused');
-            setVolumeScale(1.0); // Reset scale when paused
+            setVolumeScale(1.0);
 
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -181,20 +236,21 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             pausedTimeRef.current = Date.now() - startTimeRef.current - pausedTimeRef.current;
 
             if (recognitionRef.current) {
-                recognitionRef.current.stop();
+                try {
+                    recognitionRef.current.stop();
+                } catch {}
             }
         }
     };
 
     const resumeRecording = () => {
         if (mediaRecorderRef.current && status === 'paused') {
+            isRecordingRef.current = true;
             mediaRecorderRef.current.resume();
             setStatus('recording');
 
-            // Resume volume analysis
             analyzeVolume();
 
-            // Resume timer
             const pauseDuration = pausedTimeRef.current;
             startTimeRef.current = Date.now() - pauseDuration;
             pausedTimeRef.current = 0;
@@ -204,16 +260,21 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             }, 1000);
 
             if (recognitionRef.current) {
-                recognitionRef.current.start();
+                try {
+                    recognitionRef.current.start();
+                } catch {}
             }
         }
     };
 
     const stopRecording = () => {
+        isRecordingRef.current = false;
         if (mediaRecorderRef.current && (status === 'recording' || status === 'paused')) {
-            mediaRecorderRef.current.stop();
+            try {
+                mediaRecorderRef.current.stop();
+            } catch {}
             setStatus('review');
-            setVolumeScale(1.0); // Reset scale
+            setVolumeScale(1.0);
 
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -221,7 +282,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             }
 
             if (audioContextRef.current) {
-                audioContextRef.current.close();
+                audioContextRef.current.close().catch(() => {});
                 audioContextRef.current = null;
             }
 
@@ -229,39 +290,46 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 stream.getTracks().forEach(track => track.stop());
                 setStream(null);
             }
+
             if (timerRef.current) {
                 clearInterval(timerRef.current);
                 timerRef.current = null;
             }
 
             if (recognitionRef.current) {
-                recognitionRef.current.stop();
+                try {
+                    recognitionRef.current.stop();
+                } catch {}
             }
         }
     };
 
     const handleSave = () => {
-        // Assume recording is stopped and we are in review, or we force stop
-        if (status === 'recording' || status === 'paused') stopRecording();
+        if (status === 'recording' || status === 'paused') {
+            stopRecording();
+        }
 
         setTimeout(() => {
-            const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+            const mimeType = selectedMimeRef.current?.mimeType || 'audio/webm';
+            const blob = new Blob(chunksRef.current, { type: mimeType });
             onSave(blob, duration, transcriptRef.current);
 
-            // Full Reset
+            // Full reset
             setStatus('idle');
             setDuration(0);
             setTranscript('');
             setInterimTranscript('');
             transcriptRef.current = '';
             chunksRef.current = [];
-        }, 100);
+        }, 150);
     };
 
     const handleCancel = () => {
-        if (status === 'recording' || status === 'paused') stopRecording();
+        isRecordingRef.current = false;
+        if (status === 'recording' || status === 'paused') {
+            stopRecording();
+        }
 
-        // Full Reset
         setStatus('idle');
         setDuration(0);
         setTranscript('');
@@ -288,6 +356,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             >
                 <CloseIcon size={20} />
             </button>
+
             <div
                 className={`relative w-24 h-24 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 
                 ${status === 'recording' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
@@ -306,32 +375,39 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 {status === 'idle' ? <Mic size={48} /> :
                     status === 'recording' ? <Mic size={48} /> :
                         status === 'paused' ? <Pause size={48} /> :
-                            <CheckCircle size={48} />
-                }
+                            <CheckCircle size={48} />}
             </div>
 
             <div className="text-4xl font-mono font-bold text-light-text-primary dark:text-dark-text-primary mb-2">
                 {formatTime(duration)}
             </div>
 
-            <div className="text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary mb-6 uppercase tracking-[0.2em] opacity-60">
+            <div className="text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary mb-4 uppercase tracking-[0.2em] opacity-60">
                 {status === 'idle' ? 'Ready' :
-                    status === 'recording' ? 'Live' :
-                        status === 'paused' ? 'Paused' : 'Complete'}
+                    status === 'recording' ? 'Recording' :
+                        status === 'paused' ? 'Paused' : 'Recording Complete'}
             </div>
 
-            {(transcript || interimTranscript) && (
+            {/* Live Transcript View (When SpeechRecognition works) */}
+            {(transcript || interimTranscript) ? (
                 <div className="w-full bg-light-background dark:bg-dark-background/50 rounded-xl p-4 mb-6 border border-light-border dark:border-dark-border max-h-40 overflow-y-auto custom-scrollbar shadow-inner relative group">
-                    <div className="flex items-center gap-1.5 mb-2 opacity-50">
+                    <div className="flex items-center gap-1.5 mb-2 opacity-60">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Live Transcription</span>
                     </div>
                     <p className="text-sm leading-relaxed text-light-text-primary dark:text-dark-text-primary font-medium">
                         {transcript}
-                        <span className="text-primary opacity-60 italic">{interimTranscript}</span>
+                        <span className="text-primary opacity-70 italic ml-1">{interimTranscript}</span>
                     </p>
                 </div>
-            )}
+            ) : status === 'recording' && !hasLiveSpeechApi ? (
+                <div className="w-full flex items-center gap-2.5 p-3 mb-6 bg-primary/5 rounded-xl border border-primary/20 text-light-text-secondary dark:text-dark-text-secondary">
+                    <Sparkles size={16} className="text-primary shrink-0 animate-pulse" />
+                    <p className="text-[11px] leading-relaxed">
+                        <strong className="text-primary font-semibold">On-Device AI Engine:</strong> Your speech will be automatically transcribed by local Whisper when you click Save.
+                    </p>
+                </div>
+            ) : null}
 
             <div className="flex flex-col gap-2 w-full">
                 {status === 'idle' ? (
@@ -359,7 +435,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                             className="flex-1 justify-center !bg-red-500 hover:!bg-red-600 border-none"
                             icon={<Square size={16} className="mr-2" />}
                         >
-                            Stop
+                            Finish
                         </Button>
                     </div>
                 ) : status === 'paused' ? (

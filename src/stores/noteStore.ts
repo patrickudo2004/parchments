@@ -6,6 +6,7 @@ import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSyste
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 import { MarkdownService } from '@/lib/markdown/MarkdownService';
 import { useUIStore } from '@/stores/uiStore';
+import DOMPurify from 'dompurify';
 
 
 export const UNTITLED_NOTE = 'Untitled Note';
@@ -209,6 +210,8 @@ interface NoteStore {
     createNote: (folderId: string | null, title?: string, forceId?: string) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
+    updateNoteTranscript: (noteId: string, transcript: string) => Promise<void>;
+    autoTranscribeVoiceNote: (noteId: string, audioBlob: Blob) => Promise<void>;
     createFolder: (name: string, parentId?: string | null, forceId?: string) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
@@ -492,7 +495,63 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
         broadcastFolderChange(targetFolderId);
+
+        if (!transcript && audioBlob) {
+            get().autoTranscribeVoiceNote(note.id, audioBlob);
+        }
+
         return note;
+    },
+
+    updateNoteTranscript: async (noteId: string, transcript: string) => {
+        const { isLocalMode, localFiles, notes, currentNote } = get();
+        if (isLocalMode) {
+            const item = localFiles.find(f => f.id === noteId && f.kind === 'file');
+            if (item && item.handle) {
+                try {
+                    const existing = await fileSystem.readFile(item.handle as FileSystemFileHandle) as string;
+                    let updated = existing;
+                    const metaMatch = existing.match(/<!--\s*parchments-meta:\s*(\{.*?\})\s*-->/);
+                    if (metaMatch) {
+                        try {
+                            const meta = JSON.parse(metaMatch[1]);
+                            meta.transcript = transcript;
+                            updated = existing.replace(metaMatch[0], `<!-- parchments-meta: ${JSON.stringify(meta)} -->`);
+                        } catch {}
+                    }
+                    if (updated.includes('<p>No transcript available.</p>')) {
+                        updated = updated.replace('<p>No transcript available.</p>', `<p>${transcript}</p>`);
+                    } else if (updated.includes('<h1>Voice Transcript</h1>')) {
+                        updated = updated.replace(/<h1>Voice Transcript<\/h1><p>.*?<\/p>/, `<h1>Voice Transcript</h1><p>${transcript}</p>`);
+                    }
+                    await fileSystem.writeFile(item.handle as FileSystemFileHandle, updated);
+                } catch (err) {
+                    console.error('[NoteStore] Failed to update local note transcript:', err);
+                }
+            }
+        } else {
+            await db.notes.update(noteId, { transcript, updatedAt: Date.now() });
+            const updatedNotes = notes.map(n => n.id === noteId ? { ...n, transcript, updatedAt: Date.now() } : n);
+            set({ notes: updatedNotes });
+        }
+
+        if (currentNote && currentNote.id === noteId) {
+            set({ currentNote: { ...currentNote, transcript, updatedAt: Date.now() } });
+        }
+    },
+
+    autoTranscribeVoiceNote: async (noteId: string, audioBlob: Blob) => {
+        try {
+            const { transcribeAudioWithWhisper } = await import('@/lib/voice/transcriptionService');
+            useUIStore.getState().showToast('Transcribing audio in background...', 'info');
+            const transcript = await transcribeAudioWithWhisper(audioBlob, { highAccuracy: false });
+            if (transcript) {
+                await get().updateNoteTranscript(noteId, transcript);
+                useUIStore.getState().showToast('Voice note transcribed!', 'success');
+            }
+        } catch (err) {
+            console.warn('[NoteStore] Auto-transcription skipped or failed:', err);
+        }
     },
 
     createFolder: async (name, parentId = null, forceId) => {
@@ -1154,6 +1213,15 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     const parsed = MarkdownService.markdownToHtml(rawContent);
                     editorContent = parsed.html;
                     parsedFrontmatter = parsed.frontmatter;
+                } else if (MarkdownService.isHtmlFile(item.name)) {
+                    editorContent = DOMPurify.sanitize(rawContent, {
+                        ADD_TAGS: ['mark', 'u', 's', 'sup', 'sub'],
+                        ADD_ATTR: [
+                            'data-book', 'data-chapter', 'data-verse', 'data-verse-end',
+                            'data-segments', 'data-scripture', 'data-asset-name',
+                            'target', 'rel', 'class', 'style'
+                        ]
+                    });
                 }
                 content = await get().hydrateAssets(editorContent);
 
@@ -1333,7 +1401,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             // Generate a name with timestamp
             const timestamp = new Date().toLocaleString().replace(/[/:]/g, '-');
-            const audioName = `Recording ${timestamp}.webm`;
+            const audioExt = (audioBlob.type && (audioBlob.type.includes('mp4') || audioBlob.type.includes('aac')))
+                ? 'mp4'
+                : (audioBlob.type && audioBlob.type.includes('ogg'))
+                ? 'ogg'
+                : (audioBlob.type && audioBlob.type.includes('wav'))
+                ? 'wav'
+                : 'webm';
+            const audioName = `Recording ${timestamp}.${audioExt}`;
             const noteName = `Transcript ${timestamp}.html`;
 
             // Save the audio file
@@ -1363,6 +1438,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             if (targetFolderId) {
                 console.log(`[CREATE VOICE NOTE LOCAL] Broadcasting folder change for: ${targetFolderId}`);
                 get().broadcastFolderChange(targetFolderId);
+            }
+
+            if (!transcript && audioBlob) {
+                get().autoTranscribeVoiceNote(fileId, audioBlob);
             }
         } catch (error) {
             console.error('Failed to create local voice note:', error);

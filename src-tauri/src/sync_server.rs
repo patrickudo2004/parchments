@@ -4,7 +4,8 @@ use tauri::Emitter;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
-use tokio_tungstenite::{accept_async, tungstenite::Message};
+use tokio_tungstenite::{accept_async, accept_hdr_async, tungstenite::Message};
+use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 use rand::Rng;
 
 /// Represents a single active pairing session on the host.
@@ -99,30 +100,36 @@ pub async fn start_server(
     note_title: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(u16, String, String), String> {
-    let token = generate_token();
+    let mut s = state.lock().unwrap();
+
+    // If already running, return existing session info
+    if let Some(session) = &s.session {
+        return Ok((session.port, session.token.clone(), session.code.clone()));
+    }
+
     let code = generate_code();
-
-    // Try to bind to port 48921, then scan upward if occupied
-    let listener = bind_port(48921).await?;
-    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
-
-    let (tx, _) = broadcast::channel::<Vec<u8>>(512);
+    let token = generate_token();
+    let (tx, _rx) = broadcast::channel::<Vec<u8>>(512);
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    {
-        let mut s = state.lock().unwrap();
-        s.session = Some(SyncSession {
-            port,
-            token: token.clone(),
-            code: code.clone(),
-            note_id: note_id.clone(),
-            note_title: note_title.clone(),
-            peers: Vec::new(),
-        });
-        s.tx = Some(tx.clone());
-        s.shutdown_tx = Some(shutdown_tx);
-        s.pending = Vec::new();
-    }
+    // Bind to preferred port 48921 (falls back to 48922..48941 if busy)
+    let listener = bind_port(48921).await?;
+    let port = listener
+        .local_addr()
+        .map_err(|e| e.to_string())?
+        .port();
+
+    s.session = Some(SyncSession {
+        port,
+        token: token.clone(),
+        code: code.clone(),
+        note_id,
+        note_title,
+        peers: Vec::new(),
+    });
+    s.pending = Vec::new();
+    s.tx = Some(tx.clone());
+    s.shutdown_tx = Some(shutdown_tx);
 
     let state_clone = state.clone();
     let token_clone = token.clone();
@@ -203,13 +210,6 @@ struct HandshakeMsg {
     mode: PeerMode,
 }
 
-/// Approval decision message sent from the host frontend to the backend.
-#[derive(Debug, serde::Deserialize)]
-struct ApprovalDecision {
-    addr: String,
-    approved: bool,
-}
-
 async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
@@ -218,7 +218,17 @@ async fn handle_connection(
     tx: broadcast::Sender<Vec<u8>>,
     app_handle: tauri::AppHandle,
 ) {
-    let ws_stream = match accept_async(stream).await {
+    let query_capture = Arc::new(Mutex::new(None::<String>));
+    let q_clone = query_capture.clone();
+
+    let ws_stream = match accept_hdr_async(stream, move |req: &Request, resp: Response| {
+        if let Some(q) = req.uri().query() {
+            *q_clone.lock().unwrap() = Some(q.to_string());
+        }
+        Ok(resp)
+    })
+    .await
+    {
         Ok(ws) => ws,
         Err(e) => {
             log::warn!("[SyncServer] WebSocket handshake failed {}: {}", addr, e);
@@ -228,19 +238,56 @@ async fn handle_connection(
 
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
-    // --- Expect handshake as first message ---
-    let handshake: HandshakeMsg = match ws_receiver.next().await {
-        Some(Ok(Message::Text(text))) => match serde_json::from_str(&text) {
-            Ok(h) => h,
-            Err(_) => {
-                log::warn!("[SyncServer] Invalid handshake JSON from {}", addr);
-                let _ = ws_sender.send(Message::Text("{\"error\":\"bad_handshake\"}".into())).await;
+    // Check if handshake params were provided in the upgrade URL query string
+    let captured_query = query_capture.lock().unwrap().clone();
+    let mut token_from_query = String::new();
+    let mut device_name_from_query = "Remote Device".to_string();
+    let mut mode_from_query = PeerMode::Follower;
+    let mut has_query_handshake = false;
+
+    if let Some(q) = captured_query {
+        for param in q.split('&') {
+            let mut kv = param.splitn(2, '=');
+            let k = kv.next().unwrap_or("");
+            let v = kv.next().unwrap_or("");
+            let val = v.replace("%20", " ").replace('+', " ");
+            match k {
+                "token" => {
+                    token_from_query = val;
+                    has_query_handshake = true;
+                }
+                "device_name" => device_name_from_query = val,
+                "mode" => {
+                    if val.to_lowercase() == "editor" {
+                        mode_from_query = PeerMode::Editor;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let handshake = if has_query_handshake {
+        HandshakeMsg {
+            token: token_from_query,
+            device_name: device_name_from_query,
+            mode: mode_from_query,
+        }
+    } else {
+        // Fallback: expect handshake as first message
+        match ws_receiver.next().await {
+            Some(Ok(Message::Text(text))) => match serde_json::from_str(&text) {
+                Ok(h) => h,
+                Err(_) => {
+                    log::warn!("[SyncServer] Invalid handshake JSON from {}", addr);
+                    let _ = ws_sender.send(Message::Text("{\"error\":\"bad_handshake\"}".into())).await;
+                    return;
+                }
+            },
+            _ => {
+                log::warn!("[SyncServer] No handshake message from {}", addr);
                 return;
             }
-        },
-        _ => {
-            log::warn!("[SyncServer] No handshake message from {}", addr);
-            return;
         }
     };
 
@@ -251,30 +298,37 @@ async fn handle_connection(
         return;
     }
 
-    // --- Add to pending and emit event to frontend for approval ---
-    {
-        let mut s = state.lock().unwrap();
-        s.pending.push(PendingPeer {
-            addr: addr.to_string(),
-            device_name: handshake.device_name.clone(),
-            mode: handshake.mode.clone(),
-        });
-    }
+    // Host connection loopback auto-approval
+    let is_host_loopback = addr.ip().is_loopback();
 
-    // Fire Tauri event to prompt host with "Allow / Deny" dialog
-    let _ = app_handle.emit("sync:peer-requesting", serde_json::json!({
-        "addr": addr.to_string(),
-        "device_name": &handshake.device_name,
-        "mode": &handshake.mode,
-    }));
+    let approved = if is_host_loopback {
+        true
+    } else {
+        // Add to pending and emit event to frontend for approval
+        {
+            let mut s = state.lock().unwrap();
+            s.pending.push(PendingPeer {
+                addr: addr.to_string(),
+                device_name: handshake.device_name.clone(),
+                mode: handshake.mode,
+            });
+        }
 
-    // --- Wait for approval or timeout (60 seconds) ---
-    let approved = tokio::time::timeout(
-        std::time::Duration::from_secs(60),
-        wait_for_approval(state.clone(), addr.to_string()),
-    )
-    .await
-    .unwrap_or(false);
+        // Fire Tauri event to prompt host with "Allow / Deny" dialog
+        let _ = app_handle.emit("sync:peer-requesting", serde_json::json!({
+            "addr": addr.to_string(),
+            "device_name": &handshake.device_name,
+            "mode": &handshake.mode,
+        }));
+
+        // Wait for approval or timeout (60 seconds)
+        tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            wait_for_approval(state.clone(), addr.to_string()),
+        )
+        .await
+        .unwrap_or(false)
+    };
 
     if !approved {
         let _ = ws_sender.send(Message::Text("{\"error\":\"denied\"}".into())).await;
@@ -282,18 +336,14 @@ async fn handle_connection(
         return;
     }
 
-    // Notify client it was approved and its mode
-    let _ = ws_sender.send(Message::Text(serde_json::json!({
-        "status": "approved",
-        "mode": &handshake.mode
-    }).to_string().into())).await;
-
-    // Notify frontend that a new peer is connected
-    let _ = app_handle.emit("sync:peer-connected", serde_json::json!({
-        "addr": addr.to_string(),
-        "device_name": &handshake.device_name,
-        "mode": &handshake.mode,
-    }));
+    if !is_host_loopback {
+        // Notify frontend that a new peer is connected
+        let _ = app_handle.emit("sync:peer-connected", serde_json::json!({
+            "addr": addr.to_string(),
+            "device_name": &handshake.device_name,
+            "mode": &handshake.mode,
+        }));
+    }
 
     log::info!("[SyncServer] Peer {} ({:?}) approved and connected.", addr, handshake.mode);
 
@@ -306,7 +356,7 @@ async fn handle_connection(
             msg = ws_receiver.next() => {
                 match msg {
                     Some(Ok(Message::Binary(data))) => {
-                        if handshake.mode == PeerMode::Editor {
+                        if handshake.mode == PeerMode::Editor || is_host_loopback {
                             let _ = tx.send(data);
                         } else {
                             log::warn!("[SyncServer] Rejected binary update from read-only follower peer {}", addr);

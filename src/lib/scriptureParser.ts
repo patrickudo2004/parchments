@@ -98,7 +98,7 @@ export const parseVerseSegments = (rawVerses: string): VerseSegment[] => {
     const segments: VerseSegment[] = [];
 
     for (const part of rawParts) {
-        const rangeMatch = part.match(/^(\d+)(?:[-–—](\d+))?$/);
+        const rangeMatch = part.match(/^(\d+)[a-zA-Z]?(?:[-–—](\d+)[a-zA-Z]?)?$/);
         if (rangeMatch) {
             const verse = parseInt(rangeMatch[1], 10);
             const verseEnd = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : null;
@@ -143,10 +143,10 @@ export const resolveBookName = (bookStr: string, prefix?: string): string | null
  * (\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*) : Full verse specification with optional commas/ranges
  * \b : Word boundary end
  */
-export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*)\b/i;
+export const SCRIPTURE_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?(?:\s*,\s*\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?)*)\b/i;
 
 const CROSS_CHAPTER_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+)\s*[-–—]\s*(\d+):(\d+)\b/i;
-const SINGLE_CHAPTER_NO_COLON_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*)\b/i;
+const SINGLE_CHAPTER_NO_COLON_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?(?:\s*,\s*\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?)*)\b/i;
 const CHAPTER_ONLY_REGEX = /\b((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+)\b/i;
 
 export const parseScriptureReference = (text: string): BibleReference | null => {
@@ -234,7 +234,7 @@ export const scanScriptureReferences = (text: string): ExtractedReference[] => {
     // Pattern matches:
     // Case 1: Full reference: (Prefix)?(Book) Chapter:VerseSpec
     // Case 2: Continuation: ; followed by Chapter:VerseSpec
-    const combinedPattern = /(?:((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*))|(?:\s*;\s*(\d+):(\d+(?:[-–—]\d+)?(?:\s*,\s*\d+(?:[-–—]\d+)?)*))/gi;
+    const combinedPattern = /(?:((?:(?:1|2|3)\s*)|(?:(?:I|II|III)\s+))?((?:Song\s+of\s+Solomon)|(?:[a-zA-Z]+))\.?\s+(\d+):(\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?(?:\s*,\s*\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?)*))|(?:\s*;\s*(\d+):(\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?(?:\s*,\s*\d+[a-zA-Z]?(?:[-–—]\d+[a-zA-Z]?)?)*))/gi;
 
     let match: RegExpExecArray | null;
     let currentBook: string | null = null;

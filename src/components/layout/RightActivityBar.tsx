@@ -33,9 +33,9 @@ export const RightActivityBar: React.FC = () => {
     ];
 
     return (
-        <aside className="w-12 bg-light-background dark:bg-dark-background border-l border-light-border dark:border-dark-border flex flex-col items-center py-4 z-20 shrink-0">
+        <aside className="w-12 bg-light-background dark:bg-dark-background border-l border-light-border dark:border-dark-border flex flex-col items-center py-4 z-20 shrink-0 select-none">
             {/* Top Navigation */}
-            <div className="flex-1 flex flex-col gap-4 w-full px-2">
+            <div className="flex-1 flex flex-col gap-3 w-full px-1 items-center">
                 {items.map((item) => {
                     const isActive = rightSidebarOpen && rightSidebarContent === item.id;
 
@@ -43,24 +43,25 @@ export const RightActivityBar: React.FC = () => {
                         <button
                             key={item.id}
                             onClick={() => toggleRightSidebar(item.id as any)}
-                            className={`group relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isActive
+                            className={`group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 active:scale-95 ${isActive
                                 ? 'bg-primary/10 text-primary'
                                 : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'
                                 }`}
                             title={item.label}
+                            aria-label={item.label}
                         >
-                            <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                            <item.icon size={19} strokeWidth={isActive ? 2.5 : 2} />
 
                             {/* Active Indicator */}
                             {isActive && (
                                 <motion.div
                                     layoutId="rightActiveBarIndicator"
-                                    className="absolute right-[-8px] w-1 h-4 bg-primary rounded-l-full"
+                                    className="absolute right-[-4px] w-1 h-5 bg-primary rounded-l-full"
                                 />
                             )}
 
                             {/* Tooltip (CSS Only) */}
-                            <div className="absolute right-10 px-2 py-1 rounded bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                            <div className="absolute right-11 px-2.5 py-1 rounded bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-md">
                                 {item.label}
                             </div>
                         </button>
@@ -69,20 +70,23 @@ export const RightActivityBar: React.FC = () => {
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex flex-col gap-4 w-full px-2">
+            <div className="flex flex-col gap-3 w-full px-1 items-center">
                 <button
                     onClick={toggleRightSidebarFloating}
-                    className={`group relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isRightSidebarFloating ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
+                    className={`group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 active:scale-95 ${isRightSidebarFloating ? 'text-primary bg-primary/10' : 'text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
                     title={isRightSidebarFloating ? 'Dock Sidebar' : 'Undock Sidebar'}
+                    aria-label={isRightSidebarFloating ? 'Dock Sidebar' : 'Undock Sidebar'}
                 >
-                    {isRightSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    {isRightSidebarFloating ? <Minimize2 size={19} /> : <Maximize2 size={19} />}
                 </button>
 
                 <button
                     onClick={() => toggleRightSidebar()}
-                    className="group relative flex items-center justify-center w-8 h-8 rounded-lg text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-all"
+                    className="group relative flex items-center justify-center w-10 h-10 rounded-xl text-light-text-disabled hover:text-light-text-secondary dark:hover:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background transition-all active:scale-95"
+                    title={rightSidebarOpen ? 'Collapse Study Panel' : 'Expand Study Panel'}
+                    aria-label={rightSidebarOpen ? 'Collapse Study Panel' : 'Expand Study Panel'}
                 >
-                    {rightSidebarOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                    {rightSidebarOpen ? <ChevronRight size={19} /> : <ChevronLeft size={19} />}
                 </button>
             </div>
         </aside>

@@ -1,4 +1,5 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 import { useResearchStore } from '@/stores/researchStore';
 import type { PinItem } from '@/stores/researchStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -252,7 +253,12 @@ export const ResearchSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                                     {/* Content Snippet */}
                                     <div
                                         className="text-xs text-light-text-secondary dark:text-dark-text-secondary line-clamp-3 font-serif italic border-l-2 border-primary/20 pl-3 py-1"
-                                        dangerouslySetInnerHTML={{ __html: pin.content }}
+                                        dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(pin.content, {
+                                                ALLOWED_TAGS: ['sup', 'sub', 'em', 'strong', 'b', 'i', 'br', 'span', 'mark', 'p'],
+                                                ALLOWED_ATTR: ['class']
+                                            })
+                                        }}
                                     />
 
                                     {/* Footer */}

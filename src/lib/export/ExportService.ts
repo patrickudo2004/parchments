@@ -259,12 +259,14 @@ export class ExportService {
         if (options?.includeScripture && options?.bibleVersion) {
             htmlContent = await this.enrichContentWithScripture(htmlContent, options.bibleVersion);
         }
+        const safeTitle = DOMPurify.sanitize(title, { ALLOWED_TAGS: [] });
+        const safeBody = DOMPurify.sanitize(htmlContent);
         const fullHtml = `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>${title}</title>
+    <title>${safeTitle}</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         img { max-width: 100%; }
@@ -272,8 +274,8 @@ export class ExportService {
     </style>
 </head>
 <body>
-    <h1>${title}</h1>
-    ${htmlContent}
+    <h1>${safeTitle}</h1>
+    ${safeBody}
 </body>
 </html>`;
         const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });

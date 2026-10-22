@@ -81,7 +81,7 @@ export const ShareSpaceModal: React.FC<ShareSpaceModalProps> = ({ isOpen, onClos
                                 <h4 className="text-xs font-black uppercase tracking-widest text-light-text-secondary">Space Collaboration Link</h4>
                                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/10 text-green-600 rounded text-[10px] font-bold uppercase">
                                     <Lock size={10} />
-                                    <span>End-to-End</span>
+                                    <span>Peer-to-Peer</span>
                                 </div>
                             </div>
 

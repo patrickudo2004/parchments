@@ -436,12 +436,13 @@ export const FilesSidebar: React.FC = () => {
                                     if (isItemPinned(id)) {
                                         unpinItem(id);
                                     } else {
+                                        const safeTitle = item.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                         pinItem({
                                             id,
                                             type: 'note',
                                             title: item.name,
-                                            content: `Note Reference: ${item.name}`,
-                                            reference: `Note: ${item.name}`,
+                                            content: `Note Reference: ${safeTitle}`,
+                                            reference: `Note: ${safeTitle}`,
                                             metadata: { noteId: item.id }
                                         });
                                     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, BookOpen, Loader2 } from 'lucide-react';
+import { X, Copy, Check, BookOpen, Loader2, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { useBibleStore } from '@/stores/bibleStore';
@@ -36,6 +36,11 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
     const [activeVersionBadge, setActiveVersionBadge] = useState<string>(mainVersion || 'KJV');
+    const [extraVersesCount, setExtraVersesCount] = useState(0);
+
+    useEffect(() => {
+        setExtraVersesCount(0);
+    }, [target?.book, target?.chapter, target?.verse, target?.verseEnd]);
 
     useEffect(() => {
         if (!target) return;
@@ -50,6 +55,11 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                 const parsedSegments = segments
                     ? parseVerseSegments(segments)
                     : [{ verse, verseEnd: verseEnd && verseEnd > verse ? verseEnd : null }];
+
+                if (extraVersesCount > 0 && parsedSegments.length > 0) {
+                    const lastSeg = parsedSegments[parsedSegments.length - 1];
+                    lastSeg.verseEnd = (lastSeg.verseEnd || lastSeg.verse) + extraVersesCount;
+                }
 
                 let activeVer = (selectedVersion || 'kjv').toLowerCase();
                 const resultVerses: { verse: number; text: string; omittedBeforeNotice?: string | null }[] = [];
@@ -163,14 +173,17 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
         return () => {
             isCancelled = true;
         };
-    }, [target, selectedVersion]);
+    }, [target, selectedVersion, extraVersesCount]);
 
     if (!target) return null;
 
+    const endV = (target.verseEnd || target.verse) + extraVersesCount;
     const refString = target.segments
-        ? `${target.book} ${target.chapter}:${target.segments.replace(/,/g, ', ').replace(/-/g, '–')}`
-        : target.verseEnd && target.verseEnd > target.verse
-            ? `${target.book} ${target.chapter}:${target.verse}–${target.verseEnd}`
+        ? (extraVersesCount > 0
+            ? `${target.book} ${target.chapter}:${target.segments.replace(/,/g, ', ').replace(/-/g, '–')} (+${extraVersesCount} v)`
+            : `${target.book} ${target.chapter}:${target.segments.replace(/,/g, ', ').replace(/-/g, '–')}`)
+        : endV > target.verse
+            ? `${target.book} ${target.chapter}:${target.verse}–${endV}`
             : `${target.book} ${target.chapter}:${target.verse}`;
 
     const handleCopy = () => {
@@ -228,6 +241,16 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {/* Context Expansion Button (+1 Verse) */}
+                            <button
+                                onClick={() => setExtraVersesCount(prev => prev + 1)}
+                                className={`px-2.5 py-1.5 rounded-xl transition-all active:scale-95 text-xs font-bold flex items-center gap-1 border min-h-[38px] ${isContrast ? 'border-amber-500/30 hover:bg-amber-500/20 text-amber-300' : 'border-current/10 hover:bg-black/5 dark:hover:bg-white/5'}`}
+                                title="Expand reading range by 1 verse for broader pulpit context"
+                            >
+                                <Plus size={14} />
+                                <span>+1 v</span>
+                            </button>
+
                             {/* Version Selector */}
                             {installedVersions && installedVersions.length > 1 && (
                                 <select

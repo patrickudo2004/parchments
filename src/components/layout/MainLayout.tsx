@@ -73,6 +73,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         selectedStrongsId,
         toggleStrongsModal,
         isFocusMode,
+        toggleFocusMode,
         toast,
         isMobile,
         setIsMobile,
@@ -116,6 +117,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             selectedStrongsId: state.selectedStrongsId,
             toggleStrongsModal: state.toggleStrongsModal,
             isFocusMode: state.isFocusMode,
+            toggleFocusMode: state.toggleFocusMode,
             toast: state.toast,
             isMobile: state.isMobile,
             setIsMobile: state.setIsMobile,
@@ -229,7 +231,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // Global Keyboard Shortcuts
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
                 toggleSearchModal();
             }
@@ -248,6 +255,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 openLooseFile();
             }
 
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFocusMode();
+            }
+
             if (e.key === 'F1') {
                 e.preventDefault();
                 toggleUserGuide();
@@ -256,7 +268,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toggleSearchModal, hasStudyspace, createNote, openLooseFile, toggleUserGuide]);
+    }, [toggleSearchModal, hasStudyspace, createNote, openLooseFile, toggleUserGuide, toggleFocusMode]);
 
     return (
         <ErrorBoundary>
@@ -270,7 +282,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {/* ... rest of the component ... */}
                     {/* Mobile & Tablet Backdrop */}
                     <AnimatePresence>
-                        {(isMobile || isTablet) && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible')) && !isFocusMode && !pulpitMode && !isLectioModeActive && (
+                        {((isMobile && (isLeftSidebarOpen || (rightSidebarOpen && rightSidebarContent !== 'bible'))) ||
+                          (isTablet && (isLeftSidebarOpen || rightSidebarOpen))) &&
+                          !isFocusMode && !pulpitMode && !isLectioModeActive && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}

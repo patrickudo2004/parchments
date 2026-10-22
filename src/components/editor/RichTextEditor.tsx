@@ -43,7 +43,7 @@ interface RichTextEditorProps {
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, identity, shouldSync }) => {
-    const { currentNote, saveCurrentNote, saveLocalAsset, updateCurrentNoteMetadata } = useNoteStore();
+    const { currentNote, saveCurrentNote, saveLocalAsset, updateCurrentNoteMetadata, updateNoteTranscript } = useNoteStore();
     const titleRef = React.useRef<HTMLTextAreaElement>(null);
     const {
         writingLayout,
@@ -712,6 +712,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             <VoiceNotePlayer
                                 audioBlob={currentNote.audioBlob}
                                 audioUrl={currentNote.audioUrl}
+                                noteId={currentNote.id}
+                                existingTranscript={currentNote.transcript}
+                                onTranscriptSaved={(text) => {
+                                    if (currentNote.id) {
+                                        updateNoteTranscript(currentNote.id, text);
+                                    }
+                                }}
                             />
 
                             {/* Transcript Display */}

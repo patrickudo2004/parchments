@@ -44,6 +44,12 @@ export const useSpaceSync = () => {
                     if (storeNote.type === 'voice' && storeNote.transcript) meta.transcript = storeNote.transcript;
                 }
 
+                if (content.trim().length === 0 && rawContent.trim().length > 50) {
+                    console.warn(`[Space Sync FLUSHER] Suppressed empty disk overwrite for ${fileId} (existing was ${rawContent.length} bytes)`);
+                    delete writeTimeouts.current[fileId];
+                    return;
+                }
+
                 let portableContent = dehydrateAssets(content);
                 const metaTag = `\n<!-- parchments-meta: ${JSON.stringify(meta)} -->`;
                 if (portableContent.includes('parchments-meta:')) {

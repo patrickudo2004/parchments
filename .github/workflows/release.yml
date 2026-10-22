@@ -52,7 +52,7 @@ jobs:
           releaseBody: "Automated release from GitHub Actions"
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin --ignore-version-mismatches' || '--ignore-version-mismatches' }}
 
   build-android:
     needs: publish

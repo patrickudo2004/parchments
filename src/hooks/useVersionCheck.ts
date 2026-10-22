@@ -1,27 +1,26 @@
 import { useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { APP_VERSION, VERSION_INFO } from '@/lib/version';
-import { Capacitor } from '@capacitor/core';
-
-const REMOTE_VERSION_URLS = [
-    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/public/version.json',
-    'https://raw.githubusercontent.com/patrickudo2004/parchments/main/version.json',
-    'https://api.github.com/repos/patrickudo2004/parchments/releases/latest'
-];
 
 export const CURRENT_VERSION = APP_VERSION;
 
-// Helper to compare semantic versions (basic version for beta tags)
-export const compareVersions = (v1: string, v2: string) => {
+/**
+ * Robust semantic version comparison with support for 'v' prefix and prerelease tags
+ */
+export const compareVersions = (v1: string, v2: string): number => {
+    const clean = (v: string) => v.trim().replace(/^v/i, '');
     const parse = (version: string) => {
-        const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/);
-        if (!match) return [0, 0, 0, 0];
-        return [
-            Number(match[1]),
-            Number(match[2]),
-            Number(match[3]),
-            match[4] ? Number(match[4]) : 9999
-        ];
+        const match = clean(version).match(/^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z]+)(?:\.(\d+))?)?$/);
+        if (!match) {
+            const parts = clean(version).split('.').map(n => parseInt(n, 10) || 0);
+            while (parts.length < 3) parts.push(0);
+            return [parts[0], parts[1], parts[2], 9999];
+        }
+        const major = Number(match[1]);
+        const minor = Number(match[2]);
+        const patch = Number(match[3]);
+        const prereleaseNum = match[5] ? Number(match[5]) : (match[4] ? 0 : 9999);
+        return [major, minor, patch, prereleaseNum];
     };
 
     const parts1 = parse(v1);
@@ -34,70 +33,89 @@ export const compareVersions = (v1: string, v2: string) => {
     return 0;
 };
 
-export const fetchVersionInfo = async () => {
-    const isNative = typeof window !== 'undefined' && (
-        !!(window as any).__TAURI__ || 
-        !!(window as any).__TAURI_INTERNALS__ || 
-        Capacitor.isNativePlatform()
-    );
-
-    // In web browsers, checking local /version.json first is fine as it's served by the host
-    // In native Desktop/Mobile, /version.json resolves to the internal package assets, so we query live GitHub
-    const urls = isNative ? REMOTE_VERSION_URLS : ['/version.json', ...REMOTE_VERSION_URLS];
-
-    for (const url of urls) {
-        try {
-            const response = await fetch(url, { cache: 'no-store' });
-            if (response.ok) {
-                const data = await response.json();
-                // Handle GitHub Releases API format if hit directly
-                if (data.tag_name && !data.latest) {
-                    const cleanTag = data.tag_name.replace(/^v/, '');
-                    return {
-                        latest: cleanTag,
-                        min_required: CURRENT_VERSION,
-                        download_url: data.html_url || 'https://github.com/patrickudo2004/parchments/releases',
-                        message: data.body || 'A new release is available.'
-                    };
-                }
-                return data;
-            }
-        } catch {
-            // Try next source
-        }
+/**
+ * Resolves direct platform download asset URL from GitHub Release data
+ */
+function resolveDownloadUrl(releaseData: any): string {
+    if (!releaseData.assets || !Array.isArray(releaseData.assets) || releaseData.assets.length === 0) {
+        return releaseData.html_url || 'https://github.com/patrickudo2004/parchments/releases/latest';
     }
 
-    return VERSION_INFO;
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+    const isWindows = ua.includes('win');
+    const isMac = ua.includes('mac');
+    const isAndroid = ua.includes('android');
+    const isLinux = ua.includes('linux') && !isAndroid;
+
+    let matchingAsset: any = null;
+    if (isWindows) {
+        matchingAsset = releaseData.assets.find((a: any) => a.name.endsWith('.exe') || a.name.endsWith('.msi'));
+    } else if (isMac) {
+        matchingAsset = releaseData.assets.find((a: any) => a.name.endsWith('.dmg'));
+    } else if (isAndroid) {
+        matchingAsset = releaseData.assets.find((a: any) => a.name.endsWith('.apk'));
+    } else if (isLinux) {
+        matchingAsset = releaseData.assets.find((a: any) => a.name.endsWith('.AppImage') || a.name.endsWith('.deb'));
+    }
+
+    return matchingAsset ? matchingAsset.browser_download_url : (releaseData.html_url || 'https://github.com/patrickudo2004/parchments/releases/latest');
+}
+
+export const fetchVersionInfo = async () => {
+    // 1. Primary Source: Live GitHub Releases API with User-Agent
+    try {
+        const ghResponse = await fetch('https://api.github.com/repos/patrickudo2004/parchments/releases/latest', {
+            cache: 'no-store',
+            headers: {
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'ParchmentsApp'
+            }
+        });
+        if (ghResponse.ok) {
+            const data = await ghResponse.json();
+            if (data.tag_name) {
+                const cleanTag = data.tag_name.replace(/^v/, '');
+                const directUrl = resolveDownloadUrl(data);
+                return {
+                    latest: cleanTag,
+                    min_required: VERSION_INFO.min_required,
+                    download_url: directUrl,
+                    message: data.body ? data.body.slice(0, 150).replace(/[#*_`]/g, '') : 'A new release is available.'
+                };
+            }
+        }
+    } catch (ghErr) {
+        console.warn('[Version Check] GitHub Releases API unavailable, trying fallback manifest:', ghErr);
+    }
+
+    // 2. Secondary Source: Raw GitHub Version Manifest with Cache-Buster
+    try {
+        const rawResponse = await fetch(`https://raw.githubusercontent.com/patrickudo2004/parchments/main/public/version.json?t=${Date.now()}`, {
+            cache: 'no-store'
+        });
+        if (rawResponse.ok) {
+            return await rawResponse.json();
+        }
+    } catch (rawErr) {
+        console.warn('[Version Check] Raw manifest fallback unavailable:', rawErr);
+    }
+
+    // 3. Tertiary Source: Local bundle version
+    try {
+        const localResponse = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (localResponse.ok) {
+            return await localResponse.json();
+        }
+    } catch {}
+
+    throw new Error('Unable to connect to update servers. Please check your network connection.');
 };
 
 export const checkAppVersion = async (manual = false): Promise<void> => {
     const { setVersionStatus, showToast } = useUIStore.getState();
-    const isTauri = typeof window !== 'undefined' && (!!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__);
 
     if (manual) {
         showToast('Checking for updates...', 'info');
-    }
-
-    // In desktop Tauri, try native plugin updater (runs both on launch and manually)
-    if (isTauri) {
-        try {
-            const { check } = await import('@tauri-apps/plugin-updater');
-            const update = await check();
-            if (update) {
-                setVersionStatus('outdated', {
-                    latest: update.version,
-                    minRequired: CURRENT_VERSION,
-                    downloadUrl: 'https://github.com/patrickudo2004/parchments/releases',
-                    message: update.body || 'A new desktop update is available.'
-                });
-                if (manual) {
-                    showToast(`Parchments v${update.version} is available!`, 'info');
-                }
-                return;
-            }
-        } catch (tauriErr) {
-            console.warn('[Version Check] Tauri updater check fallback to live metadata:', tauriErr);
-        }
     }
 
     try {
@@ -114,7 +132,7 @@ export const checkAppVersion = async (manual = false): Promise<void> => {
 
         // 2. Check for Updates (Nag)
         if (latest && compareVersions(CURRENT_VERSION, latest) === -1) {
-            console.log(`[Version Check] New version available: ${latest}`);
+            console.log(`[Version Check] New version available: ${latest} (current: ${CURRENT_VERSION})`);
             setVersionStatus('outdated', { latest, minRequired: min_required, downloadUrl: download_url, message });
             if (manual) showToast(`Parchments v${latest} is available!`, 'info');
             return;
@@ -125,11 +143,11 @@ export const checkAppVersion = async (manual = false): Promise<void> => {
         if (manual) {
             showToast(`Parchments is up to date (v${CURRENT_VERSION})`, 'success');
         }
-    } catch (err) {
-        console.error('[Version Check] Failed:', err);
+    } catch (err: any) {
+        console.warn('[Version Check] Update check encountered an error:', err);
         setVersionStatus('up-to-date', null);
         if (manual) {
-            showToast('Unable to reach update server. Check your connection.', 'info');
+            showToast(err.message || 'Unable to reach update servers. Check your connection.', 'info');
         }
     }
 };

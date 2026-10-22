@@ -15,7 +15,7 @@ async function initTransformers() {
     pipeline = transformers.pipeline;
     env = transformers.env;
 
-    // Skip local checks for now to avoid FS errors in browser
+    // Skip local checks to avoid FS errors in browser/webview
     env.allowLocalModels = false;
     env.useBrowserCache = true;
     console.info('[Worker] AI Engine initialized. Offline caching enabled.');
@@ -25,64 +25,101 @@ class TranscribeWorker {
     static instance: any = null;
     static model: string | null = null;
 
-    static async getInstance(model: string, progress_callback: (progress: any) => void) {
+    static async getInstance(model: string, progress_callback?: (progress: any) => void) {
         await initTransformers();
-        // If instance exists but model changed, we need to create a new one
         if (this.instance && this.model !== model) {
             this.instance = null;
         }
 
         if (!this.instance) {
             this.model = model;
-
-            // Check for WebGPU and fp16 support if possible
-            // Note: In v3, passing device: 'webgpu' without dtype might still work and auto-detect.
-            // We'll try to be safe but performant.
-            this.instance = await pipeline('automatic-speech-recognition', model, {
-                device: 'webgpu',
-                // Don't force fp16 here, let the transcriber call handle it or fallback
-                progress_callback,
-            });
+            try {
+                this.instance = await pipeline('automatic-speech-recognition', model, {
+                    device: 'webgpu',
+                    progress_callback,
+                });
+            } catch (gpuErr) {
+                console.warn('[Worker] WebGPU unavailable, falling back to WASM q8:', gpuErr);
+                this.instance = await pipeline('automatic-speech-recognition', model, {
+                    device: 'wasm',
+                    dtype: 'q8',
+                    progress_callback,
+                });
+            }
         }
         return this.instance;
     }
 }
 
 self.addEventListener('message', async (event) => {
-    const { audioBlob, highAccuracy } = event.data;
+    const data = event.data;
+    if (!data) return;
 
-    // Switch to verified onnx-community models for max stability with transformers.js v3
-    // Standard: whisper-tiny (Small, fast, reliable)
-    // High Accuracy: whisper-base
+    const { type, id, audioBlob, audioData, highAccuracy } = data;
     const model = highAccuracy ? 'onnx-community/whisper-base' : 'onnx-community/whisper-tiny.en';
 
+    // 1. Prewarm model in background
+    if (type === 'prewarm') {
+        try {
+            await TranscribeWorker.getInstance(model);
+            self.postMessage({ type: 'ready', model });
+        } catch (e: any) {
+            console.warn('[Worker] Prewarm failed:', e);
+        }
+        return;
+    }
+
+    // 2. Real-time Chunk Transcription (16kHz Float32Array from microphone stream)
+    if (type === 'transcribe_chunk') {
+        try {
+            const transcriber = await TranscribeWorker.getInstance(model);
+            const output = await transcriber(audioData, {
+                chunk_length_s: 30,
+                stride_length_s: 5,
+                language: 'en',
+                task: 'transcribe',
+                return_timestamps: false,
+            });
+
+            const text = Array.isArray(output) ? output[0].text : (output as any).text;
+            self.postMessage({
+                type: 'chunk_result',
+                id,
+                text: (text || '').trim(),
+            });
+        } catch (chunkErr: any) {
+            self.postMessage({
+                type: 'error',
+                id,
+                error: chunkErr?.message || String(chunkErr),
+            });
+        }
+        return;
+    }
+
+    // 3. Batch transcription for post-recording (compatible with transcriptionService.ts)
     try {
         await initTransformers();
         self.postMessage({ status: 'loading', message: `Initializing ${highAccuracy ? 'High Accuracy' : 'Turbo'} AI...` });
 
-        const transcriber = await TranscribeWorker.getInstance(model, (data: any) => {
-            self.postMessage({ status: 'downloading', ...data });
+        const transcriber = await TranscribeWorker.getInstance(model, (progressData: any) => {
+            self.postMessage({ status: 'downloading', ...progressData });
         });
 
         self.postMessage({ status: 'transcribing', message: 'Transcribing with AI acceleration...' });
 
-        // Try fp16 first, if it fails it will throw and we fallback to WASM/float32
-        const output = await transcriber(audioBlob, {
+        const input = audioBlob || audioData;
+        const output = await transcriber(input, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            // In v3, we can use 'auto' or a specific type. 
-            // If the user's hardware failed last time, we could remember, 
-            // but for now we'll just try and catch.
             dtype: 'fp16',
         });
 
         const text = Array.isArray(output) ? output[0].text : (output as any).text;
-
         self.postMessage({
             status: 'complete',
-            text: text,
+            text: (text || '').trim(),
         });
-
     } catch (error: any) {
         const isDeviceError = error.message?.includes('webgpu') || error.message?.includes('fp16') || error.message?.includes('dtype');
 
@@ -91,15 +128,15 @@ self.addEventListener('message', async (event) => {
             self.postMessage({ status: 'loading', message: 'Optimizing for your device (standard engine)...' });
             try {
                 await initTransformers();
-                // For WASM fallback, use quantized: true for speed
                 const transcriber = await pipeline('automatic-speech-recognition', model, {
                     device: 'wasm',
-                    dtype: 'q8', // Use 8-bit quantization for CPU/WASM speed
-                    progress_callback: (data: any) => self.postMessage({ status: 'downloading', ...data }),
+                    dtype: 'q8',
+                    progress_callback: (progressData: any) => self.postMessage({ status: 'downloading', ...progressData }),
                 });
-                const result = await transcriber(audioBlob);
+                const input = audioBlob || audioData;
+                const result = await transcriber(input);
                 const text = Array.isArray(result) ? result[0].text : (result as any).text;
-                self.postMessage({ status: 'complete', text });
+                self.postMessage({ status: 'complete', text: (text || '').trim() });
                 return;
             } catch (fallbackError: any) {
                 error = fallbackError;

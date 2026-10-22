@@ -474,7 +474,7 @@ export const CrossRefSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndep
                                                             </div>
                                                         ) : (
                                                             <p className="text-[12px] leading-relaxed text-light-text-main dark:text-dark-text-main pt-2 italic">
-                                                                "{previewText}"
+                                                                "{previewText ? previewText.replace(/<[^>]*>/g, '').trim() : ''}"
                                                             </p>
                                                         )}
                                                     </div>

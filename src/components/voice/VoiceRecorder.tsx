@@ -1,23 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/Button';
 import { Mic, Square, Trash2, Pause, Play, CheckCircle, X as CloseIcon, Sparkles } from 'lucide-react';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { getSupportedAudioMimeType, type AudioMimeInfo } from '@/lib/voice/audioMime';
+import { streamingTranscriber, downsampleTo16k } from '@/lib/voice/streamingTranscriptionService';
 
 interface VoiceRecorderProps {
     onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
     onCancel: () => void;
+    isModal?: boolean;
 }
 
-export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }) => {
+export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, isModal = false }) => {
     const [status, setStatus] = useState<'idle' | 'recording' | 'paused' | 'review'>('idle');
     const [duration, setDuration] = useState(0);
     const [transcript, setTranscript] = useState('');
     const [interimTranscript, setInterimTranscript] = useState('');
     const [stream, setStream] = useState<MediaStream | null>(null);
-    const [volumeScale, setVolumeScale] = useState(1.0);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
+    const [engineType, setEngineType] = useState<'cloud-web' | 'local-whisper'>('local-whisper');
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<any>(null);
@@ -28,16 +29,27 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     const pausedTimeRef = useRef<number>(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
+    const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
     const isRecordingRef = useRef<boolean>(false);
     const selectedMimeRef = useRef<AudioMimeInfo>({ mimeType: 'audio/webm', extension: 'webm' });
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-    // Check if browser has native Web Speech API
-    const hasLiveSpeechApi = typeof window !== 'undefined' &&
+    // Audio stream buffer for live Whisper slicing
+    const pcmChunksRef = useRef<Float32Array[]>([]);
+    const pcmSampleCountRef = useRef<number>(0);
+
+    // Desktop detection (Tauri on Windows/Mac/Linux)
+    const isDesktop = typeof window !== 'undefined' &&
+        Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+
+    // Web Speech API check
+    const hasBrowserSpeechApi = !isDesktop && typeof window !== 'undefined' &&
         Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
-    // cleanup stream on unmount or change
+    // Pre-warm on-device Whisper model on mount
     useEffect(() => {
+        streamingTranscriber.prewarm();
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -45,7 +57,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
         };
     }, [stream]);
 
-    // cleanup timer and resources on unmount
+    // Resource cleanup on unmount
     useEffect(() => {
         return () => {
             isRecordingRef.current = false;
@@ -54,6 +66,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             }
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
+            }
+            if (scriptProcessorRef.current) {
+                scriptProcessorRef.current.disconnect();
+                scriptProcessorRef.current = null;
             }
             if (audioContextRef.current) {
                 audioContextRef.current.close().catch(() => {});
@@ -66,28 +82,78 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
         };
     }, []);
 
-    const analyzeVolume = () => {
-        if (!analyserRef.current || !audioContextRef.current) return;
+    // Canvas audio visualizer rendering
+    const renderVisualizer = () => {
+        if (!canvasRef.current || !analyserRef.current) return;
 
-        if (audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume().catch(() => {});
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const numBars = 24;
+        const barSpacing = 3;
+        const totalSpacing = barSpacing * (numBars - 1);
+        const barWidth = Math.max(2, (width - totalSpacing) / numBars);
+
+        for (let i = 0; i < numBars; i++) {
+            const dataIndex = Math.floor((i / numBars) * (bufferLength / 2));
+            const rawValue = dataArray[dataIndex] || 0;
+            const normalized = rawValue / 255;
+            const barHeight = Math.max(3, normalized * (height - 4));
+
+            const x = i * (barWidth + barSpacing);
+            const y = (height - barHeight) / 2;
+
+            ctx.fillStyle = status === 'recording' ? '#C5A059' : '#A8A8A8';
+            ctx.beginPath();
+            ctx.roundRect(x, y, barWidth, barHeight, 2);
+            ctx.fill();
         }
 
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteTimeDomainData(dataArray);
+        if (status === 'recording') {
+            animationFrameRef.current = requestAnimationFrame(renderVisualizer);
+        }
+    };
 
-        let max = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            const val = Math.abs(dataArray[i] - 128);
-            if (val > max) max = val;
+    // Live on-device Whisper transcription loop for incoming PCM audio
+    const processPcmSlice = async (inputRate: number) => {
+        if (pcmChunksRef.current.length === 0 || streamingTranscriber.isTranscribing()) return;
+
+        const chunks = pcmChunksRef.current;
+        const totalSamples = pcmSampleCountRef.current;
+        pcmChunksRef.current = [];
+        pcmSampleCountRef.current = 0;
+
+        const merged = new Float32Array(totalSamples);
+        let offset = 0;
+        for (const chunk of chunks) {
+            merged.set(chunk, offset);
+            offset += chunk.length;
         }
 
-        const sensitivity = 4.0;
-        const normalized = Math.min((max * sensitivity) / 128, 1);
-        const scale = 1.0 + normalized * 0.4;
-
-        setVolumeScale(scale);
-        animationFrameRef.current = requestAnimationFrame(analyzeVolume);
+        const pcm16k = downsampleTo16k(merged, inputRate);
+        try {
+            const partial = await streamingTranscriber.transcribeChunk(pcm16k);
+            if (partial && partial.trim().length > 0) {
+                const cleanPartial = partial.trim();
+                transcriptRef.current = transcriptRef.current
+                    ? `${transcriptRef.current} ${cleanPartial}`
+                    : cleanPartial;
+                setTranscript(transcriptRef.current);
+                setInterimTranscript('');
+            }
+        } catch (e) {
+            console.warn('[VoiceRecorder] Streaming Whisper chunk error:', e);
+        }
     };
 
     const startRecording = async () => {
@@ -101,20 +167,42 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             });
             setStream(audioStream);
 
-            // Web Audio setup for volume reactivity
+            // Web Audio setup for audio visualizer & live PCM audio tap
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             const audioContext = new AudioContextClass();
             const analyser = audioContext.createAnalyser();
             const source = audioContext.createMediaStreamSource(audioStream);
 
-            analyser.fftSize = 512;
-            analyser.smoothingTimeConstant = 0.3;
+            analyser.fftSize = 128;
+            analyser.smoothingTimeConstant = 0.7;
             source.connect(analyser);
 
             audioContextRef.current = audioContext;
             analyserRef.current = analyser;
 
-            // Negotiate best supported container
+            // Setup real-time PCM audio tap for Live On-Device Whisper Streaming
+            const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+            scriptProcessorRef.current = scriptProcessor;
+            pcmChunksRef.current = [];
+            pcmSampleCountRef.current = 0;
+
+            const sliceSampleThreshold = Math.round(audioContext.sampleRate * 2.8); // 2.8s cadence for natural phrasing
+
+            scriptProcessor.onaudioprocess = (e) => {
+                if (!isRecordingRef.current) return;
+                const channelData = e.inputBuffer.getChannelData(0);
+                pcmChunksRef.current.push(new Float32Array(channelData));
+                pcmSampleCountRef.current += channelData.length;
+
+                if (pcmSampleCountRef.current >= sliceSampleThreshold) {
+                    processPcmSlice(audioContext.sampleRate);
+                }
+            };
+
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(audioContext.destination);
+
+            // Negotiate best supported container for recording the final audio file
             const mimeInfo = getSupportedAudioMimeType();
             selectedMimeRef.current = mimeInfo;
 
@@ -138,13 +226,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 }
             };
 
-            mediaRecorder.start(250); // 250ms chunks for responsive streaming
+            mediaRecorder.start(250);
             isRecordingRef.current = true;
             setStatus('recording');
 
-            // Initialize Speech Recognition with Auto-Restart Supervisor
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            if (SpeechRecognition) {
+            // Determine transcription mode
+            if (hasBrowserSpeechApi) {
+                const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                 try {
                     const recognition = new SpeechRecognition();
                     recognition.continuous = true;
@@ -173,7 +261,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                         setInterimTranscript(interim);
                     };
 
-                    // Auto-restart loop to conquer the browser VAD silence timeout death-spiral
                     recognition.onend = () => {
                         if (isRecordingRef.current) {
                             try {
@@ -181,9 +268,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                             } catch {
                                 setTimeout(() => {
                                     if (isRecordingRef.current) {
-                                        try {
-                                            recognition.start();
-                                        } catch {}
+                                        try { recognition.start(); } catch {}
                                     }
                                 }, 300);
                             }
@@ -191,20 +276,25 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                     };
 
                     recognition.onerror = (event: any) => {
-                        // Suppress expected pause errors, let onend handle reconnection
-                        if (event.error !== 'no-speech' && event.error !== 'network') {
-                            console.warn('[VoiceRecorder] Speech recognition notice:', event.error);
+                        // If browser recognition fails with network or not-allowed, fall back to local Whisper
+                        if (event.error === 'network' || event.error === 'service-not-allowed') {
+                            console.info('[VoiceRecorder] Web speech cloud unavailable. Switching to on-device Whisper engine.');
+                            setEngineType('local-whisper');
+                            try { recognition.stop(); } catch {}
                         }
                     };
 
                     recognition.start();
                     recognitionRef.current = recognition;
-                } catch (recErr) {
-                    console.warn('[VoiceRecorder] Could not start live speech recognition:', recErr);
+                    setEngineType('cloud-web');
+                } catch {
+                    setEngineType('local-whisper');
                 }
+            } else {
+                setEngineType('local-whisper');
             }
 
-            analyzeVolume();
+            renderVisualizer();
 
             // Start timer
             startTimeRef.current = Date.now();
@@ -215,7 +305,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
 
         } catch (err) {
             console.error('[VoiceRecorder] Error accessing microphone:', err);
-            setAlertMessage('Could not access microphone. Please allow microphone permissions in your browser or system settings.');
+            setAlertMessage('Could not access microphone. Please allow microphone permissions in your system settings.');
             setIsAlertOpen(true);
             onCancel();
         }
@@ -226,7 +316,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             isRecordingRef.current = false;
             mediaRecorderRef.current.pause();
             setStatus('paused');
-            setVolumeScale(1.0);
 
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -249,7 +338,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             mediaRecorderRef.current.resume();
             setStatus('recording');
 
-            analyzeVolume();
+            renderVisualizer();
 
             const pauseDuration = pausedTimeRef.current;
             startTimeRef.current = Date.now() - pauseDuration;
@@ -259,7 +348,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
             }, 1000);
 
-            if (recognitionRef.current) {
+            if (recognitionRef.current && engineType === 'cloud-web') {
                 try {
                     recognitionRef.current.start();
                 } catch {}
@@ -274,11 +363,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
                 mediaRecorderRef.current.stop();
             } catch {}
             setStatus('review');
-            setVolumeScale(1.0);
 
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
                 animationFrameRef.current = null;
+            }
+
+            if (scriptProcessorRef.current) {
+                scriptProcessorRef.current.disconnect();
+                scriptProcessorRef.current = null;
             }
 
             if (audioContextRef.current) {
@@ -314,7 +407,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
             const blob = new Blob(chunksRef.current, { type: mimeType });
             onSave(blob, duration, transcriptRef.current);
 
-            // Full reset
             setStatus('idle');
             setDuration(0);
             setTranscript('');
@@ -347,134 +439,165 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel }
     };
 
     return (
-        <div className="relative flex flex-col items-center justify-center p-8 bg-light-surface dark:bg-dark-surface rounded-3xl border border-light-border dark:border-dark-border shadow-2xl w-full max-w-md mx-auto animate-in zoom-in duration-300">
-            {/* Global Exit Button */}
-            <button
-                onClick={handleCancel}
-                className="absolute top-4 right-4 p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors opacity-40 hover:opacity-100"
-                title="Exit Recorder"
-            >
-                <CloseIcon size={20} />
-            </button>
+        <div className="relative flex flex-col items-center justify-center p-3.5 sm:p-4 bg-light-surface dark:bg-dark-surface rounded-2xl border border-light-border dark:border-dark-border shadow-sm w-full mx-auto select-none overflow-hidden">
+            {/* Modal Exit Button (Only when used inside a modal or during review) */}
+            {(isModal || status === 'review') && (
+                <button
+                    onClick={handleCancel}
+                    className="absolute top-3 right-3 p-1.5 hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded-full transition-colors text-light-text-secondary hover:text-light-text-primary cursor-pointer"
+                    title="Close"
+                >
+                    <CloseIcon size={16} />
+                </button>
+            )}
 
-            <div
-                className={`relative w-24 h-24 rounded-full flex items-center justify-center mb-6 transition-colors duration-300 
-                ${status === 'recording' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
-                        status === 'paused' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600' :
-                            status === 'idle' ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700' :
-                                'bg-primary/10 text-primary'}`}
-                style={{
-                    transform: status === 'recording' ? `scale(${volumeScale})` : 'scale(1)',
-                    transition: status === 'recording' ? 'transform 0.05s linear' : 'transform 0.3s ease-out'
-                }}
-                onClick={status === 'idle' ? startRecording : undefined}
-            >
-                {status === 'recording' && (
-                    <div className="absolute inset-0 rounded-full border-4 border-primary opacity-20 animate-ping"></div>
-                )}
-                {status === 'idle' ? <Mic size={48} /> :
-                    status === 'recording' ? <Mic size={48} /> :
-                        status === 'paused' ? <Pause size={48} /> :
-                            <CheckCircle size={48} />}
+            {/* Status & Central Mic Display */}
+            <div className="flex flex-col items-center justify-center mb-2.5">
+                <div
+                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
+                        status === 'recording'
+                            ? 'bg-red-500/10 text-red-500 ring-4 ring-red-500/20'
+                            : status === 'paused'
+                                ? 'bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/20'
+                                : status === 'idle'
+                                    ? 'bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer active:scale-95'
+                                    : 'bg-emerald-500/10 text-emerald-500'
+                    }`}
+                    onClick={status === 'idle' ? startRecording : undefined}
+                >
+                    {status === 'recording' ? (
+                        <div className="relative flex items-center justify-center">
+                            <span className="absolute w-3 h-3 rounded-full bg-red-500 animate-ping opacity-75" />
+                            <Mic size={24} className="relative z-10 shrink-0" />
+                        </div>
+                    ) : status === 'paused' ? (
+                        <Pause size={24} className="shrink-0" />
+                    ) : status === 'review' ? (
+                        <CheckCircle size={24} className="shrink-0" />
+                    ) : (
+                        <Mic size={24} className="shrink-0" />
+                    )}
+                </div>
+
+                {/* Status Badge */}
+                <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                        status === 'recording' ? 'bg-red-500 animate-pulse' :
+                        status === 'paused' ? 'bg-amber-500' :
+                        status === 'review' ? 'bg-emerald-500' :
+                        'bg-light-text-disabled'
+                    }`} />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                        {status === 'idle' ? 'Ready to Record' :
+                         status === 'recording' ? 'Recording...' :
+                         status === 'paused' ? 'Paused' : 'Recording Complete'}
+                    </span>
+                </div>
             </div>
 
-            <div className="text-4xl font-mono font-bold text-light-text-primary dark:text-dark-text-primary mb-2">
+            {/* Timer Display */}
+            <div className="text-2xl sm:text-3xl font-mono font-bold text-light-text-primary dark:text-dark-text-primary tracking-tight mb-2">
                 {formatTime(duration)}
             </div>
 
-            <div className="text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary mb-4 uppercase tracking-[0.2em] opacity-60">
-                {status === 'idle' ? 'Ready' :
-                    status === 'recording' ? 'Recording' :
-                        status === 'paused' ? 'Paused' : 'Recording Complete'}
-            </div>
+            {/* Real-time Audio Visualizer Canvas */}
+            {(status === 'recording' || status === 'paused') && (
+                <div className="w-full h-7 mb-2.5 flex items-center justify-center px-1">
+                    <canvas
+                        ref={canvasRef}
+                        width={220}
+                        height={28}
+                        className="w-full h-full max-w-[220px]"
+                    />
+                </div>
+            )}
 
-            {/* Live Transcript View (When SpeechRecognition works) */}
+            {/* Live Streaming Transcript View */}
             {(transcript || interimTranscript) ? (
-                <div className="w-full bg-light-background dark:bg-dark-background/50 rounded-xl p-4 mb-6 border border-light-border dark:border-dark-border max-h-40 overflow-y-auto custom-scrollbar shadow-inner relative group">
-                    <div className="flex items-center gap-1.5 mb-2 opacity-60">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Live Transcription</span>
+                <div className="w-full bg-light-background dark:bg-dark-background/60 rounded-xl p-2.5 mb-3 border border-light-border dark:border-dark-border max-h-28 overflow-y-auto custom-scrollbar text-left">
+                    <div className="flex items-center justify-between gap-1 mb-1 opacity-80">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                            <span className="text-[9px] font-black uppercase tracking-wider text-primary">Live Transcription</span>
+                        </div>
+                        <span className="text-[8px] font-bold uppercase tracking-wider text-light-text-disabled">
+                            {engineType === 'local-whisper' || isDesktop ? 'On-Device AI' : 'Live Speech'}
+                        </span>
                     </div>
-                    <p className="text-sm leading-relaxed text-light-text-primary dark:text-dark-text-primary font-medium">
+                    <p className="text-xs leading-relaxed text-light-text-primary dark:text-dark-text-primary font-medium">
                         {transcript}
                         <span className="text-primary opacity-70 italic ml-1">{interimTranscript}</span>
                     </p>
                 </div>
-            ) : status === 'recording' && !hasLiveSpeechApi ? (
-                <div className="w-full flex items-center gap-2.5 p-3 mb-6 bg-primary/5 rounded-xl border border-primary/20 text-light-text-secondary dark:text-dark-text-secondary">
-                    <Sparkles size={16} className="text-primary shrink-0 animate-pulse" />
-                    <p className="text-[11px] leading-relaxed">
-                        <strong className="text-primary font-semibold">On-Device AI Engine:</strong> Your speech will be automatically transcribed by local Whisper when you click Save.
+            ) : status === 'recording' ? (
+                <div className="w-full flex items-center gap-2 p-2 mb-3 bg-primary/5 rounded-xl border border-primary/20 text-light-text-secondary dark:text-dark-text-secondary text-left">
+                    <Sparkles size={13} className="text-primary shrink-0 animate-pulse" />
+                    <p className="text-[10px] leading-relaxed">
+                        <strong className="text-primary font-semibold">On-Device AI Engine:</strong> Transcribing your voice in real-time as you speak.
                     </p>
                 </div>
             ) : null}
 
-            <div className="flex flex-col gap-2 w-full">
+            {/* Action Buttons Toolbar */}
+            <div className="w-full flex flex-col gap-2">
                 {status === 'idle' ? (
-                    <Button
+                    <button
                         onClick={startRecording}
-                        variant="primary"
-                        className="w-full justify-center !py-3"
-                        icon={<Mic size={16} className="mr-2" />}
+                        className="w-full py-2.5 px-4 bg-primary text-[#121212] font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-primary/20 hover:bg-primary-hover active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
-                        Start Recording
-                    </Button>
+                        <Mic size={15} className="shrink-0" />
+                        <span>Start Recording</span>
+                    </button>
                 ) : status === 'recording' ? (
-                    <div className="flex gap-2 w-full">
-                        <Button
+                    <div className="flex items-center gap-2 w-full">
+                        <button
                             onClick={pauseRecording}
-                            variant="secondary"
-                            className="flex-1 justify-center"
-                            icon={<Pause size={16} className="mr-2" />}
+                            className="flex-1 min-w-0 py-2.5 px-3 bg-light-background dark:bg-dark-background/60 hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
-                            Pause
-                        </Button>
-                        <Button
+                            <Pause size={14} className="shrink-0 text-amber-500" />
+                            <span>Pause</span>
+                        </button>
+                        <button
                             onClick={stopRecording}
-                            variant="primary"
-                            className="flex-1 justify-center !bg-red-500 hover:!bg-red-600 border-none"
-                            icon={<Square size={16} className="mr-2" />}
+                            className="flex-1 min-w-0 py-2.5 px-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
-                            Finish
-                        </Button>
+                            <Square size={13} className="shrink-0 fill-current" />
+                            <span>Stop</span>
+                        </button>
                     </div>
                 ) : status === 'paused' ? (
-                    <div className="flex gap-2 w-full">
-                        <Button
+                    <div className="flex items-center gap-2 w-full">
+                        <button
                             onClick={resumeRecording}
-                            variant="primary"
-                            className="flex-1 justify-center"
-                            icon={<Play size={16} className="mr-2" />}
+                            className="flex-1 min-w-0 py-2.5 px-3 bg-primary hover:bg-primary-hover active:scale-95 text-[#121212] font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                         >
-                            Resume
-                        </Button>
-                        <Button
+                            <Play size={14} className="shrink-0 fill-current" />
+                            <span>Resume</span>
+                        </button>
+                        <button
                             onClick={stopRecording}
-                            variant="secondary"
-                            className="flex-1 justify-center"
-                            icon={<Square size={16} className="mr-2" />}
+                            className="flex-1 min-w-0 py-2.5 px-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
-                            Finish
-                        </Button>
+                            <Square size={13} className="shrink-0 fill-current" />
+                            <span>Stop</span>
+                        </button>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2 w-full">
-                        <Button
+                        <button
                             onClick={handleSave}
-                            variant="primary"
-                            className="w-full justify-center !py-3"
-                            icon={<CheckCircle size={16} className="mr-2" />}
+                            className="w-full py-2.5 px-4 bg-primary text-[#121212] font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:bg-primary-hover active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                            Save Note
-                        </Button>
-                        <Button
+                            <CheckCircle size={15} className="shrink-0" />
+                            <span>Save Note</span>
+                        </button>
+                        <button
                             onClick={handleCancel}
-                            variant="ghost"
-                            className="w-full justify-center"
-                            icon={<Trash2 size={16} className="mr-2" />}
+                            className="w-full py-2 px-3 border border-light-border dark:border-dark-border text-light-text-secondary hover:text-red-500 hover:bg-red-500/10 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
                         >
-                            Discard
-                        </Button>
+                            <Trash2 size={14} className="shrink-0" />
+                            <span>Discard</span>
+                        </button>
                     </div>
                 )}
             </div>

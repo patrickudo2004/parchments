@@ -74,6 +74,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                     }
                 } else {
                     setSelectionRange({ start: verseNum, end: verseNum });
+                    if (verseId) openCrossRefs(verseId);
                 }
             }}
             className={`${isMobile ? 'flex flex-col gap-6' : 'grid gap-8'} py-4 border-b border-light-border/30 dark:border-dark-border/30 last:border-0 hover:bg-light-background/40 dark:hover:bg-dark-background/20 transition-all cursor-pointer select-none group/row ${selectedVerseId === verseId ? 'bg-primary/5' : ''} ${isSelected ? 'bg-primary/10 border-l-4 border-l-primary -ml-4 pl-4' : ''}`}

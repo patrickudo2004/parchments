@@ -446,14 +446,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createNoteFromTemplate: async (folderId, templateId) => {
-        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
+        const { isLocalMode, localDirectoryHandle, createLocalNote, activeWorkspaceId } = get();
         const template = STUDY_TEMPLATES[templateId as keyof typeof STUDY_TEMPLATES];
         if (!template) throw new Error('Template not found');
 
         const dateStr = new Date().toLocaleDateString().replace(/[/:]/g, '-');
         const title = `${template.name} - ${dateStr}`;
 
-        if (isLocalMode) {
+        if (isLocalMode && localDirectoryHandle) {
             await createLocalNote(title, folderId, template.content);
             return {} as Note; // In local mode, refreshing file list handles selection
         }
@@ -474,8 +474,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createVoiceNote: async (folderId, audioBlob, duration, transcript) => {
-        const { isLocalMode, createLocalVoiceNote, activeWorkspaceId } = get();
-        if (isLocalMode) {
+        const { isLocalMode, localDirectoryHandle, createLocalVoiceNote, activeWorkspaceId } = get();
+        if (isLocalMode && localDirectoryHandle) {
             await createLocalVoiceNote(audioBlob, folderId, transcript);
             return {} as Note;
         }

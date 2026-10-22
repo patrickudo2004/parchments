@@ -322,7 +322,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     x: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.x : 0,
                                     y: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.y : 0
                                 }}
-                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${isMobile || isTablet || !isLeftSidebarFloating ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isTablet ? 'fixed inset-y-0 left-12 z-[60] shadow-2xl border-r' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
+                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${!isResizingLeft && (isMobile || isTablet || !isLeftSidebarFloating) ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isTablet ? 'fixed inset-y-0 left-12 z-[60] shadow-2xl border-r' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
                                 style={{
                                     width: isMobile ? '85vw' : isTablet ? '320px' : `${Math.max(leftSidebarWidth || 280, 150)}px`,
                                     height: !isTablet && isLeftSidebarFloating ? '80vh' : '100%',

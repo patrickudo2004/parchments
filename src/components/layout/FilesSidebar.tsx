@@ -398,44 +398,54 @@ export const FilesSidebar: React.FC = () => {
             <React.Fragment key={item.id}>
                 <div
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items-center justify-between py-2 px-1.5 rounded-lg cursor-pointer text-sm transition-colors select-none min-h-[38px] sm:min-h-[40px] touch-manipulation ${selectedFolderId === item.id
+                    className={`group flex items-center justify-between py-2 px-1.5 rounded-lg cursor-pointer text-sm transition-colors select-none min-h-[38px] sm:min-h-[40px] touch-manipulation ${(selectedFolderId === item.id || (!isFolder && currentNote?.id === item.id))
                         ? 'bg-primary/20 text-primary font-medium'
                         : 'hover:bg-light-background dark:hover:bg-dark-background'
                         }`}
                     style={{ paddingLeft: `${level * 16 + 6}px` }}
                 >
-                    <div className="flex items-center overflow-hidden flex-1">
-                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                    <div className="flex items-center overflow-hidden flex-1 min-w-0">
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
                             {hasChildren && (
                                 <div
                                     onClick={(e) => toggleFolder(e, item.id)}
-                                    className="flex items-center justify-center w-6 h-6 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
+                                    className="flex items-center justify-center w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
                                 >
-                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                                 </div>
                             )}
                         </div>
 
                         <div className="w-5 h-5 flex items-center justify-center shrink-0 mr-1.5">
                             {isFolder ? (
-                                isExpanded ? <FolderOpen className="text-primary" size={16} /> : <Folder className="text-primary" size={16} />
+                                isExpanded ? <FolderOpen className="text-primary" size={15} /> : <Folder className="text-primary" size={15} />
                             ) : (
-                                <FileText className="text-light-text-secondary dark:text-dark-text-secondary" size={16} />
+                                <FileText className="text-light-text-secondary dark:text-dark-text-secondary" size={15} />
                             )}
                         </div>
 
-                        <span className="truncate">{item.name}</span>
+                        <span className="truncate min-w-0 flex-1 text-xs sm:text-sm font-medium">{item.name}</span>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                        {!hasChildren && (
+                    <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                        {!hasChildren && isItemPinned(`note-${item.id}`) && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    const id = `note-${item.id}`;
-                                    if (isItemPinned(id)) {
-                                        unpinItem(id);
-                                    } else {
+                                    unpinItem(`note-${item.id}`);
+                                }}
+                                className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-primary transition-all"
+                                title="Pinned to Research (Click to unpin)"
+                            >
+                                <Pin size={12} />
+                            </button>
+                        )}
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            {!hasChildren && !isItemPinned(`note-${item.id}`) && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const id = `note-${item.id}`;
                                         const safeTitle = item.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                         pinItem({
                                             id,
@@ -445,41 +455,41 @@ export const FilesSidebar: React.FC = () => {
                                             reference: `Note: ${safeTitle}`,
                                             metadata: { noteId: item.id }
                                         });
-                                    }
-                                }}
-                                className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded transition-all ${currentNote?.id === item.id ? 'opacity-90' : 'opacity-0 group-hover:opacity-100'} ${isItemPinned(`note-${item.id}`) ? 'text-primary' : 'text-light-text-disabled hover:text-primary'}`}
-                                title="Pin to Research"
-                            >
-                                <Pin size={12} />
-                            </button>
-                        )}
-                        {!hasChildren && (
+                                    }}
+                                    className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-light-text-disabled hover:text-primary transition-all"
+                                    title="Pin to Research"
+                                >
+                                    <Pin size={12} />
+                                </button>
+                            )}
+                            {!hasChildren && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShareNoteId(item.id);
+                                        setIsShareModalOpen(true);
+                                    }}
+                                    className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-light-text-disabled hover:text-primary transition-all"
+                                    title="Share Note"
+                                >
+                                    <Share2 size={12} />
+                                </button>
+                            )}
                             <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShareNoteId(item.id);
-                                    setIsShareModalOpen(true);
-                                }}
-                                className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-primary transition-all ${currentNote?.id === item.id ? 'opacity-90 text-primary' : 'opacity-0 group-hover:opacity-100 text-light-text-disabled hover:text-primary'}`}
-                                title="Share Note"
+                                onClick={(e) => handleRenameClick(e, item)}
+                                className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-light-text-secondary hover:text-primary transition-all"
+                                title="Rename"
                             >
-                                <Share2 size={12} />
+                                <Edit2 size={12} />
                             </button>
-                        )}
-                        <button
-                            onClick={(e) => handleRenameClick(e, item)}
-                            className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-primary transition-all ${currentNote?.id === item.id ? 'opacity-90 text-light-text-secondary' : 'opacity-0 group-hover:opacity-100'}`}
-                            title="Rename"
-                        >
-                            <Edit2 size={13} />
-                        </button>
-                        <button
-                            onClick={(e) => handleDeleteClick(e, item)}
-                            className={`p-1.5 min-w-[26px] min-h-[26px] flex items-center justify-center rounded hover:text-red-500 transition-all ${currentNote?.id === item.id ? 'opacity-90 text-light-text-disabled' : 'opacity-0 group-hover:opacity-100'}`}
-                            title="Delete"
-                        >
-                            <Trash2 size={13} />
-                        </button>
+                            <button
+                                onClick={(e) => handleDeleteClick(e, item)}
+                                className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-light-text-disabled hover:text-red-500 transition-all"
+                                title="Delete"
+                            >
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 

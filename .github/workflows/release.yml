@@ -50,7 +50,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Parchments ${{ github.ref_name }}"
           releaseBody: "Automated release from GitHub Actions"
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin --ignore-version-mismatches' || '--ignore-version-mismatches' }}
 

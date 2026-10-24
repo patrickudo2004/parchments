@@ -52,3 +52,21 @@ export async function safeInvoke<T>(command: string, args: Record<string, any> =
         return null;
     }
 }
+
+/**
+ * Opens an external URL. WebViews ignore target="_blank", so on desktop we route through a
+ * Rust command that launches the system browser (allow-listed to Parchments release URLs).
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+    if (isTauri) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('open_external_url', { url });
+            return;
+        } catch (err: any) {
+            console.warn('[RuntimeBridge] open_external_url failed, falling back to window.open:', err?.message || err);
+        }
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+

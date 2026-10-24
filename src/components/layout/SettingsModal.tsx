@@ -496,6 +496,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             onConfirm: async () => {
                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
                 try {
+                    db.close();
                     await db.delete();
                     localStorage.clear();
                     window.location.reload();

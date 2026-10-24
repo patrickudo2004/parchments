@@ -614,19 +614,30 @@ export const useReadingPlanStore = create<ReadingPlanState>()(
                 const noteStoreState = useNoteStore.getState();
                 const isLocalMode = noteStoreState.isLocalMode;
 
+                const insertPinIntoContent = (original: string): string => {
+                    const placeholderRegex = /<blockquote>\s*<p>\s*<em>\(Tap the Pin button[^<]*\)<\/em>\s*<\/p>\s*<\/blockquote>/i;
+                    if (placeholderRegex.test(original)) {
+                        return original.replace(placeholderRegex, pinBlock);
+                    }
+                    if (original.includes('</section>')) {
+                        return original.replace('</section>', `${pinBlock}</section>`);
+                    }
+                    return original + pinBlock;
+                };
+
                 let newContent = '';
 
                 if (isLocalMode) {
                     const currentNote = noteStoreState.currentNote;
                     if (currentNote && currentNote.id === activeNoteId) {
-                        newContent = currentNote.content + pinBlock;
+                        newContent = insertPinIntoContent(currentNote.content || '');
                         await noteStoreState.saveCurrentNote(currentNote.title, newContent);
                     }
                 } else {
                     const note = await db.notes.get(activeNoteId);
                     if (!note) return;
 
-                    newContent = note.content + pinBlock;
+                    newContent = insertPinIntoContent(note.content || '');
 
                     await db.notes.update(activeNoteId, {
                         content: newContent,

@@ -258,7 +258,8 @@ async fn handle_connection(
             let val = v.replace("%20", " ").replace('+', " ");
             match k {
                 "token" => {
-                    token_from_query = val;
+                    let clean_token = val.split('/').next().unwrap_or(&val).to_string();
+                    token_from_query = clean_token;
                     has_query_handshake = true;
                 }
                 "device_name" => device_name_from_query = val,

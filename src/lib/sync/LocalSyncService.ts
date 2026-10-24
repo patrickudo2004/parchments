@@ -205,8 +205,16 @@ function _connectProvider(ydoc: Doc, wsUrl: string): void {
       _provider = null;
     }
 
-    _provider = new WebsocketProvider(wsUrl, 'parchments-sync', ydoc, {
+    const parsed = new URL(wsUrl);
+    const baseUrl = `${parsed.protocol}//${parsed.host}`;
+    const params: Record<string, string> = {};
+    parsed.searchParams.forEach((val, key) => {
+      params[key] = val;
+    });
+
+    _provider = new WebsocketProvider(baseUrl, 'parchments-sync', ydoc, {
       connect: true,
+      params,
       // Disable y-websocket's built-in awareness if we're in follower mode
       // (awareness is handled at the CRDT level; follower cannot push updates)
       WebSocketPolyfill: WebSocket,

@@ -115,7 +115,9 @@ export async function transcribeAudioWithWhisper(
 
         worker.postMessage({
             audioBlob: audioData,
-            highAccuracy
+            highAccuracy,
+            // Desktop: load ONNX Runtime from the bundled /ort/ folder (offline + CSP safe)
+            localRuntime: Boolean((window as any).__TAURI_INTERNALS__)
         });
     });
 }

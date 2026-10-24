@@ -18,7 +18,21 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
-    const [engineType, setEngineType] = useState<'cloud-web' | 'local-whisper'>('local-whisper');
+    const transcriptContainerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll live transcript container as text flows in
+    useEffect(() => {
+        if (transcriptContainerRef.current) {
+            transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+        }
+    }, [transcript, interimTranscript]);
+    const [engineType, setEngineTypeState] = useState<'cloud-web' | 'local-whisper'>('local-whisper');
+    // Ref mirror so long-lived audio callbacks never read a stale engine value
+    const engineTypeRef = useRef<'cloud-web' | 'local-whisper'>('local-whisper');
+    const setEngineType = (value: 'cloud-web' | 'local-whisper') => {
+        engineTypeRef.current = value;
+        setEngineTypeState(value);
+    };
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recognitionRef = useRef<any>(null);
@@ -113,19 +127,21 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             const x = i * (barWidth + barSpacing);
             const y = (height - barHeight) / 2;
 
-            ctx.fillStyle = status === 'recording' ? '#C5A059' : '#A8A8A8';
+            ctx.fillStyle = isRecordingRef.current ? '#C5A059' : '#A8A8A8';
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, barHeight, 2);
             ctx.fill();
         }
 
-        if (status === 'recording') {
+        if (isRecordingRef.current) {
             animationFrameRef.current = requestAnimationFrame(renderVisualizer);
         }
     };
 
     // Live on-device Whisper transcription loop for incoming PCM audio
     const processPcmSlice = async (inputRate: number) => {
+        // Prevent concurrent dual-engine collision if browser cloud speech API is active
+        if (engineTypeRef.current !== 'local-whisper') return;
         if (pcmChunksRef.current.length === 0 || streamingTranscriber.isTranscribing()) return;
 
         const chunks = pcmChunksRef.current;
@@ -138,6 +154,16 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         for (const chunk of chunks) {
             merged.set(chunk, offset);
             offset += chunk.length;
+        }
+
+        // Voice Activity Detection (VAD) energy check to eliminate silence hallucinations
+        let sumSquares = 0;
+        for (let i = 0; i < merged.length; i++) {
+            sumSquares += merged[i] * merged[i];
+        }
+        const rms = Math.sqrt(sumSquares / merged.length);
+        if (rms < 0.008) {
+            return;
         }
 
         const pcm16k = downsampleTo16k(merged, inputRate);
@@ -203,7 +229,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             };
 
             source.connect(scriptProcessor);
-            scriptProcessor.connect(audioContext.destination);
+            // Route through a muted gain node so audio processing events fire without echoing mic input through speakers
+            const muteGain = audioContext.createGain();
+            muteGain.gain.setValueAtTime(0, audioContext.currentTime);
+            scriptProcessor.connect(muteGain);
+            muteGain.connect(audioContext.destination);
 
             // Negotiate best supported container for recording the final audio file
             const mimeInfo = getSupportedAudioMimeType();
@@ -233,8 +263,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             isRecordingRef.current = true;
             setStatus('recording');
 
-            // Determine transcription mode
-            if (hasBrowserSpeechApi) {
+            // Determine transcription mode.
+            // Desktop webviews (WebView2 / WKWebView) expose SpeechRecognition but it either has no
+            // cloud backend ('network' error) or competes with Whisper, so desktop always uses on-device Whisper.
+            if (hasBrowserSpeechApi && !isDesktop) {
                 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                 try {
                     const recognition = new SpeechRecognition();
@@ -265,12 +297,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                     };
 
                     recognition.onend = () => {
-                        if (isRecordingRef.current) {
+                        if (isRecordingRef.current && engineTypeRef.current === 'cloud-web') {
                             try {
                                 recognition.start();
                             } catch {
                                 setTimeout(() => {
-                                    if (isRecordingRef.current) {
+                                    if (isRecordingRef.current && engineTypeRef.current === 'cloud-web') {
                                         try { recognition.start(); } catch {}
                                     }
                                 }, 300);
@@ -325,7 +357,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                 animationFrameRef.current = null;
             }
 
-            pausedTimeRef.current = Date.now() - startTimeRef.current - pausedTimeRef.current;
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+
+            pausedTimeRef.current = Date.now() - startTimeRef.current;
 
             if (recognitionRef.current) {
                 try {
@@ -375,6 +412,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             if (scriptProcessorRef.current) {
                 scriptProcessorRef.current.disconnect();
                 scriptProcessorRef.current = null;
+            }
+
+            // Flush trailing speech (< one slice) so the last sentence isn't lost
+            if (audioContextRef.current && pcmSampleCountRef.current > 0) {
+                processPcmSlice(audioContextRef.current.sampleRate);
             }
 
             if (audioContextRef.current) {
@@ -517,7 +559,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
 
             {/* Live Streaming Transcript View */}
             {(transcript || interimTranscript) ? (
-                <div className="w-full bg-light-background dark:bg-dark-background/60 rounded-xl p-2.5 mb-3 border border-light-border dark:border-dark-border max-h-28 overflow-y-auto custom-scrollbar text-left">
+                <div
+                    ref={transcriptContainerRef}
+                    className="w-full bg-light-background dark:bg-dark-background/60 rounded-xl p-2.5 mb-3 border border-light-border dark:border-dark-border max-h-28 overflow-y-auto custom-scrollbar text-left"
+                >
                     <div className="flex items-center justify-between gap-1 mb-1 opacity-80">
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
@@ -552,37 +597,37 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                         <span>Start Recording</span>
                     </button>
                 ) : status === 'recording' ? (
-                    <div className="grid grid-cols-2 gap-2 w-full">
+                    <div className="flex items-center gap-2 w-full">
                         <button
                             onClick={pauseRecording}
-                            className="w-full py-2.5 px-2 bg-light-background dark:bg-dark-background/60 hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="flex-1 py-2 px-2 bg-light-background dark:bg-dark-background/60 hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 min-w-0 cursor-pointer"
                         >
                             <Pause size={14} className="shrink-0 text-amber-500" />
-                            <span>Pause</span>
+                            <span className="truncate">Pause</span>
                         </button>
                         <button
                             onClick={stopRecording}
-                            className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="flex-1 py-2 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 min-w-0 cursor-pointer"
                         >
                             <Square size={13} className="shrink-0 fill-current" />
-                            <span>Stop</span>
+                            <span className="truncate">Stop</span>
                         </button>
                     </div>
                 ) : status === 'paused' ? (
-                    <div className="grid grid-cols-2 gap-2 w-full">
+                    <div className="flex items-center gap-2 w-full">
                         <button
                             onClick={resumeRecording}
-                            className="w-full py-2.5 px-2 bg-primary hover:bg-primary-hover active:scale-95 text-[#121212] font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                            className="flex-1 py-2 px-2 bg-primary hover:bg-primary-hover active:scale-95 text-[#121212] font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 min-w-0 cursor-pointer"
                         >
                             <Play size={14} className="shrink-0 fill-current" />
-                            <span>Resume</span>
+                            <span className="truncate">Resume</span>
                         </button>
                         <button
                             onClick={stopRecording}
-                            className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="flex-1 py-2 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 min-w-0 cursor-pointer"
                         >
                             <Square size={13} className="shrink-0 fill-current" />
-                            <span>Stop</span>
+                            <span className="truncate">Stop</span>
                         </button>
                     </div>
                 ) : (

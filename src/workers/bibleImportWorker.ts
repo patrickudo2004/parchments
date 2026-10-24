@@ -22,6 +22,14 @@ const USFM_BOOK_MAPPING: Record<string, string> = {
 
 console.info('[BibleWorker] Bible import worker script loaded.');
 
+async function chunkedBulkPut(verses: BibleVerse[], chunkSize = 2500): Promise<void> {
+    for (let i = 0; i < verses.length; i += chunkSize) {
+        const chunk = verses.slice(i, i + chunkSize);
+        await db.bibleVerses.bulkPut(chunk);
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+}
+
 self.addEventListener('message', async (event) => {
     const { type, data, versionId } = event.data;
 
@@ -186,7 +194,7 @@ self.addEventListener('message', async (event) => {
             self.postMessage({ status: 'saving', message: `Encrypting & saving ${versesToInsert.length} verses...` });
 
             // Bulk add to Dexie
-            await db.bibleVerses.bulkPut(versesToInsert);
+            await chunkedBulkPut(versesToInsert);
 
             // Mark version as downloaded
             await db.bibleVersions.update(versionId, { isDownloaded: true });
@@ -241,7 +249,7 @@ self.addEventListener('message', async (event) => {
             }
 
             self.postMessage({ status: 'saving', message: `Encrypting & saving ${versesToInsert.length} verses...` });
-            await db.bibleVerses.bulkPut(versesToInsert);
+            await chunkedBulkPut(versesToInsert);
             await db.bibleVersions.update(versionId, { isDownloaded: true });
             self.postMessage({ status: 'complete', message: 'USFM Import successful!' });
 

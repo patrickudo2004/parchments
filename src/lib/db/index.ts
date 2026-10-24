@@ -216,7 +216,7 @@ export const dbHelpers = {
     },
 
     // Bible Verses
-    getVerseText: async (versionId: string, book: string, chapter: number, verse: number, verseEnd?: number | null) => {
+    getVerseText: async (versionId: string, book: string, chapter: number, verse: number, verseEnd?: number | null): Promise<string | null> => {
         try {
             const { decryptVerseText } = await import('@/lib/bible/bibleCryptoService');
             if (verseEnd && verseEnd > verse) {
@@ -226,6 +226,10 @@ export const dbHelpers = {
                     .equals([versionId, book, chapter])
                     .and(v => v.verse >= verse && v.verse <= verseEnd)
                     .sortBy('verse');
+
+                if (verses.length === 0 && versionId !== 'kjv') {
+                    return await dbHelpers.getVerseText('kjv', book, chapter, verse, verseEnd);
+                }
 
                 const decryptedVerses = await Promise.all(verses.map(async v => {
                     const text = await decryptVerseText(v.text);
@@ -239,7 +243,12 @@ export const dbHelpers = {
                     .equals([versionId, book, chapter, verse])
                     .first();
 
-                if (!verseData) return null;
+                if (!verseData) {
+                    if (versionId !== 'kjv') {
+                        return await dbHelpers.getVerseText('kjv', book, chapter, verse, verseEnd);
+                    }
+                    return null;
+                }
                 const text = await decryptVerseText(verseData.text);
                 return `<sup>${verseData.verse}</sup> ${text}`;
             }
@@ -253,6 +262,12 @@ export const dbHelpers = {
         const notes = await db.notes.toArray();
         const folders = await db.folders.toArray();
         const bibleVersions = await db.bibleVersions.toArray();
+        const readingPlans = await db.readingPlans.toArray();
+        const readingPlanHistory = await db.readingPlanHistory.toArray();
+        const crossReferences = await db.crossReferences.toArray();
+        const users = await db.users.toArray();
+        const bibleStorage = localStorage.getItem('bible-storage');
+        const syncStorage = localStorage.getItem('sync-storage');
         const settings = localStorage.getItem('parchments-ui');
 
         return {
@@ -262,7 +277,13 @@ export const dbHelpers = {
                 notes,
                 folders,
                 bibleVersions,
-                uiSettings: settings ? JSON.parse(settings) : null
+                readingPlans,
+                readingPlanHistory,
+                crossReferences,
+                users,
+                uiSettings: settings ? JSON.parse(settings) : null,
+                bibleSettings: bibleStorage ? JSON.parse(bibleStorage) : null,
+                syncSettings: syncStorage ? JSON.parse(syncStorage) : null,
             }
         };
     },
@@ -270,16 +291,65 @@ export const dbHelpers = {
     importDatabase: async (json: any) => {
         if (!json.data) throw new Error('Invalid backup file');
 
-        const { notes, folders, bibleVersions, uiSettings } = json.data;
+        const {
+            notes,
+            folders,
+            bibleVersions,
+            readingPlans,
+            readingPlanHistory,
+            crossReferences,
+            users,
+            uiSettings,
+            bibleSettings,
+            syncSettings
+        } = json.data;
 
-        await db.transaction('rw', [db.notes, db.folders, db.bibleVersions], async () => {
-            if (notes) await db.notes.bulkPut(notes);
-            if (folders) await db.folders.bulkPut(folders);
+        await db.transaction('rw', [
+            db.notes,
+            db.folders,
+            db.bibleVersions,
+            db.readingPlans,
+            db.readingPlanHistory,
+            db.crossReferences,
+            db.users
+        ], async () => {
+            if (notes && notes.length > 0) {
+                await db.notes.clear();
+                await db.notes.bulkPut(notes);
+            }
+            if (folders && folders.length > 0) {
+                await db.folders.clear();
+                await db.folders.bulkPut(folders);
+            }
+            if (readingPlans && readingPlans.length > 0) {
+                await db.readingPlans.clear();
+                await db.readingPlans.bulkPut(readingPlans);
+            }
+            if (readingPlanHistory && readingPlanHistory.length > 0) {
+                await db.readingPlanHistory.clear();
+                await db.readingPlanHistory.bulkPut(readingPlanHistory);
+            }
+            if (crossReferences && crossReferences.length > 0) {
+                await db.crossReferences.clear();
+                await db.crossReferences.bulkPut(crossReferences);
+            }
+            if (users && users.length > 0) {
+                await db.users.clear();
+                await db.users.bulkPut(users);
+            }
+
+
             if (bibleVersions) await db.bibleVersions.bulkPut(bibleVersions);
         });
 
         if (uiSettings) {
             localStorage.setItem('parchments-ui', JSON.stringify(uiSettings));
+        }
+        if (bibleSettings) {
+            localStorage.setItem('bible-storage', JSON.stringify(bibleSettings));
+        }
+        if (syncSettings) {
+            localStorage.setItem('sync-storage', JSON.stringify(syncSettings));
         }
     },
 

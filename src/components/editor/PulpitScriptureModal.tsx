@@ -129,12 +129,10 @@ export const PulpitScriptureModal: React.FC<PulpitScriptureModalProps> = ({
                     // Fallback to case-insensitive book match if needed
                     if (segVerses.length === 0) {
                         const allInChapter = await db.bibleVerses
-                            .where('chapter')
-                            .equals(chapter)
-                            .filter(v => (v.versionId === activeVer || v.versionId === 'kjv') && v.book.toLowerCase() === book.toLowerCase())
+                            .filter((v: BibleVerse) => (v.versionId === activeVer || v.versionId === 'kjv') && v.book.toLowerCase() === book.toLowerCase() && v.chapter === chapter)
                             .sortBy('verse');
                         if (allInChapter.length > 0) {
-                            segVerses = allInChapter.filter(v =>
+                            segVerses = allInChapter.filter((v: BibleVerse) =>
                                 seg.verseEnd ? (v.verse >= seg.verse && v.verse <= seg.verseEnd) : v.verse === seg.verse
                             );
                             if (segVerses.length > 0) activeVer = segVerses[0].versionId;

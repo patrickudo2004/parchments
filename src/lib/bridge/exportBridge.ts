@@ -1,11 +1,11 @@
 /**
  * exportBridge.ts
  * High-performance document export bridge.
- * Uses native desktop file dialogs and Rust filesystem persistence when running in Tauri,
+ * Uses native desktop file dialogs and scoped filesystem persistence when running in Tauri,
  * with automatic fallback to browser Blob downloads.
  */
 
-import { isTauri, safeInvoke } from './runtimeBridge';
+import { isTauri } from './runtimeBridge';
 import { saveAs } from 'file-saver';
 
 export interface NativeExportOptions {
@@ -17,21 +17,22 @@ export interface NativeExportOptions {
 }
 
 /**
- * Saves text content natively on desktop or falls back to browser download
+ * Saves text or binary content natively on desktop or falls back to browser download
  */
 export async function saveExportedFile(
     filename: string,
-    content: string,
+    content: string | Uint8Array | Blob,
     mimeType: string,
     options?: NativeExportOptions
 ): Promise<boolean> {
     if (isTauri) {
         try {
             const { save } = await import('@tauri-apps/plugin-dialog');
+            const ext = filename.split('.').pop() || 'txt';
             const targetPath = await save({
                 defaultPath: options?.defaultPath || filename,
                 filters: options?.filters || [
-                    { name: 'Document', extensions: [filename.split('.').pop() || 'txt'] }
+                    { name: 'Document', extensions: [ext] }
                 ]
             });
 
@@ -40,18 +41,16 @@ export async function saveExportedFile(
                 return false;
             }
 
-            const saved = await safeInvoke<boolean>('native_save_file_direct', {
-                path: targetPath,
-                content
-            });
-
-            if (saved) {
-                return true;
+            if (typeof content === 'string') {
+                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+                await writeTextFile(targetPath, content);
+            } else {
+                const { writeFile } = await import('@tauri-apps/plugin-fs');
+                const bytes = content instanceof Blob
+                    ? new Uint8Array(await content.arrayBuffer())
+                    : content;
+                await writeFile(targetPath, bytes);
             }
-
-            // Fallback to plugin-fs if direct command didn't complete
-            const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-            await writeTextFile(targetPath, content);
             return true;
         } catch (tauriErr) {
             console.warn('[ExportBridge] Native export failed, falling back to browser download:', tauriErr);
@@ -59,7 +58,7 @@ export async function saveExportedFile(
     }
 
     // Universal web/mobile fallback
-    const blob = new Blob([content], { type: mimeType });
+    const blob = content instanceof Blob ? content : new Blob([content as any], { type: mimeType });
     saveAs(blob, filename);
     return true;
 }

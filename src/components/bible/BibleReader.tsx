@@ -590,7 +590,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         initial={{ y: 100, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: 100, opacity: 0 }}
-                        className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[100] bg-dark-surface border border-white/10 shadow-2xl rounded-2xl p-2 px-3 sm:px-4 flex flex-wrap items-center gap-2 sm:gap-3 text-white max-w-[95vw]"
+                        className="absolute bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-16 left-1/2 -translate-x-1/2 z-[100] bg-dark-surface border border-white/10 shadow-2xl rounded-2xl p-2 px-3 sm:px-4 flex flex-wrap items-center gap-2 sm:gap-3 text-white max-w-[95vw]"
                     >
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-slate-900 font-black">

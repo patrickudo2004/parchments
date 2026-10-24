@@ -208,10 +208,37 @@ fn get_sync_document_state(
     })
 }
 
+// --------------------------------------------------------------------------
+// Tauri commands — External links (update downloads, release notes)
+// --------------------------------------------------------------------------
+
+/// Opens an allow-listed HTTPS URL in the user's default browser.
+/// WebViews ignore `target="_blank"`, so update "Download" links did nothing on desktop.
 #[tauri::command]
-fn native_save_file_direct(path: String, content: String) -> Result<bool, String> {
-    std::fs::write(&path, content.as_bytes()).map_err(|e| e.to_string())?;
-    Ok(true)
+fn open_external_url(url: String) -> Result<(), String> {
+    const ALLOWED_PREFIXES: [&str; 3] = [
+        "https://github.com/patrickudo2004/parchments",
+        "https://api.github.com/repos/patrickudo2004/parchments",
+        "https://parchments.vercel.app",
+    ];
+    if !ALLOWED_PREFIXES.iter().any(|p| url.starts_with(p)) {
+        return Err("URL not permitted".into());
+    }
+    if url.chars().any(|c| c.is_whitespace() || c == '"' || c == '\'' || c == '&' || c == '|' || c == '^') {
+        return Err("URL contains disallowed characters".into());
+    }
+
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("rundll32")
+        .arg("url.dll,FileProtocolHandler")
+        .arg(&url)
+        .spawn();
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(&url).spawn();
+
+    result.map(|_| ()).map_err(|e| e.to_string())
 }
 
 // --------------------------------------------------------------------------
@@ -250,7 +277,7 @@ pub fn run() {
             native_concordance_lookup,
             native_transcribe_chunk,
             get_sync_document_state,
-            native_save_file_direct,
+            open_external_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

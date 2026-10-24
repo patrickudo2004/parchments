@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Folder,
     FolderOpen,
@@ -502,6 +503,35 @@ export const FilesSidebar: React.FC = () => {
         );
     };
 
+    // Voice recorder modal — portaled to <body> so it is never clipped or offset by the
+    // transformed / overflow-hidden sidebar container (fixes skewed Stop button on desktop).
+    const recorderModal = showRecorder && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+                className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Record voice note"
+            >
+                <div className="w-full max-w-sm">
+                    <VoiceRecorder
+                        isModal={true}
+                        onSave={async (blob, duration, transcript) => {
+                            await createVoiceNote(recordingFolderId, blob, duration, transcript);
+                            setShowRecorder(false);
+                            setRecordingFolderId(null);
+                        }}
+                        onCancel={() => {
+                            setShowRecorder(false);
+                            setRecordingFolderId(null);
+                        }}
+                    />
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
+
     // Responsive Mobile Grid View render path
     if (isMobile) {
         // 1. MOBILE ONBOARDING: Allow browser database or local folder open if no active Studyspace exists
@@ -815,6 +845,8 @@ export const FilesSidebar: React.FC = () => {
                     </div>
                 </div>
 
+                {recorderModal}
+
                 <ConfirmModal
                     isOpen={deleteConfig.isOpen}
                     title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'}`}
@@ -922,22 +954,7 @@ export const FilesSidebar: React.FC = () => {
                 </div>
             </div>
 
-            {showRecorder && (
-                <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <VoiceRecorder
-                        isModal={true}
-                        onSave={async (blob, duration, transcript) => {
-                            await createVoiceNote(recordingFolderId, blob, duration, transcript);
-                            setShowRecorder(false);
-                            setRecordingFolderId(null);
-                        }}
-                        onCancel={() => {
-                            setShowRecorder(false);
-                            setRecordingFolderId(null);
-                        }}
-                    />
-                </div>
-            )}
+            {recorderModal}
 
             <div className="flex-1 overflow-y-auto p-2" onClick={() => setSelectedFolderId(null)}>
                 {!hasStudyspace ? (

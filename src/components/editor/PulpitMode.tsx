@@ -318,6 +318,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             // Alt+B (or Cmd+B / Ctrl+B) toggles Mini Bible modal — prevents clicker black-screen trap
             if ((e.key === 'b' || e.key === 'B') && (e.altKey || e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
+                if (!isBibleModalOpen) setIsAutoScrolling(false);
                 toggleBibleModal();
                 return;
             }
@@ -396,6 +397,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             }
 
             if (book && chapter) {
+                setIsAutoScrolling(false);
                 setScriptureTarget({
                     book,
                     chapter,
@@ -481,7 +483,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={toggleBibleModal}
+                            onClick={() => { if (!isBibleModalOpen) setIsAutoScrolling(false); toggleBibleModal(); }}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${isBibleModalOpen ? 'bg-primary text-white' : 'bg-white/15 hover:bg-white/25 text-white'}`}
                             title="Open Mini Bible (Alt+B)"
                         >
@@ -551,7 +553,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                 {/* Sermon Note Switcher Pill */}
                                 <button
-                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    onClick={() => { setIsAutoScrolling(false); setIsNoteSwitcherOpen(true); }}
                                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-bold text-xs max-w-[240px] transition-all active:scale-95 touch-manipulation min-h-[38px] ${buttonBase}`}
                                     title="Switch Sermon Note"
                                 >
@@ -562,7 +564,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                 {/* Mini Bible Quick-Launch Button */}
                                 <button
-                                    onClick={toggleBibleModal}
+                                    onClick={() => { if (!isBibleModalOpen) setIsAutoScrolling(false); toggleBibleModal(); }}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
                                     title="Open Mini Bible Studyspace (Alt+B)"
                                 >
@@ -774,7 +776,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                     {/* Sermon Note Switcher Pill */}
                                     <button
-                                        onClick={() => setIsNoteSwitcherOpen(true)}
+                                        onClick={() => { setIsAutoScrolling(false); setIsNoteSwitcherOpen(true); }}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-bold text-xs max-w-[180px] sm:max-w-[220px] transition-all active:scale-95 touch-manipulation min-h-[38px] ${buttonBase}`}
                                         title="Switch Sermon Note"
                                     >
@@ -785,7 +787,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                     {/* Mini Bible Quick-Launch Button */}
                                     <button
-                                        onClick={toggleBibleModal}
+                                        onClick={() => { if (!isBibleModalOpen) setIsAutoScrolling(false); toggleBibleModal(); }}
                                         className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-bold text-xs transition-all active:scale-95 touch-manipulation min-h-[38px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
                                         title="Open Mini Bible (Alt+B)"
                                     >
@@ -936,7 +938,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                 {/* Sermon Note Switcher Pill */}
                                 <button
-                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    onClick={() => { setIsAutoScrolling(false); setIsNoteSwitcherOpen(true); }}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] max-w-[100px] xs:max-w-[130px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${buttonBase}`}
                                     title="Switch Sermon Note"
                                 >
@@ -947,7 +949,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
 
                                 {/* Mini Bible Quick-Launch Button */}
                                 <button
-                                    onClick={toggleBibleModal}
+                                    onClick={() => { if (!isBibleModalOpen) setIsAutoScrolling(false); toggleBibleModal(); }}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-bold text-[11px] transition-all active:scale-95 touch-manipulation min-h-[34px] ${isBibleModalOpen ? (isContrast ? 'bg-amber-500 text-black font-black' : 'bg-primary text-white shadow-sm') : buttonBase}`}
                                     title="Mini Bible (Alt+B)"
                                 >
@@ -1059,7 +1061,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                                     );
                                 })}
                                 <button
-                                    onClick={() => setIsNoteSwitcherOpen(true)}
+                                    onClick={() => { setIsAutoScrolling(false); setIsNoteSwitcherOpen(true); }}
                                     className="px-2 py-1 rounded text-[10px] font-bold opacity-60 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 shrink-0 transition-opacity"
                                     title="Browse all sermon notes"
                                 >

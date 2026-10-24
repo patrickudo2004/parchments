@@ -9,7 +9,7 @@ if (typeof self !== 'undefined') {
 let pipeline: any = null;
 let env: any = null;
 
-async function initTransformers() {
+async function initTransformers(localRuntime = false) {
     if (pipeline) return;
     const transformers = await import('@huggingface/transformers');
     pipeline = transformers.pipeline;
@@ -18,6 +18,13 @@ async function initTransformers() {
     // Skip local checks to avoid FS errors in browser/webview
     env.allowLocalModels = false;
     env.useBrowserCache = true;
+
+    // Desktop (Tauri): load ONNX Runtime WASM from the app bundle (/ort/) instead of cdn.jsdelivr.net.
+    // The CDN script import is blocked by the desktop CSP and unavailable offline.
+    if (localRuntime && env.backends?.onnx?.wasm) {
+        env.backends.onnx.wasm.wasmPaths = new URL('/ort/', self.location.href).href;
+        console.info('[Worker] Using bundled ONNX Runtime from', env.backends.onnx.wasm.wasmPaths);
+    }
     console.info('[Worker] AI Engine initialized. Offline caching enabled.');
 }
 
@@ -25,8 +32,8 @@ class TranscribeWorker {
     static instance: any = null;
     static model: string | null = null;
 
-    static async getInstance(model: string, progress_callback?: (progress: any) => void) {
-        await initTransformers();
+    static async getInstance(model: string, progress_callback?: (progress: any) => void, localRuntime = false) {
+        await initTransformers(localRuntime);
         if (this.instance && this.model !== model) {
             this.instance = null;
         }
@@ -55,13 +62,13 @@ self.addEventListener('message', async (event) => {
     const data = event.data;
     if (!data) return;
 
-    const { type, id, audioBlob, audioData, highAccuracy } = data;
+    const { type, id, audioBlob, audioData, highAccuracy, localRuntime } = data;
     const model = highAccuracy ? 'onnx-community/whisper-base' : 'onnx-community/whisper-tiny.en';
 
     // 1. Prewarm model in background
     if (type === 'prewarm') {
         try {
-            await TranscribeWorker.getInstance(model);
+            await TranscribeWorker.getInstance(model, undefined, !!localRuntime);
             self.postMessage({ type: 'ready', model });
         } catch (e: any) {
             console.warn('[Worker] Prewarm failed:', e);
@@ -72,7 +79,7 @@ self.addEventListener('message', async (event) => {
     // 2. Real-time Chunk Transcription (16kHz Float32Array from microphone stream)
     if (type === 'transcribe_chunk') {
         try {
-            const transcriber = await TranscribeWorker.getInstance(model);
+            const transcriber = await TranscribeWorker.getInstance(model, undefined, !!localRuntime);
             const output = await transcriber(audioData, {
                 chunk_length_s: 30,
                 stride_length_s: 5,
@@ -99,12 +106,12 @@ self.addEventListener('message', async (event) => {
 
     // 3. Batch transcription for post-recording (compatible with transcriptionService.ts)
     try {
-        await initTransformers();
+        await initTransformers(!!localRuntime);
         self.postMessage({ status: 'loading', message: `Initializing ${highAccuracy ? 'High Accuracy' : 'Turbo'} AI...` });
 
         const transcriber = await TranscribeWorker.getInstance(model, (progressData: any) => {
             self.postMessage({ status: 'downloading', ...progressData });
-        });
+        }, !!localRuntime);
 
         self.postMessage({ status: 'transcribing', message: 'Transcribing with AI acceleration...' });
 
@@ -127,7 +134,7 @@ self.addEventListener('message', async (event) => {
             console.warn('[Worker] WebGPU/fp16 not supported, falling back to CPU/WASM.');
             self.postMessage({ status: 'loading', message: 'Optimizing for your device (standard engine)...' });
             try {
-                await initTransformers();
+                await initTransformers(!!localRuntime);
                 const transcriber = await pipeline('automatic-speech-recognition', model, {
                     device: 'wasm',
                     dtype: 'q8',

@@ -62,26 +62,33 @@ function resolveDownloadUrl(releaseData: any): string {
 }
 
 export const fetchVersionInfo = async () => {
-    // 1. Primary Source: Live GitHub Releases API with User-Agent
+    // 1. Primary Source: Live GitHub Releases list.
+    // NOTE: `/releases/latest` silently skips pre-releases, so a beta/pre-release tag was never
+    // detected as an update. We list recent published releases and pick the highest semver instead.
     try {
-        const ghResponse = await fetch('https://api.github.com/repos/patrickudo2004/parchments/releases/latest', {
+        const ghResponse = await fetch('https://api.github.com/repos/patrickudo2004/parchments/releases?per_page=15', {
             cache: 'no-store',
             headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'ParchmentsApp'
+                'Accept': 'application/vnd.github+json'
             }
         });
         if (ghResponse.ok) {
-            const data = await ghResponse.json();
-            if (data.tag_name) {
-                const cleanTag = data.tag_name.replace(/^v/, '');
-                const directUrl = resolveDownloadUrl(data);
-                return {
-                    latest: cleanTag,
-                    min_required: VERSION_INFO.min_required,
-                    download_url: directUrl,
-                    message: data.body ? data.body.slice(0, 150).replace(/[#*_`]/g, '') : 'A new release is available.'
-                };
+            const releases = await ghResponse.json();
+            if (Array.isArray(releases)) {
+                const published = releases.filter((r: any) => r && !r.draft && typeof r.tag_name === 'string');
+                const newest = published.reduce((best: any, r: any) => {
+                    if (!best) return r;
+                    return compareVersions(r.tag_name, best.tag_name) > 0 ? r : best;
+                }, null);
+                if (newest) {
+                    const cleanTag = newest.tag_name.replace(/^v/i, '');
+                    return {
+                        latest: cleanTag,
+                        min_required: VERSION_INFO.min_required,
+                        download_url: resolveDownloadUrl(newest),
+                        message: newest.body ? newest.body.slice(0, 150).replace(/[#*_`]/g, '') : 'A new release is available.'
+                    };
+                }
             }
         }
     } catch (ghErr) {

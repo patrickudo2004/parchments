@@ -3,7 +3,7 @@
  * Manages a persistent singleton Web Worker running Hugging Face Whisper for live on-device speech transcription.
  */
 
-import { safeInvoke, isTauri } from '@/lib/bridge/runtimeBridge';
+import { isTauri } from '@/lib/bridge/runtimeBridge';
 
 class StreamingTranscriptionManager {
     private worker: Worker | null = null;
@@ -55,13 +55,14 @@ class StreamingTranscriptionManager {
 
             this.worker.onerror = (err) => {
                 console.warn('[StreamingTranscriber] Worker error:', err);
-                if (this.activeReject) {
-                    this.activeReject(err);
-                }
-                this.isBusy = false;
+                if (this.jobTimeout) clearTimeout(this.jobTimeout);
+                const reject = this.activeReject;
                 this.activeResolve = null;
                 this.activeReject = null;
                 this.activeJobId = null;
+                // Tear down the crashed worker so the next chunk spawns a fresh instance
+                this.dispose();
+                reject?.(err);
             };
         }
         return this.worker;
@@ -71,7 +72,7 @@ class StreamingTranscriptionManager {
         if (this.isPrewarmed) return;
         try {
             const worker = this.getWorker();
-            worker.postMessage({ type: 'prewarm', highAccuracy });
+            worker.postMessage({ type: 'prewarm', highAccuracy, localRuntime: isTauri });
         } catch (e) {
             console.warn('[StreamingTranscriber] Prewarm error:', e);
         }
@@ -90,21 +91,8 @@ class StreamingTranscriptionManager {
             return Promise.resolve('');
         }
 
-        // 1. Try Native Rust desktop engine if running in Tauri
-        if (isTauri) {
-            try {
-                const nativeResult = await safeInvoke<string>('native_transcribe_chunk', {
-                    audio: Array.from(audio16k),
-                    highAccuracy
-                });
-                if (nativeResult && nativeResult.trim()) {
-                    return nativeResult.trim();
-                }
-            } catch (nativeErr) {
-                console.warn('[StreamingTranscriber] Native Rust STT fallback to worker:', nativeErr);
-            }
-        }
-
+        // Desktop and web both run Whisper in the dedicated worker. On desktop the worker loads the
+        // ONNX Runtime from the app bundle (localRuntime) so transcription works offline and under CSP.
         this.isBusy = true;
         const jobId = Date.now() + Math.floor(Math.random() * 1000);
         this.activeJobId = jobId;
@@ -133,7 +121,8 @@ class StreamingTranscriptionManager {
                         type: 'transcribe_chunk',
                         id: jobId,
                         audioData: audio16k,
-                        highAccuracy
+                        highAccuracy,
+                        localRuntime: isTauri
                     },
                     [audio16k.buffer]
                 );
@@ -161,19 +150,38 @@ class StreamingTranscriptionManager {
 export const streamingTranscriber = new StreamingTranscriptionManager();
 
 /**
- * High-performance linear resampler from audioContext sampleRate (e.g. 44.1k/48k) to 16kHz
+ * Anti-aliased resampler from audioContext sampleRate (e.g. 44.1k/48k) to 16kHz.
+ * Averages every source sample falling within each output window (box filter) so
+ * high-frequency energy doesn't fold back into the speech band and confuse Whisper.
  */
 export function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
     if (inputSampleRate === 16000) return new Float32Array(input);
     const ratio = inputSampleRate / 16000;
     const newLength = Math.round(input.length / ratio);
     const result = new Float32Array(newLength);
+
+    if (ratio < 1) {
+        // Upsampling (rare): linear interpolation
+        for (let i = 0; i < newLength; i++) {
+            const index = i * ratio;
+            const low = Math.floor(index);
+            const high = Math.min(low + 1, input.length - 1);
+            const weight = index - low;
+            result[i] = input[low] * (1 - weight) + input[high] * weight;
+        }
+        return result;
+    }
+
     for (let i = 0; i < newLength; i++) {
-        const index = i * ratio;
-        const low = Math.floor(index);
-        const high = Math.min(low + 1, input.length - 1);
-        const weight = index - low;
-        result[i] = input[low] * (1 - weight) + input[high] * weight;
+        const start = Math.floor(i * ratio);
+        const end = Math.min(input.length, Math.floor((i + 1) * ratio));
+        let sum = 0;
+        let count = 0;
+        for (let j = start; j < end; j++) {
+            sum += input[j];
+            count++;
+        }
+        result[i] = count > 0 ? sum / count : input[Math.min(start, input.length - 1)];
     }
     return result;
 }

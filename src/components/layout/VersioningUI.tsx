@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
+import { openExternalUrl } from '@/lib/bridge/runtimeBridge';
 import {
     Download,
     AlertTriangle,
@@ -18,12 +19,12 @@ export const UpdateBanner: React.FC = () => {
         <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="bg-primary text-white overflow-hidden relative z-[100]"
+            className="bg-primary text-[#121212] overflow-hidden relative z-[100]"
         >
             <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-1 bg-white/20 rounded-lg">
-                        <Download size={14} className="text-white" />
+                    <div className="p-1 bg-black/10 rounded-lg">
+                        <Download size={14} className="text-[#121212]" />
                     </div>
                     <p className="text-xs font-bold tracking-tight">
                         Parchments {updateInfo.latest} is now available! <span className="hidden sm:inline opacity-80 font-normal">— {updateInfo.message}</span>
@@ -34,13 +35,16 @@ export const UpdateBanner: React.FC = () => {
                         href={updateInfo.downloadUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1 bg-white text-primary rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all flex items-center gap-1.5 shadow-lg shadow-black/10"
+                        onClick={(e) => { e.preventDefault(); openExternalUrl(updateInfo.downloadUrl); }}
+                        className="px-3 py-1 bg-[#121212] text-primary rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all flex items-center gap-1.5 shadow-lg shadow-black/10"
                     >
                         Update Now <ArrowRight size={12} />
                     </a>
                     <button
                         onClick={() => setVersionStatus('up-to-date', updateInfo)}
-                        className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                        className="p-1 hover:bg-black/10 rounded-full transition-colors"
+                        title="Dismiss"
+                        aria-label="Dismiss update banner"
                     >
                         <X size={14} />
                     </button>
@@ -95,7 +99,8 @@ export const VersionLockModal: React.FC = () => {
                             href={updateInfo.downloadUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            onClick={(e) => { e.preventDefault(); openExternalUrl(updateInfo.downloadUrl); }}
+                            className="w-full py-4 bg-primary text-[#121212] rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                         >
                             Download Stable Version <Download size={18} />
                         </a>

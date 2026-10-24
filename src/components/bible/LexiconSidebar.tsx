@@ -210,6 +210,26 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                         <p className="text-[10px] text-light-text-disabled leading-relaxed max-w-[180px]">
                             Select a word in the interlinear Bible view or use the search above.
                         </p>
+                        <div className="mt-4 flex flex-col items-center">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-light-text-disabled mb-2">Explore Keywords</span>
+                            <div className="flex flex-wrap justify-center gap-1.5 max-w-[220px]">
+                                {[
+                                    { id: 'G2424', label: 'Jesus (G2424)' },
+                                    { id: 'G26', label: 'Love (G26)' },
+                                    { id: 'G3056', label: 'Word (G3056)' },
+                                    { id: 'H1254', label: 'Create (H1254)' },
+                                    { id: 'H7965', label: 'Peace (H7965)' },
+                                ].map(pill => (
+                                    <button
+                                        key={pill.id}
+                                        onClick={() => loadEntry(pill.id)}
+                                        className="px-2.5 py-1 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-[#121212] transition-all cursor-pointer"
+                                    >
+                                        {pill.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
 

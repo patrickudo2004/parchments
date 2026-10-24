@@ -1,4 +1,5 @@
 import { saveAs } from 'file-saver';
+import { saveExportedFile } from '@/lib/bridge/exportBridge';
 // @ts-ignore
 import html2pdf from 'html2pdf.js/src/index.js';
 // @ts-ignore
@@ -243,8 +244,11 @@ export class ExportService {
                 ...(options?.author ? { author: options.author } : {})
             };
             const markdown = MarkdownService.htmlToMarkdown(htmlContent, frontmatter);
-            const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-            saveAs(blob, `${title}.md`);
+            await saveExportedFile(`${title}.md`, markdown, 'text/markdown;charset=utf-8', {
+                defaultPath: `${title}.md`,
+                filters: [{ name: 'Markdown Document', extensions: ['md'] }]
+            });
+
         } catch (error) {
             console.error('Markdown Export Failed:', error);
             throw error;
@@ -278,16 +282,22 @@ export class ExportService {
     ${safeBody}
 </body>
 </html>`;
-        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-        saveAs(blob, `${title}.html`);
+        await saveExportedFile(`${title}.html`, fullHtml, 'text/html;charset=utf-8', {
+            defaultPath: `${title}.html`,
+            filters: [{ name: 'HTML Document', extensions: ['html'] }]
+        });
+
     }
 
     /**
      * Export content as Plain Text (.txt)
      */
-    exportToTxt(title: string, textContent: string) {
-        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-        saveAs(blob, `${title}.txt`);
+    async exportToTxt(title: string, textContent: string) {
+        await saveExportedFile(`${title}.txt`, textContent, 'text/plain;charset=utf-8', {
+            defaultPath: `${title}.txt`,
+            filters: [{ name: 'Text Document', extensions: ['txt'] }]
+        });
+
     }
 }
 

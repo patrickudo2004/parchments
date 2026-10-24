@@ -43,8 +43,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
     const isDesktop = typeof window !== 'undefined' &&
         Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
 
-    // Web Speech API check
-    const hasBrowserSpeechApi = !isDesktop && typeof window !== 'undefined' &&
+    // Web Speech API check (universal browser / webview support)
+    const hasBrowserSpeechApi = typeof window !== 'undefined' &&
         Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
     // Pre-warm on-device Whisper model on mount
@@ -170,6 +170,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             // Web Audio setup for audio visualizer & live PCM audio tap
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             const audioContext = new AudioContextClass();
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
             const analyser = audioContext.createAnalyser();
             const source = audioContext.createMediaStreamSource(audioStream);
 
@@ -549,34 +552,34 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                         <span>Start Recording</span>
                     </button>
                 ) : status === 'recording' ? (
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="grid grid-cols-2 gap-2 w-full">
                         <button
                             onClick={pauseRecording}
-                            className="flex-1 min-w-0 py-2.5 px-3 bg-light-background dark:bg-dark-background/60 hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="w-full py-2.5 px-2 bg-light-background dark:bg-dark-background/60 hover:bg-light-sidebar dark:hover:bg-dark-sidebar border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
                             <Pause size={14} className="shrink-0 text-amber-500" />
                             <span>Pause</span>
                         </button>
                         <button
                             onClick={stopRecording}
-                            className="flex-1 min-w-0 py-2.5 px-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
                             <Square size={13} className="shrink-0 fill-current" />
                             <span>Stop</span>
                         </button>
                     </div>
                 ) : status === 'paused' ? (
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="grid grid-cols-2 gap-2 w-full">
                         <button
                             onClick={resumeRecording}
-                            className="flex-1 min-w-0 py-2.5 px-3 bg-primary hover:bg-primary-hover active:scale-95 text-[#121212] font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                            className="w-full py-2.5 px-2 bg-primary hover:bg-primary-hover active:scale-95 text-[#121212] font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                         >
                             <Play size={14} className="shrink-0 fill-current" />
                             <span>Resume</span>
                         </button>
                         <button
                             onClick={stopRecording}
-                            className="flex-1 min-w-0 py-2.5 px-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
+                            className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap cursor-pointer"
                         >
                             <Square size={13} className="shrink-0 fill-current" />
                             <span>Stop</span>

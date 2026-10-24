@@ -142,6 +142,78 @@ fn fast_text_search_native(
         .collect()
 }
 
+#[derive(serde::Deserialize)]
+pub struct VerseSearchQuery {
+    pub corpus: Vec<String>,
+    pub terms: Vec<String>,
+    pub match_all: bool,
+}
+
+#[tauri::command]
+fn native_search_verses(query: VerseSearchQuery) -> Vec<usize> {
+    let lower_terms: Vec<String> = query.terms.iter().map(|t| t.to_lowercase()).collect();
+    if lower_terms.is_empty() {
+        return Vec::new();
+    }
+
+    query.corpus
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, text)| {
+            let lower_text = text.to_lowercase();
+            let matches = if query.match_all {
+                lower_terms.iter().all(|term| lower_text.contains(term))
+            } else {
+                lower_terms.iter().any(|term| lower_text.contains(term))
+            };
+            if matches { Some(idx) } else { None }
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn native_concordance_lookup(keys: Vec<String>, target: String) -> Vec<usize> {
+    let target_clean = target.trim().to_uppercase();
+    keys.iter()
+        .enumerate()
+        .filter_map(|(idx, k)| {
+            if k.trim().to_uppercase() == target_clean {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn native_transcribe_chunk(audio: Vec<f32>, _high_accuracy: bool) -> String {
+    if audio.is_empty() {
+        return String::new();
+    }
+    // Returns empty to allow seamless client worker or browser STT processing
+    String::new()
+}
+
+#[tauri::command]
+fn get_sync_document_state(
+    state: tauri::State<'_, SharedSyncState>,
+) -> serde_json::Value {
+    let s = state.lock().unwrap();
+    serde_json::json!({
+        "active": s.session.is_some(),
+        "peer_count": s.session.as_ref().map(|sess| sess.peers.len()).unwrap_or(0),
+        "pending_count": s.pending.len(),
+        "server_port": s.session.as_ref().map(|sess| sess.port).unwrap_or(0)
+    })
+}
+
+#[tauri::command]
+fn native_save_file_direct(path: String, content: String) -> Result<bool, String> {
+    std::fs::write(&path, content.as_bytes()).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 // --------------------------------------------------------------------------
 // App entry point
 // --------------------------------------------------------------------------
@@ -174,6 +246,11 @@ pub fn run() {
             get_sync_session,
             get_system_engine_info,
             fast_text_search_native,
+            native_search_verses,
+            native_concordance_lookup,
+            native_transcribe_chunk,
+            get_sync_document_state,
+            native_save_file_direct,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

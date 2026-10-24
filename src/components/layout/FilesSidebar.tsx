@@ -424,7 +424,7 @@ export const FilesSidebar: React.FC = () => {
                             )}
                         </div>
 
-                        <span className="truncate min-w-0 flex-1 text-xs sm:text-sm font-medium">{item.name}</span>
+                        <span className="truncate min-w-0 flex-1 text-xs sm:text-sm font-medium" title={item.name}>{item.name}</span>
                     </div>
 
                     <div className="flex items-center gap-0.5 shrink-0 ml-1">
@@ -758,11 +758,11 @@ export const FilesSidebar: React.FC = () => {
                                             className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl shadow-sm hover:border-primary/50 transition-all flex flex-col gap-2 relative group"
                                         >
                                             <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-2 overflow-hidden pr-8">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
                                                     <div className={`p-1.5 rounded-lg shrink-0 ${note.type === 'voice' ? 'bg-primary/10 text-primary' : 'bg-light-text-secondary/10 text-light-text-secondary dark:text-dark-text-secondary'}`}>
                                                         {note.type === 'voice' ? <Mic size={14} /> : <FileText size={14} />}
                                                     </div>
-                                                    <h5 className="font-bold text-xs truncate text-light-text-primary dark:text-dark-text-primary">{note.title || note.name}</h5>
+                                                    <h5 className="font-bold text-xs truncate text-light-text-primary dark:text-dark-text-primary" title={note.title || note.name}>{note.title || note.name}</h5>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     <button
@@ -925,6 +925,7 @@ export const FilesSidebar: React.FC = () => {
             {showRecorder && (
                 <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
+                        isModal={true}
                         onSave={async (blob, duration, transcript) => {
                             await createVoiceNote(recordingFolderId, blob, duration, transcript);
                             setShowRecorder(false);

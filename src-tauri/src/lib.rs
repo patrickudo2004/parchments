@@ -97,6 +97,52 @@ fn get_sync_session(
 }
 
 // --------------------------------------------------------------------------
+// Tauri commands — System & Performance Acceleration Engine
+// --------------------------------------------------------------------------
+
+#[tauri::command]
+fn get_system_engine_info() -> serde_json::Value {
+    let cores = std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(1);
+
+    serde_json::json!({
+        "engine": "Rust Native Core",
+        "os": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+        "cpu_cores": cores,
+        "edition": "2021",
+        "status": "ready"
+    })
+}
+
+#[tauri::command]
+fn fast_text_search_native(
+    corpus: Vec<String>,
+    query: String,
+    case_sensitive: bool,
+) -> Vec<usize> {
+    let search_term = if case_sensitive {
+        query
+    } else {
+        query.to_lowercase()
+    };
+
+    corpus
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, text)| {
+            let matches = if case_sensitive {
+                text.contains(&search_term)
+            } else {
+                text.to_lowercase().contains(&search_term)
+            };
+            if matches { Some(idx) } else { None }
+        })
+        .collect()
+}
+
+// --------------------------------------------------------------------------
 // App entry point
 // --------------------------------------------------------------------------
 
@@ -126,6 +172,8 @@ pub fn run() {
             approve_connection,
             deny_connection,
             get_sync_session,
+            get_system_engine_info,
+            fast_text_search_native,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

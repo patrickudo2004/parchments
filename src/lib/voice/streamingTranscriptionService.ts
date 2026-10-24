@@ -3,6 +3,8 @@
  * Manages a persistent singleton Web Worker running Hugging Face Whisper for live on-device speech transcription.
  */
 
+import { safeInvoke, isTauri } from '@/lib/bridge/runtimeBridge';
+
 class StreamingTranscriptionManager {
     private worker: Worker | null = null;
     private isBusy = false;
@@ -82,10 +84,25 @@ class StreamingTranscriptionManager {
     /**
      * Transcribes a 16kHz mono Float32Array slice.
      */
-    public transcribeChunk(audio16k: Float32Array, highAccuracy = false): Promise<string> {
+    public async transcribeChunk(audio16k: Float32Array, highAccuracy = false): Promise<string> {
         if (this.isBusy) {
             // Drop stale intermediate slice if still busy with previous chunk
             return Promise.resolve('');
+        }
+
+        // 1. Try Native Rust desktop engine if running in Tauri
+        if (isTauri) {
+            try {
+                const nativeResult = await safeInvoke<string>('native_transcribe_chunk', {
+                    audio: Array.from(audio16k),
+                    highAccuracy
+                });
+                if (nativeResult && nativeResult.trim()) {
+                    return nativeResult.trim();
+                }
+            } catch (nativeErr) {
+                console.warn('[StreamingTranscriber] Native Rust STT fallback to worker:', nativeErr);
+            }
         }
 
         this.isBusy = true;

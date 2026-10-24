@@ -35,6 +35,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { APP_VERSION } from '@/lib/version';
 import { checkAppVersion } from '@/hooks/useVersionCheck';
+import { getSystemEngineInfo, type NativeSystemEngineInfo } from '@/lib/bridge/searchBridge';
 
 
 
@@ -124,6 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [showDiagnosticPreview, setShowDiagnosticPreview] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const [diagnosticData, setDiagnosticData] = useState<any>(null);
+    const [engineInfo, setEngineInfo] = useState<NativeSystemEngineInfo | null>(null);
 
     // Auto-populate Name & Email from local IndexedDB profile if available
     useEffect(() => {
@@ -188,6 +190,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     }
 
                     const isTauri = !!(window as any).__TAURI__;
+                    let engine = null;
+                    try {
+                        engine = await getSystemEngineInfo();
+                        setEngineInfo(engine);
+                    } catch {
+                        // fallback
+                    }
                     const platformName = isTauri 
                         ? 'Tauri Desktop App' 
                         : `Web Browser (${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Firefox') ? 'Firefox' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown Browser'} / ${navigator.platform})`;
@@ -195,6 +204,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     setDiagnosticData({
                         appVersion: APP_VERSION,
                         platform: platformName,
+                        engine: engine ? `${engine.engine} (${engine.os} ${engine.arch}, ${engine.cpu_cores} threads, edition ${engine.edition})` : 'Universal Web Engine (Web Worker / Dexie)',
                         user: {
                             name: userName || 'Anonymous',
                             email: userEmail || 'Anonymous'
@@ -250,6 +260,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             body += `### Diagnostic Information\n\n`;
             body += `*   **App Version:** ${diagnosticData.appVersion}\n`;
             body += `*   **Platform:** ${diagnosticData.platform}\n`;
+            if (diagnosticData.engine) {
+                body += `*   **Acceleration Engine:** ${diagnosticData.engine}\n`;
+            }
             body += `*   **Preferred Bible:** ${diagnosticData.settings.preferredBible}\n`;
             body += `*   **UI Settings:** Theme: ${diagnosticData.settings.theme}, Density: ${diagnosticData.settings.density}\n`;
             body += `*   **Database Stats:** Notes: ${diagnosticData.database.notes}, Folders: ${diagnosticData.database.folders}\n`;
@@ -1128,6 +1141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Contact User</span> {userName ? `${userName} (${userEmail || 'No Email'})` : 'Anonymous'}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">App Version</span> {diagnosticData.appVersion}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Platform</span> {diagnosticData.platform}</div>
+                                                                        <div className="col-span-1 sm:col-span-2"><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Acceleration Engine</span> {diagnosticData.engine || 'Universal Web Engine'}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Active Theme</span> {diagnosticData.settings.theme}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Notes</span> {diagnosticData.database.notes}</div>
                                                                         <div><span className="text-light-text-disabled uppercase font-bold text-[8px] block tracking-wide">Database Folders</span> {diagnosticData.database.folders}</div>
@@ -1213,6 +1227,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     {updateStatus && (
                                                         <p className="text-[10px] text-primary font-black uppercase tracking-wide px-1 mt-1">{updateStatus}</p>
                                                     )}
+                                                </div>
+
+                                                {/* Acceleration & Engine Architecture */}
+                                                <div className="space-y-3 pt-5 border-t border-light-border dark:border-dark-border">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Execution & Acceleration Engine</h4>
+                                                    <div className="p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`p-2.5 rounded-xl ${engineInfo ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
+                                                                <Cpu size={20} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary flex items-center gap-2">
+                                                                    <span>{engineInfo ? engineInfo.engine : 'Universal Web Engine'}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                                                        engineInfo 
+                                                                            ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' 
+                                                                            : 'bg-blue-500/20 text-blue-700 dark:text-blue-300'
+                                                                    }`}>
+                                                                        {engineInfo ? 'Hardware Accelerated' : 'Isomorphic Universal'}
+                                                                    </span>
+                                                                </p>
+                                                                <p className="text-[10px] text-light-text-secondary mt-0.5">
+                                                                    {engineInfo 
+                                                                        ? `${engineInfo.os.toUpperCase()} • ${engineInfo.arch} • ${engineInfo.cpu_cores} parallel CPU worker threads active`
+                                                                        : 'Standard Web Worker concurrency & IndexedDB persistence active.'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <span className="text-[10px] font-mono font-bold text-light-text-secondary dark:text-dark-text-secondary px-2.5 py-1 rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border">
+                                                                {engineInfo ? `${engineInfo.arch} / ${engineInfo.cpu_cores} Cores` : 'Wasm / WebWorker'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Links footer */}

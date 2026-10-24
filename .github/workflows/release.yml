@@ -26,9 +26,6 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-
-
-
       - name: install rust targets (macos only)
         if: matrix.platform == 'macos-latest'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
@@ -92,7 +89,10 @@ jobs:
           ./gradlew assembleRelease
 
       - name: rename apk
-        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/parchments-android.apk
+        run: |
+          APK_FILE=$(find android/app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          echo "Found generated APK: $APK_FILE"
+          cp "$APK_FILE" android/app/build/outputs/apk/release/parchments-android.apk
 
       - name: archive apk artifact
         uses: actions/upload-artifact@v4

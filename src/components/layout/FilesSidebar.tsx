@@ -77,11 +77,11 @@ export const FilesSidebar: React.FC = () => {
     const renderWorkspaceSwitcher = () => {
         const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
         const displayName = isLocalMode
-            ? (localDirectoryHandle?.name || 'Local Folder')
+            ? (localDirectoryHandle?.name || lastLocalFolderName || 'Local Folder')
             : (activeWorkspaceFolder?.name || 'Study Journal');
         const workspaceName = isLocalMode
-            ? `${displayName} (Local Folder)`
-            : `${displayName} (Browser DB)`;
+            ? `📁 ${displayName}`
+            : `💾 ${displayName}`;
 
         const workspaces = folders.filter(f => f.parentId === null);
 
@@ -113,7 +113,8 @@ export const FilesSidebar: React.FC = () => {
                         e.stopPropagation();
                         setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
                     }}
-                    className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[100px] sm:max-w-[130px]"
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[170px] sm:max-w-[210px]"
+                    title={isLocalMode ? `Local Folder: ${displayName} (Files stored directly on your computer)` : `Browser Database: ${displayName} (Offline IndexedDB database)`}
                 >
                     <FolderOpen size={14} className="text-primary shrink-0" />
                     <span className="truncate">{workspaceName}</span>
@@ -126,24 +127,27 @@ export const FilesSidebar: React.FC = () => {
                             className="fixed inset-0 z-30" 
                             onClick={() => setIsWorkspaceDropdownOpen(false)} 
                         />
-                        <div className="absolute left-0 mt-1 w-56 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-1.5 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute left-0 mt-1 w-64 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-2 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">
-                                Workspaces
+                                Storage Location
                             </div>
                             {isLocalMode ? (
-                                <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10">
-                                    <Folder size={14} />
-                                    <span className="truncate">{displayName} (Local Directory)</span>
+                                <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10 rounded-lg mx-2 mb-1">
+                                    <Folder size={14} className="shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-bold">{displayName}</p>
+                                        <p className="text-[10px] text-light-text-secondary dark:text-dark-text-secondary font-normal">Files saved on your local hard drive</p>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="max-h-40 overflow-y-auto">
+                                <div className="max-h-40 overflow-y-auto mb-1">
                                     {workspaces.map(w => (
                                         <button
                                             key={w.id}
                                             onClick={() => handleSelectWorkspace(w.id)}
                                             className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-light-background dark:hover:bg-dark-background transition-colors ${w.id === activeWorkspaceId ? 'text-primary font-bold bg-primary/5' : ''}`}
                                         >
-                                            <span className="truncate">{w.name} (Browser Sandbox)</span>
+                                            <span className="truncate">{w.name} (Offline DB)</span>
                                             {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                                         </button>
                                     ))}
@@ -152,39 +156,50 @@ export const FilesSidebar: React.FC = () => {
 
                             <div className="border-t border-light-border dark:border-dark-border my-1" />
                             
-                            {!isLocalMode && (
-                                <button
-                                    onClick={handleCreateWorkspaceClick}
-                                    className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5 text-primary font-medium"
-                                >
-                                    <FolderPlus size={14} />
-                                    <span>Create Workspace...</span>
-                                </button>
+                            {isLocalMode ? (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setIsWorkspaceDropdownOpen(false);
+                                            openLocalFolder();
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
+                                    >
+                                        <Upload size={14} className="text-primary shrink-0" />
+                                        <span>Change Local Folder...</span>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsWorkspaceDropdownOpen(false);
+                                            setLocalMode(false);
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-primary font-medium"
+                                    >
+                                        <Database size={14} className="shrink-0" />
+                                        <span>Switch to Offline Browser Database</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={handleCreateWorkspaceClick}
+                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-primary font-medium"
+                                    >
+                                        <FolderPlus size={14} className="shrink-0" />
+                                        <span>Create Workspace...</span>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsWorkspaceDropdownOpen(false);
+                                            openLocalFolder();
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
+                                    >
+                                        <HardDrive size={14} className="text-primary shrink-0" />
+                                        <span>Switch to Local Folder...</span>
+                                    </button>
+                                </>
                             )}
-
-                            {isLocalMode && (
-                                <button
-                                    onClick={() => {
-                                        setIsWorkspaceDropdownOpen(false);
-                                        setLocalMode(false);
-                                    }}
-                                    className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5 text-primary font-medium"
-                                >
-                                    <Database size={14} />
-                                    <span>Switch to Browser Database</span>
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => {
-                                    setIsWorkspaceDropdownOpen(false);
-                                    openLocalFolder();
-                                }}
-                                className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-1.5"
-                            >
-                                <Upload size={14} />
-                                <span>{isLocalMode ? 'Switch Local Folder...' : 'Open Local Folder...'}</span>
-                            </button>
                         </div>
                     </>
                 )}

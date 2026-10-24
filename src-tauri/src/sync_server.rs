@@ -249,6 +249,7 @@ async fn handle_connection(
     let mut device_name_from_query = "Remote Device".to_string();
     let mut mode_from_query = PeerMode::Follower;
     let mut has_query_handshake = false;
+    let mut is_host_query = false;
 
     if let Some(q) = captured_query {
         for param in q.split('&') {
@@ -266,6 +267,11 @@ async fn handle_connection(
                 "mode" => {
                     if val.to_lowercase() == "editor" {
                         mode_from_query = PeerMode::Editor;
+                    }
+                }
+                "role" => {
+                    if val.to_lowercase() == "host" {
+                        is_host_query = true;
                     }
                 }
                 _ => {}
@@ -304,10 +310,11 @@ async fn handle_connection(
         return;
     }
 
-    // Host connection loopback auto-approval
-    let is_host_loopback = addr.ip().is_loopback();
+    // Host connection loopback or role=host auto-approval
+    let is_host_conn = is_host_query || addr.ip().is_loopback() || Some(addr.ip().to_string()) == get_local_ip();
 
-    let approved = if is_host_loopback {
+    let approved = if is_host_conn {
+        log::info!("[SyncServer] Host local connection detected from {}. Auto-approving without approval prompt.", addr);
         true
     } else {
         // Add to pending and emit event to frontend for approval
@@ -342,7 +349,7 @@ async fn handle_connection(
         return;
     }
 
-    if !is_host_loopback {
+    if !is_host_conn {
         // Notify frontend that a new peer is connected
         let _ = app_handle.emit("sync:peer-connected", serde_json::json!({
             "addr": addr.to_string(),

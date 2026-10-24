@@ -266,7 +266,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             // Determine transcription mode.
             // Desktop webviews (WebView2 / WKWebView) expose SpeechRecognition but it either has no
             // cloud backend ('network' error) or competes with Whisper, so desktop always uses on-device Whisper.
-            if (hasBrowserSpeechApi && !isDesktop) {
+            if (hasBrowserSpeechApi) {
                 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                 try {
                     const recognition = new SpeechRecognition();

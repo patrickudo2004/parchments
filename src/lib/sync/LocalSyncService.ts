@@ -78,8 +78,9 @@ export async function startLocalServer(
     noteTitle,
   });
 
-  // Wire Yjs to the local server (host also connects as a client to relay CRDT)
-  _connectProvider(ydoc, info.wsUrl);
+  // Wire Yjs to the local server (host connects over loopback with role=host to prevent ghost self-joining)
+  const hostLocalWsUrl = `ws://127.0.0.1:${info.port}?token=${info.token}&role=host&device_name=Host%20Session&mode=editor`;
+  _connectProvider(ydoc, hostLocalWsUrl);
 
   // Register Tauri event listeners
   await _registerEventListeners();

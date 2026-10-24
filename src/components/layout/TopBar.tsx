@@ -74,7 +74,7 @@ export const TopBar: React.FC = () => {
     };
 
     return (
-        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-20 relative pt-[var(--safe-area-top,0px)] gap-2">
+        <header className="h-14 bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border flex items-center justify-between px-4 z-[100] relative pt-[var(--safe-area-top,0px)] gap-2">
             {/* Left: Branding & Quick Study / Lectio triggers */}
             <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                 <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.location.href = '/'}>
@@ -143,7 +143,7 @@ export const TopBar: React.FC = () => {
                         {showExportMenu && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-dark-surface rounded-xl shadow-xl border border-light-border dark:border-dark-border py-2 z-20 flex flex-col">
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#1A1A1A] rounded-xl shadow-xl border border-light-border dark:border-dark-border py-2 z-[110] flex flex-col">
                                     <div className="px-4 py-2 border-b border-light-border dark:border-dark-border mb-2">
                                         <p className="text-xs font-bold uppercase tracking-wider text-light-text-secondary">Export As</p>
                                     </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Editor } from '@tiptap/react';
 import {
+    Mic,
     Bold,
     Italic,
     Underline,
@@ -29,6 +30,7 @@ import {
 import { PromptModal } from '@/components/ui/PromptModal';
 import { useUIStore } from '@/stores/uiStore';
 import { useNoteStore } from '@/stores/noteStore';
+import { inlineDictation } from '@/lib/voice/inlineDictationService';
 
 interface EditorToolbarProps {
     editor: Editor | null;
@@ -42,6 +44,28 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const [isCaseMenuExpanded, setIsCaseMenuExpanded] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDictating, setIsDictating] = useState(false);
+
+    React.useEffect(() => {
+        const unsub = inlineDictation.subscribe((dictating, err) => {
+            setIsDictating(dictating);
+            if (err) showToast(err, 'error');
+        });
+        return () => unsub();
+    }, [showToast]);
+
+    React.useEffect(() => {
+        const handleKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                if (editor) {
+                    inlineDictation.toggle(editor);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [editor]);
 
     const handleSave = async () => {
         if (!currentNote || !editor) return;
@@ -205,6 +229,25 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                     </button>
                 </div>
 
+                {/* Inline Voice Dictation (Word-style transcription at cursor) */}
+                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
+                    <button
+                        onClick={() => inlineDictation.toggle(editor)}
+                        onMouseDown={(e) => {
+                            if (!isMobile) e.preventDefault();
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-xs font-black uppercase tracking-wider shrink-0 min-h-[36px] shadow-sm active:scale-95 ${
+                            isDictating
+                                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                                : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background hover:text-primary'
+                        }`}
+                        title={isDictating ? 'Stop Voice Dictation (Ctrl+Shift+R)' : 'Voice Dictate at Cursor (Ctrl+Shift+R)'}
+                    >
+                        <Mic size={16} className={isDictating ? 'animate-bounce' : ''} />
+                        <span className="hidden md:inline">{isDictating ? 'Listening...' : 'Dictate'}</span>
+                    </button>
+                </div>
+
                 {/* Undo/Redo */}
                 <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-2 shrink-0">
                     <Button
@@ -345,7 +388,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                         </div>
 
                         {/* Right side options */}
-                        <div className="ml-auto flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                             {/* Text Case Menu */}
                             {isCaseMenuExpanded ? (
                                 <div className="flex items-center gap-1 bg-light-background dark:bg-dark-background p-1 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-right-2 duration-200">

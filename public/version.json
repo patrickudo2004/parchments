@@ -1,6 +1,6 @@
 {
-  "latest": "0.2.5",
+  "latest": "0.2.6",
   "min_required": "0.1.0-beta.7",
   "download_url": "https://github.com/patrickudo2004/parchments/releases/latest",
-  "message": "Parchments v0.2.5: Real-time on-device Whisper AI speech transcription, responsive voice recording modal, Pulpit Mode auto-scroll pause, SBL scripture reference support, and performance optimizations."
+  "message": "Parchments v0.2.6: Fix Android CI release APK packaging & branded launcher icons, solve menu transparency & z-index layering, add inline voice dictation at cursor, fix voice note Markdown formatting & instant transcript reactivity, fix local Studyspace disk reconnection & clear workspace labeling, fix Bible verse selection flow with Pin Range default & optional TSK cross-references, fix local Wi-Fi sync host self-join loop, and responsive toolbar."
 }

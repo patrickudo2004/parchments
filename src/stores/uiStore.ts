@@ -101,6 +101,7 @@ interface UIStore {
     closeRightSidebar: () => void;
     openLexicon: (id?: string) => void;
     openCrossRefs: (verseId?: string) => void;
+    setSelectedVerseId: (id: string | null) => void;
     openCommentary: () => void;
     openDictionary: (term?: string) => void;
     setSelectedDictionaryTerm: (term: string | null) => void;
@@ -283,6 +284,7 @@ export const useUIStore = create<UIStore>()(
                 selectedStrongsId: id || state.selectedStrongsId
             })),
 
+            setSelectedVerseId: (id) => set({ selectedVerseId: id }),
             openCrossRefs: (verseId) => set((state) => ({
                 rightSidebarOpen: true,
                 rightSidebarContent: 'crossrefs',

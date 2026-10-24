@@ -29,8 +29,9 @@ const App: React.FC = () => {
         storagePersistence.requestPersistence().catch(err => console.error('Failed to request storage persistence:', err));
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));
         
-        // Load initial DB notes and folders for database mode / mobile sandbox
-        const { loadNotes, loadFolders } = useNoteStore.getState();
+        // Initialize local folder reconnection and load initial DB notes and folders
+        const { loadNotes, loadFolders, initStorageFoundation } = useNoteStore.getState();
+        initStorageFoundation().catch(err => console.error('Failed to init local folder:', err));
         loadNotes().catch(err => console.error('Failed to load notes:', err));
         loadFolders().catch(err => console.error('Failed to load folders:', err));
     }, []);

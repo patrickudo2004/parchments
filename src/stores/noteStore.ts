@@ -256,6 +256,7 @@ interface NoteStore {
     selectStorageFoundation: (type: 'local' | 'browser') => Promise<void>;
     reconnectLocalFolder: () => Promise<void>;
     migrateBrowserNotesToLocalFolder: () => Promise<{ migratedNotes: number; migratedFolders: number }>;
+    initStorageFoundation: () => Promise<void>;
 }
 
 const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
@@ -482,18 +483,23 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         const targetFolderId = folderId || activeWorkspaceId;
 
+        const initialHtml = transcript
+            ? `<h1>Voice Note</h1><p>${transcript}</p>`
+            : '<h1>Voice Note</h1><p><em>Transcribing audio...</em></p>';
+
         const note = await dbHelpers.createNote({
-            title: 'Voice Note',
-            content: '', // Empty - transcript is stored in transcript field
+            title: `Voice Note ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            content: initialHtml,
             folderId: targetFolderId,
-            tags: [],
+            tags: ['voice'],
             type: 'voice',
             audioBlob,
             duration,
-            transcript, // Store transcript as separate field for sync
+            transcript: transcript || '',
         });
         const { notes, broadcastFolderChange } = get();
         set({ notes: [...notes, note], currentNote: note });
+        useUIStore.getState().activeEditor?.commands.setContent(initialHtml);
         broadcastFolderChange(targetFolderId);
 
         if (!transcript && audioBlob) {
@@ -530,13 +536,19 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
         } else {
-            await db.notes.update(noteId, { transcript, updatedAt: Date.now() });
-            const updatedNotes = notes.map(n => n.id === noteId ? { ...n, transcript, updatedAt: Date.now() } : n);
+            const formattedHtml = `<h1>Voice Note</h1><p>${transcript}</p>`;
+            await db.notes.update(noteId, { transcript, content: formattedHtml, updatedAt: Date.now() });
+            const updatedNotes = notes.map(n => n.id === noteId ? { ...n, transcript, content: formattedHtml, updatedAt: Date.now() } : n);
             set({ notes: updatedNotes });
         }
 
         if (currentNote && currentNote.id === noteId) {
-            set({ currentNote: { ...currentNote, transcript, updatedAt: Date.now() } });
+            const formattedHtml = `<h1>Voice Note</h1><p>${transcript}</p>`;
+            set({ currentNote: { ...currentNote, transcript, content: formattedHtml, updatedAt: Date.now() } });
+            const activeEd = useUIStore.getState().activeEditor;
+            if (activeEd) {
+                activeEd.commands.setContent(formattedHtml);
+            }
         }
     },
 
@@ -813,6 +825,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             localStorage.setItem('parchments-storage-foundation', 'local');
             localStorage.setItem('parchments-last-folder-name', handle.name);
+            if (handle.path) {
+                localStorage.setItem('parchments-last-folder-path', handle.path);
+            }
 
             // Check if there are existing notes in db.notes that can be migrated
             const dbNotesCount = await db.notes.count();
@@ -853,6 +868,39 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     reconnectLocalFolder: async () => {
         await get().openLocalFolder();
+    },
+
+    initStorageFoundation: async () => {
+        const { isLocalMode } = get();
+        const savedPath = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-path') : null;
+        const savedName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
+        const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+
+        if (isLocalMode && savedPath && isTauri) {
+            try {
+                const handle: FileSystemDirectoryHandle = {
+                    kind: 'directory',
+                    name: savedName || 'Studyspace',
+                    path: savedPath
+                };
+                const rawFiles = await fileSystem.readDirectoryRecursive(handle);
+                const files: LocalItem[] = rawFiles.map(f => ({
+                    id: f.id,
+                    name: f.name,
+                    kind: f.kind,
+                    handle: f.handle,
+                    parentId: f.parentId
+                }));
+                set({
+                    localDirectoryHandle: handle,
+                    localFiles: get().sortLocalItems(files),
+                    hasStudyspace: true
+                });
+                console.log(`[NoteStore] Auto-reconnected to local folder: ${savedName} (${savedPath}) with ${files.length} items`);
+            } catch (err) {
+                console.warn('[NoteStore] Failed to auto-reconnect local folder:', err);
+            }
+        }
     },
 
     migrateBrowserNotesToLocalFolder: async () => {
@@ -1409,7 +1457,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 ? 'wav'
                 : 'webm';
             const audioName = `Recording ${timestamp}.${audioExt}`;
-            const noteName = `Transcript ${timestamp}.html`;
+            const noteName = `Transcript ${timestamp}.md`;
 
             // Save the audio file
             await fileSystem.createFile(parentHandle, audioName, audioBlob);
@@ -1418,7 +1466,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const fileId = crypto.randomUUID();
             const createdAt = Date.now();
             // Store transcript in BOTH metadata (for clean parsing) AND content (for fallback display)
-            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n<h1>Voice Transcript</h1><p>${transcript || 'No transcript available.'}</p>`;
+            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Automatically open the new transcript note
@@ -1430,6 +1478,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 handle: noteHandle,
                 parentId: targetFolderId
             });
+
+            const activeEd = useUIStore.getState().activeEditor;
+            if (activeEd) {
+                activeEd.commands.setContent(`<h1>Voice Transcript</h1><p>${transcript || 'Transcribing audio...'}</p>`);
+            }
 
             // Refresh file list asynchronously so it gets mapped correctly in localFiles
             await get().refreshLocalFiles();

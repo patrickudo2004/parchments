@@ -9,7 +9,7 @@ import { BookChapterPicker } from './BookChapterPicker';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 import { Languages } from 'lucide-react';
 import { ParallelVerseRow } from './ParallelVerseRow';
-import { Pin, X, BookOpen, Copy, Quote } from 'lucide-react';
+import { Pin, X, BookOpen, Copy, Quote, GitBranch } from 'lucide-react';
 import { useResearchStore } from '@/stores/researchStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoutService } from '@/lib/utils/popoutService';
@@ -37,7 +37,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
     const { pinItem } = useResearchStore();
 
-    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, openCrossRefs } = useUIStore();
+    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, openCrossRefs, selectedVerseId, setSelectedVerseId } = useUIStore();
     const [readingFlowMode, setReadingFlowMode] = useState<'study' | 'paragraph'>('study');
 
     // Auto-expand/dock logic based on mode
@@ -520,7 +520,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                                             } else {
                                                 setSelectionRange({ start: vNum, end: vNum });
                                                 const vId = `${v.book.toLowerCase()}-${v.chapter}-${v.verse}`;
-                                                openCrossRefs(vId);
+                                                setSelectedVerseId(vId);
                                             }
                                         }}
                                         className={`inline cursor-pointer transition-colors hover:text-primary rounded px-0.5 ${isSelected ? 'bg-primary/20 text-primary font-medium' : ''}`}
@@ -650,6 +650,19 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                         >
                             <Quote size={11} className="text-primary" />
                             <span className="hidden sm:inline">Quote in Note</span>
+                        </button>
+
+                        {/* Optional TSK References */}
+                        <button
+                            onClick={() => {
+                                const vId = selectedVerseId || `${book.toLowerCase()}-${chapter}-${selectionRange.start}`;
+                                openCrossRefs(vId);
+                            }}
+                            className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1 active:scale-95"
+                            title="Open TSK Cross-References in sidebar"
+                        >
+                            <GitBranch size={11} className="text-primary" />
+                            <span className="hidden sm:inline">TSK References</span>
                         </button>
 
                         <button

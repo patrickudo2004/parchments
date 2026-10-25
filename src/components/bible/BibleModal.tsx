@@ -3,12 +3,10 @@ import { motion, useDragControls } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
 import { X, Search, Settings, BookOpen } from 'lucide-react';
 import { BibleReader } from './BibleReader';
-import { BibleSearchOverlay } from './BibleSearchOverlay';
 import { useBibleStore } from '@/stores/bibleStore';
-import { AnimatePresence } from 'framer-motion';
 
 export const BibleModal: React.FC = () => {
-    const { isBibleModalOpen, toggleBibleModal, isMobile } = useUIStore();
+    const { isBibleModalOpen, toggleBibleModal, toggleSettingsModal, isMobile } = useUIStore();
     const { isSearchOpen, setSearchOpen } = useBibleStore();
     const constraintsRef = useRef(null);
     const dragControls = useDragControls();
@@ -77,12 +75,19 @@ export const BibleModal: React.FC = () => {
                     <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => setSearchOpen(!isSearchOpen)}
+                            data-testid="bible-modal-search-btn"
                             className={`p-2 rounded-xl transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95 touch-manipulation ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary'}`}
                             title={isSearchOpen ? "Back to Bible" : "Search (Keywords, References, Strong's)"}
                         >
                             <Search size={16} />
                         </button>
-                        <button className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-xl transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95 touch-manipulation" title="Settings"><Settings size={16} /></button>
+                        <button
+                            onClick={() => toggleSettingsModal()}
+                            className="p-2 hover:bg-light-sidebar dark:hover:bg-dark-sidebar text-light-text-secondary dark:text-dark-text-secondary rounded-xl transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95 touch-manipulation"
+                            title="Settings"
+                        >
+                            <Settings size={16} />
+                        </button>
                         <div className="w-[1px] h-4 bg-light-border dark:border-dark-border mx-1" />
                         <button
                             onClick={(e) => {
@@ -97,12 +102,9 @@ export const BibleModal: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Content Area */}
+                {/* Content Area (BibleReader manages BibleSearchOverlay & verse navigation internally) */}
                 <div className="flex-1 overflow-hidden relative">
-                    <BibleReader isIndependent={true} />
-                    <AnimatePresence>
-                        {isSearchOpen && <BibleSearchOverlay key="search-overlay" />}
-                    </AnimatePresence>
+                    <BibleReader isIndependent={true} hideSearchButton={true} />
                 </div>
 
                 {/* Resize Handle (Desktop only) */}

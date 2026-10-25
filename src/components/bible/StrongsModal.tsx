@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
 import { useResearchStore } from '@/stores/researchStore';
 import { useUIStore } from '@/stores/uiStore';
+import { searchStrongsLexicon } from '@/lib/search/bibleSearchEngine';
 
 interface StrongsModalProps {
     strongsId: string | null;
@@ -13,6 +14,7 @@ interface StrongsModalProps {
 
 export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }) => {
     const [entry, setEntry] = useState<StrongsEntry | null>(null);
+    const [matches, setMatches] = useState<StrongsEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const constraintsRef = React.useRef(null);
@@ -26,6 +28,7 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
             const normalizedId = strongsId.toUpperCase();
             db.strongsEntries.get(normalizedId).then((res) => {
                 setEntry(res || null);
+                setMatches([]);
                 setLoading(false);
             });
         } else {
@@ -33,17 +36,22 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
         }
     }, [strongsId]);
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (searchQuery.trim()) {
-            const id = searchQuery.trim().toUpperCase();
-            if (/^[HG]\d+$/i.test(id)) {
-                setLoading(true);
-                db.strongsEntries.get(id).then((res) => {
-                    setEntry(res || null);
-                    setLoading(false);
-                });
-            }
+        const trimmed = searchQuery.trim();
+        if (!trimmed) return;
+        setLoading(true);
+        const results = await searchStrongsLexicon(trimmed, 20);
+        setLoading(false);
+        if (results.length === 1) {
+            setEntry(results[0]);
+            setMatches([]);
+        } else if (results.length > 1) {
+            setEntry(null);
+            setMatches(results);
+        } else {
+            setEntry(null);
+            setMatches([]);
         }
     };
 
@@ -73,7 +81,7 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
                         <div>
                             <h2 className="text-[10px] font-black uppercase tracking-widest text-primary leading-none mb-1">Lexicon Concordance</h2>
                             <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">
-                                {strongsId ? strongsId.toUpperCase() : 'Entry Lookup'}
+                                {entry?.id || (strongsId ? strongsId.toUpperCase() : 'Entry Lookup')}
                             </p>
                         </div>
                     </div>
@@ -81,10 +89,10 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
                         <form onSubmit={handleSearch} className="hidden sm:flex items-center bg-light-background dark:bg-dark-background rounded-full px-3 py-1 border border-light-border dark:border-dark-border focus-within:border-primary transition-colors">
                             <input
                                 type="text"
-                                placeholder="G2424..."
+                                placeholder="H3548 or priest..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent border-none text-[10px] focus:ring-0 w-20 px-1"
+                                className="bg-transparent border-none outline-none text-[11px] focus:ring-0 w-28 px-1"
                             />
                             <button type="submit" className="text-primary hover:text-primary-dark p-1">
                                 <Search size={14} />
@@ -109,6 +117,33 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
                         <div className="py-20 flex flex-col items-center justify-center space-y-4">
                             <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
                             <p className="text-xs font-bold uppercase tracking-widest text-light-text-disabled">Fetching Lexicon Data...</p>
+                        </div>
+                    ) : matches.length > 0 ? (
+                        <div className="space-y-3">
+                            <p className="text-xs font-black uppercase tracking-widest text-light-text-disabled">
+                                Select Lexicon Entry ({matches.length})
+                            </p>
+                            {matches.map((m) => (
+                                <button
+                                    key={m.id}
+                                    onClick={() => {
+                                        setEntry(m);
+                                        setMatches([]);
+                                    }}
+                                    className="w-full text-left p-3.5 rounded-xl border border-light-border dark:border-dark-border hover:border-primary/40 hover:bg-primary/5 transition-all space-y-1"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-black uppercase">
+                                            {m.id}
+                                        </span>
+                                        <span className="font-serif text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+                                            {m.lemma}
+                                        </span>
+                                        {m.xlit && <span className="text-xs italic text-light-text-secondary">({m.xlit})</span>}
+                                    </div>
+                                    <p className="text-xs text-light-text-secondary line-clamp-2">{m.kjv_def || m.strongs_def}</p>
+                                </button>
+                            ))}
                         </div>
                     ) : entry ? (
                         <div className="animate-in fade-in duration-300">
@@ -156,7 +191,7 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
                             <div className="space-y-4 mb-8">
                                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-light-text-disabled">
                                     <BookOpen size={14} />
-                                    <span>Strongs Definition</span>
+                                    <span>Strong's Definition</span>
                                 </div>
                                 <p className="text-xl leading-relaxed text-light-text-primary dark:text-dark-text-primary font-serif">
                                     {entry.strongs_def}
@@ -177,17 +212,19 @@ export const StrongsModal: React.FC<StrongsModalProps> = ({ strongsId, onClose }
                         <div className="py-20 text-center space-y-6">
                             <div className="space-y-2">
                                 <p className="text-light-text-disabled italic">
-                                    {strongsId ? 'Lexicon entry not found in database.' : 'Enter a Strong\'s number to lookup its details.'}
+                                    {strongsId ? 'Lexicon entry not found in database.' : "Enter a Strong's ID or English keyword to look up its details."}
                                 </p>
-                                <p className="text-[10px] uppercase font-bold text-light-text-disabled tracking-widest">Example: H430 (Elohim) or G2424 (Jesus)</p>
+                                <p className="text-[10px] uppercase font-bold text-light-text-disabled tracking-widest">
+                                    Example: H3548 (Priest), H430 (Elohim), or G2424 (Jesus)
+                                </p>
                             </div>
                             <form onSubmit={handleSearch} className="max-w-xs mx-auto flex gap-2">
                                 <input
                                     type="text"
-                                    placeholder="Enter Strong's ID..."
+                                    placeholder="Strong's ID or keyword..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="flex-1 bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border rounded-xl text-sm focus:ring-primary focus:border-primary px-4 py-2"
+                                    className="flex-1 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm focus:ring-primary focus:border-primary px-4 py-2"
                                     autoFocus
                                 />
                                 <button

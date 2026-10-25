@@ -168,7 +168,10 @@ export const DictionarySidebar: React.FC<{ isIndependent?: boolean }> = ({ isInd
                         type="text"
                         placeholder="Search 5,900+ biblical terms..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setSelectedEntry(null);
+                        }}
                         className="w-full bg-white dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl pl-8 pr-8 py-2 text-xs text-light-text-primary dark:text-dark-text-primary placeholder:text-light-text-disabled focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
                     />
                     {searchQuery && (

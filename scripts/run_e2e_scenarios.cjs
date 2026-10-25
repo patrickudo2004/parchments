@@ -695,6 +695,392 @@ async function run() {
         const sc9ConnectedPath = path.join(screenshotsDir, 'scenario9_local_folder_connected.png');
         await page.screenshot({ path: sc9ConnectedPath });
 
+        // ==============================================================
+        // SCENARIO 10: Canonical Scripture, Concordance, Lexicon & Universal Search
+        // ==============================================================
+        console.log('\n--- Scenario 10: Canonical Scripture, Concordance, Lexicon & Universal Search ---');
+        await page.setViewport({ width: 1440, height: 900 });
+
+        // Ensure clean UI state with Docked Right-Sidebar BibleReader open
+        await page.evaluate(async () => {
+            const ui = (window).useUIStore.getState();
+            if (ui.isBibleModalOpen) ui.toggleBibleModal();
+            ui.openRightSidebar('bible');
+            if (ui.isRightSidebarFloating) ui.toggleRightSidebarFloating();
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchOpen(false);
+            bible.setSearchWholeWord(false);
+            bible.setSearchTestamentFilter('all');
+            bible.setSearchBookFilter(null);
+            bible.setBibleFocus({ book: 'John', chapter: 1, verse: 1 });
+        });
+        await new Promise(r => setTimeout(r, 500));
+
+        // Wait until full 31,102-verse encrypted KJV + 14,000+ Strong's Lexicon finish seeding
+        await page.waitForFunction(async () => {
+            const bible = (window).useBibleStore.getState();
+            await bible.executeSearch('Revelation 22:21');
+            const revReady = (window).useBibleStore.getState().searchResults.length === 1;
+            if (!revReady) return false;
+            await bible.executeSearch('H3548');
+            const strongsReady = !!(window).useBibleStore.getState().searchStrongsEntry;
+            return strongsReady;
+        }, { timeout: 60000, polling: 1500 });
+
+        // Reset search state cleanly before real user typing
+        await page.evaluate(async () => {
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchQuery('');
+            await bible.executeSearch('');
+            bible.setSearchOpen(false);
+        });
+        await new Promise(r => setTimeout(r, 300));
+
+        // 10.1 Open Docked BibleReader Search button & type 'priest'
+        const readerSearchBtnClicked = await page.evaluate(() => {
+            const btn = document.querySelector('[data-testid="bible-reader-search-btn"]');
+            if (btn) {
+                btn.click();
+                return true;
+            }
+            return false;
+        });
+        recordResult('Scenario 10', 'Docked Right-Sidebar BibleReader exposes dedicated Search toggle button', readerSearchBtnClicked);
+        await new Promise(r => setTimeout(r, 300));
+
+        await page.focus('[data-testid="bible-search-input"]');
+        await page.keyboard.type('priest', { delay: 25 });
+
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchQuery === 'priest' && s.searchTotalCount > 0;
+        }, { timeout: 25000 });
+        await new Promise(r => setTimeout(r, 300));
+
+        const priestCanonicalCheck = await page.evaluate(() => {
+            const s = (window).useBibleStore.getState();
+            const domItems = Array.from(document.querySelectorAll('[data-testid="bible-search-result-item"]'));
+            const firstDomRef = domItems[0]?.getAttribute('data-ref') || '';
+            const secondDomRef = domItems[1]?.getAttribute('data-ref') || '';
+            const firstDomText = domItems[0]?.textContent || '';
+            const firstHasMark = !!domItems[0]?.querySelector('mark');
+            const lastStoreVerse = s.searchResults[s.searchResults.length - 1];
+            const lastStoreRef = lastStoreVerse ? `${lastStoreVerse.book} ${lastStoreVerse.chapter}:${lastStoreVerse.verse}` : '';
+            const filterAllText = document.querySelector('[data-testid="bible-filter-all"]')?.textContent?.trim() || '';
+            return {
+                totalCount: s.searchTotalCount,
+                otCount: s.searchOtCount,
+                ntCount: s.searchNtCount,
+                resultsLen: s.searchResults.length,
+                firstDomRef,
+                secondDomRef,
+                firstDomText,
+                firstHasMark,
+                lastStoreRef,
+                filterAllText,
+                encryptedLeak: s.searchResults.some(v => v.text.startsWith('ENC::v1::'))
+            };
+        });
+
+        recordResult(
+            'Scenario 10',
+            "Searching 'priest' returns all 846 KJV matches in strict canonical order starting at Genesis 14:18 (NOT 1 Samuel)",
+            priestCanonicalCheck.totalCount === 846 &&
+                priestCanonicalCheck.resultsLen === 846 &&
+                priestCanonicalCheck.firstDomRef === 'Genesis 14:18' &&
+                priestCanonicalCheck.secondDomRef === 'Genesis 41:45' &&
+                priestCanonicalCheck.lastStoreRef === 'Revelation 20:6' &&
+                priestCanonicalCheck.firstHasMark &&
+                !priestCanonicalCheck.encryptedLeak,
+            `1st: ${priestCanonicalCheck.firstDomRef}, 2nd: ${priestCanonicalCheck.secondDomRef}, Last: ${priestCanonicalCheck.lastStoreRef}, Total: ${priestCanonicalCheck.totalCount} (OT ${priestCanonicalCheck.otCount} / NT ${priestCanonicalCheck.ntCount})`
+        );
+
+        const sc10PriestPath = path.join(screenshotsDir, 'scenario10_bible_search_priest_genesis.png');
+        await page.screenshot({ path: sc10PriestPath });
+
+        // 10.2 Exact Whole-Word Toggle ('priest' -> 478 matches) + NT & Book ('Hebrews') Filtering
+        await page.click('[data-testid="bible-filter-whole-word"]');
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchWholeWord === true && s.searchTotalCount === 478;
+        }, { timeout: 10000 });
+
+        const wholeWordCheck = await page.evaluate(() => {
+            const s = (window).useBibleStore.getState();
+            const firstRef = s.searchResults[0] ? `${s.searchResults[0].book} ${s.searchResults[0].chapter}:${s.searchResults[0].verse}` : '';
+            return { total: s.searchTotalCount, firstRef };
+        });
+        recordResult(
+            'Scenario 10',
+            "Exact Whole-Word toggle narrows 'priest' from 846 inclusive to 478 exact whole-word matches (Genesis 14:18 first)",
+            wholeWordCheck.total === 478 && wholeWordCheck.firstRef === 'Genesis 14:18',
+            `Exact matches: ${wholeWordCheck.total}, 1st: ${wholeWordCheck.firstRef}`
+        );
+
+        // Untoggle Whole-Word, filter to NT -> Hebrews
+        await page.click('[data-testid="bible-filter-whole-word"]');
+        await page.waitForFunction(() => !(window).useBibleStore.getState().isSearching && (window).useBibleStore.getState().searchTotalCount === 846, { timeout: 10000 });
+        await page.click('[data-testid="bible-filter-nt"]');
+        await page.waitForFunction(() => !(window).useBibleStore.getState().isSearching && (window).useBibleStore.getState().searchTestamentFilter === 'nt', { timeout: 10000 });
+        await page.select('[data-testid="bible-filter-book"]', 'Hebrews');
+        await page.waitForFunction(() => !(window).useBibleStore.getState().isSearching && (window).useBibleStore.getState().searchBookFilter === 'Hebrews', { timeout: 10000 });
+
+        const ntBookFilterCheck = await page.evaluate(() => {
+            const s = (window).useBibleStore.getState();
+            const allInHebrews = s.searchResults.length > 0 && s.searchResults.every(v => v.book === 'Hebrews');
+            const hasHeb56 = s.searchResults.some(v => v.chapter === 5 && v.verse === 6);
+            return { count: s.searchResults.length, allInHebrews, hasHeb56 };
+        });
+        recordResult(
+            'Scenario 10',
+            'Testament (NT) & Book (Hebrews) filters isolate canonical book occurrences accurately',
+            ntBookFilterCheck.allInHebrews && ntBookFilterCheck.hasHeb56 && ntBookFilterCheck.count >= 30,
+            `Hebrews matches: ${ntBookFilterCheck.count}`
+        );
+
+        // Reset filters
+        await page.click('[data-testid="bible-filter-all"]');
+        await new Promise(r => setTimeout(r, 250));
+
+        // 10.3 Multi-Word Search ('melchizedek priest') & Direct Passage Reference ('Genesis 14:18')
+        await page.evaluate(() => {
+            const input = document.querySelector('[data-testid="bible-search-input"]');
+            if (input) input.select();
+        });
+        await page.keyboard.type('melchizedek priest', { delay: 20 });
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchQuery === 'melchizedek priest' && s.searchTotalCount > 0;
+        }, { timeout: 10000 });
+
+        const multiWordCheck = await page.evaluate(() => {
+            const s = (window).useBibleStore.getState();
+            const first = s.searchResults[0];
+            const marks = Array.from(document.querySelectorAll('[data-testid="bible-search-result-item"] mark')).map(m => m.textContent?.toLowerCase());
+            return {
+                count: s.searchTotalCount,
+                firstRef: first ? `${first.book} ${first.chapter}:${first.verse}` : '',
+                hasMelchizedekMark: marks.includes('melchizedek'),
+                hasPriestMark: marks.includes('priest')
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "Multi-word search ('melchizedek priest') matches non-adjacent terms in Genesis 14:18 & Psalms 110:4 with multi-term highlights",
+            multiWordCheck.count === 2 && multiWordCheck.firstRef === 'Genesis 14:18' && multiWordCheck.hasMelchizedekMark && multiWordCheck.hasPriestMark,
+            `Matches: ${multiWordCheck.count}, 1st: ${multiWordCheck.firstRef}`
+        );
+
+        // Direct Reference Lookup ('Genesis 14:18')
+        await page.evaluate(() => {
+            const input = document.querySelector('[data-testid="bible-search-input"]');
+            if (input) input.select();
+        });
+        await page.keyboard.type('Genesis 14:18', { delay: 20 });
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchMode === 'reference' && s.searchResults.length === 1;
+        }, { timeout: 10000 });
+
+        const directRefCheck = await page.evaluate(() => {
+            const overlayText = document.querySelector('[data-testid="bible-search-overlay"]')?.textContent || '';
+            const s = (window).useBibleStore.getState();
+            return {
+                mode: s.searchMode,
+                hasBanner: overlayText.includes('Direct Passage Match'),
+                verseText: s.searchResults[0]?.text || ''
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "Direct Scripture Reference lookup ('Genesis 14:18') displays Direct Passage Match jump card & decrypted verse",
+            directRefCheck.mode === 'reference' && directRefCheck.hasBanner && directRefCheck.verseText.includes('Melchizedek'),
+            `Mode: ${directRefCheck.mode}`
+        );
+
+        // 10.4 BibleModal Search & Result Click Navigation (Independent Reader Sync Fix)
+        await page.evaluate(() => {
+            (window).useBibleStore.getState().setSearchOpen(false);
+            (window).useUIStore.getState().closeRightSidebar();
+            (window).useBibleStore.getState().setBibleFocus({ book: 'Romans', chapter: 8, verse: 1 });
+            (window).useUIStore.getState().toggleBibleModal();
+        });
+        await new Promise(r => setTimeout(r, 500));
+
+        await page.click('[data-testid="bible-modal-search-btn"]');
+        await new Promise(r => setTimeout(r, 300));
+
+        const modalOverlayCount = await page.evaluate(() => {
+            return document.querySelectorAll('[data-testid="bible-search-overlay"]').length;
+        });
+
+        await page.evaluate(() => {
+            const input = document.querySelector('[data-testid="bible-search-input"]');
+            if (input) input.select();
+        });
+        await page.keyboard.type('priest', { delay: 20 });
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchQuery === 'priest' && s.searchResults[0]?.book === 'Genesis';
+        }, { timeout: 10000 });
+        await new Promise(r => setTimeout(r, 250));
+
+        // Click the 1st result ('Genesis 14:18') inside BibleModal
+        await page.click('[data-testid="bible-search-result-item"]');
+        await new Promise(r => setTimeout(r, 600));
+
+        const modalNavCheck = await page.evaluate(() => {
+            const modalHeaderText = document.body.innerText;
+            const verse18El = document.getElementById('verse-18');
+            return {
+                overlayClosed: !(window).useBibleStore.getState().isSearchOpen,
+                showsGenesis14: modalHeaderText.includes('Genesis 14'),
+                verse18HasMelchizedek: !!(verse18El && verse18El.textContent?.includes('Melchizedek'))
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            'BibleModal renders single Search overlay & clicking Genesis 14:18 navigates independent modal reader directly to passage',
+            modalOverlayCount === 1 && modalNavCheck.overlayClosed && modalNavCheck.showsGenesis14 && modalNavCheck.verse18HasMelchizedek,
+            `Overlays: ${modalOverlayCount}, Navigated to Genesis 14:18: ${modalNavCheck.verse18HasMelchizedek}`
+        );
+
+        // Close BibleModal
+        await page.evaluate(() => {
+            if ((window).useUIStore.getState().isBibleModalOpen) {
+                (window).useUIStore.getState().toggleBibleModal();
+            }
+        });
+        await new Promise(r => setTimeout(r, 300));
+
+        // 10.5 Strong's Concordance Search ('H3548') + Lexicon English Keyword Search ('priest')
+        await page.evaluate(async () => {
+            (window).useUIStore.getState().openRightSidebar('bible');
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchOpen(true);
+            bible.setSearchQuery('H3548');
+            await bible.executeSearch('H3548');
+        });
+        await page.waitForFunction(() => {
+            const s = (window).useBibleStore.getState();
+            return !s.isSearching && s.searchMode === 'strongs' && s.searchTotalCount > 0;
+        }, { timeout: 25000 });
+
+        const strongsSearchCheck = await page.evaluate(() => {
+            const s = (window).useBibleStore.getState();
+            const first = s.searchResults[0];
+            return {
+                strongsId: s.searchStrongsEntry?.id,
+                lemma: s.searchStrongsEntry?.lemma,
+                totalOccurrences: s.searchTotalCount,
+                firstRef: first ? `${first.book} ${first.chapter}:${first.verse}` : ''
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "Strong's Concordance search ('H3548') displays Hebrew Kohen lexicon card & all OT verse occurrences starting at Genesis 14:18",
+            strongsSearchCheck.strongsId === 'H3548' && strongsSearchCheck.totalOccurrences > 600 && strongsSearchCheck.firstRef === 'Genesis 14:18',
+            `ID: ${strongsSearchCheck.strongsId} (${strongsSearchCheck.lemma}), Hits: ${strongsSearchCheck.totalOccurrences}, 1st: ${strongsSearchCheck.firstRef}`
+        );
+
+        // Open LexiconSidebar and search English keyword 'priest'
+        await page.evaluate(() => {
+            (window).useBibleStore.getState().setSearchOpen(false);
+            (window).useUIStore.getState().openRightSidebar('lexicon');
+        });
+        await new Promise(r => setTimeout(r, 350));
+        await page.focus('[data-testid="lexicon-search-input"]');
+        await page.keyboard.type('priest', { delay: 25 });
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="lexicon-keyword-results"]'), { timeout: 10000 });
+
+        const lexiconKeywordCheck = await page.evaluate(() => {
+            const container = document.querySelector('[data-testid="lexicon-keyword-results"]');
+            const text = container?.textContent || '';
+            return {
+                hasH3548: text.includes('H3548'),
+                hasGreekPriest: text.includes('G2409') || text.includes('G749')
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "Strong's Lexicon sidebar supports English keyword search ('priest' -> H3548 Kohen & G2409 Hiereus)",
+            lexiconKeywordCheck.hasH3548 && lexiconKeywordCheck.hasGreekPriest
+        );
+
+        // 10.6 MenuBar 'Edit -> Find in Bible' ('bible:' scope) & Universal CommandPalette Canonical Search
+        await page.evaluate(() => {
+            const btns = Array.from(document.querySelectorAll('button'));
+            const editBtn = btns.find(b => b.textContent?.trim() === 'Edit');
+            if (editBtn) editBtn.click();
+        });
+        await new Promise(r => setTimeout(r, 250));
+        await page.evaluate(() => {
+            const btns = Array.from(document.querySelectorAll('button'));
+            const findBibleBtn = btns.find(b => b.textContent?.includes('Find in Bible'));
+            if (findBibleBtn) findBibleBtn.click();
+        });
+        await new Promise(r => setTimeout(r, 300));
+
+        await page.focus('[data-testid="command-palette-input"]');
+        await page.keyboard.type('priest', { delay: 25 });
+
+        await page.waitForFunction(() => {
+            const items = document.querySelectorAll('[data-testid="command-palette-result"]');
+            return items.length >= 2 && items[0].textContent?.includes('Genesis 14:18');
+        }, { timeout: 15000 });
+        await new Promise(r => setTimeout(r, 250));
+
+        const cmdPaletteCheck = await page.evaluate(() => {
+            const hasBibleScopeBadge = !!document.querySelector('[data-testid="command-palette-bible-scope"]');
+            const items = Array.from(document.querySelectorAll('[data-testid="command-palette-result"]')).map(el => el.textContent || '');
+            return {
+                hasBibleScopeBadge,
+                firstItemText: items[0] || '',
+                hasViewAll846: items.some(t => t.includes('View all 846 Scripture occurrences'))
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "MenuBar 'Find in Bible' ('bible:priest') & CommandPalette show Bible Scope badge, Genesis 14:18 #1, and 'View all 846' link",
+            cmdPaletteCheck.hasBibleScopeBadge &&
+                cmdPaletteCheck.firstItemText.includes('Genesis 14:18 (KJV)') &&
+                cmdPaletteCheck.hasViewAll846,
+            `1st palette item: ${cmdPaletteCheck.firstItemText.slice(0, 48)}...`
+        );
+
+        const sc10PalettePath = path.join(screenshotsDir, 'scenario10_command_palette_priest.png');
+        await page.screenshot({ path: sc10PalettePath });
+
+        // 10.7 Click 'View all 846 Scripture occurrences of "priest"' in CommandPalette -> Verify handoff to Right-Sidebar BibleSearchOverlay
+        await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('[data-testid="command-palette-result"]'));
+            const viewAllItem = items.find(el => el.textContent?.includes('View all 846 Scripture occurrences'));
+            if (viewAllItem) viewAllItem.click();
+        });
+        await page.waitForFunction(() => {
+            const ui = (window).useUIStore.getState();
+            const bible = (window).useBibleStore.getState();
+            return !ui.isSearchModalOpen && ui.rightSidebarContent === 'bible' && bible.isSearchOpen && !bible.isSearching && bible.searchTotalCount === 846;
+        }, { timeout: 10000 });
+
+        const handoffCheck = await page.evaluate(() => {
+            const ui = (window).useUIStore.getState();
+            const bible = (window).useBibleStore.getState();
+            return {
+                paletteClosed: !ui.isSearchModalOpen,
+                sidebarIsBible: ui.rightSidebarContent === 'bible',
+                overlayOpen: bible.isSearchOpen,
+                totalCount: bible.searchTotalCount,
+                firstRef: bible.searchResults[0] ? `${bible.searchResults[0].book} ${bible.searchResults[0].chapter}:${bible.searchResults[0].verse}` : ''
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            "Clicking 'View all 846 occurrences' in CommandPalette hands off cleanly to Right-Sidebar Bible Concordance Search",
+            handoffCheck.paletteClosed && handoffCheck.sidebarIsBible && handoffCheck.overlayOpen && handoffCheck.totalCount === 846 && handoffCheck.firstRef === 'Genesis 14:18',
+            `Handed off ${handoffCheck.totalCount} results (${handoffCheck.firstRef} first)`
+        );
+
     } catch (err) {
         console.error('\n[E2E Runner Exception]:', err);
     } finally {
@@ -711,7 +1097,7 @@ async function run() {
     const passed = testResults.filter(r => r.passed).length;
     const failed = total - passed;
 
-    console.log(`Total Scenarios Tested : 9`);
+    console.log(`Total Scenarios Tested : 10`);
     console.log(`Total Assertions Checked: ${total}`);
     console.log(`Passed Assertions      : ${passed}`);
     console.log(`Failed Assertions      : ${failed}`);

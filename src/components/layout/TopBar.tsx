@@ -116,6 +116,15 @@ export const TopBar: React.FC = () => {
             {/* Right: Actions */}
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 {/* Search */}
+                <button
+                    onClick={() => toggleSearchModal()}
+                    data-testid="topbar-search-compact"
+                    className="xl:hidden p-2 rounded-full hover:bg-light-background dark:hover:bg-dark-background transition-colors text-light-text-secondary dark:text-dark-text-secondary"
+                    title="Universal Search (Ctrl+K)"
+                    aria-label="Universal Search"
+                >
+                    <Search size={18} />
+                </button>
                 <div
                     className="relative hidden xl:block cursor-pointer group"
                     onClick={() => toggleSearchModal()}

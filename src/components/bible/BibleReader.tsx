@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2, AlignLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2, AlignLeft, Search } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
@@ -17,9 +17,10 @@ import { BibleSearchOverlay } from './BibleSearchOverlay';
 
 interface BibleReaderProps {
     isIndependent?: boolean;
+    hideSearchButton?: boolean;
 }
 
-export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false }) => {
+export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false, hideSearchButton = false }) => {
     const {
         bibleFocus,
         mainVersion,
@@ -32,7 +33,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
         toggleInterlinear,
         selectionRange,
         setSelectionRange,
-        isSearchOpen
+        isSearchOpen,
+        setSearchOpen
     } = useBibleStore();
 
     const { pinItem } = useResearchStore();
@@ -95,7 +97,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             if (bibleFocus.verse !== null && bibleFocus.verse !== undefined) {
                 setTimeout(() => {
-                    const el = document.getElementById(`verse-${bibleFocus.verse}`);
+                    const el = contentRef.current?.querySelector(`#verse-${bibleFocus.verse}`) || document.getElementById(`verse-${bibleFocus.verse}`);
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 100);
             }
@@ -381,6 +383,17 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                    {!hideSearchButton && (
+                        <button
+                            onClick={() => setSearchOpen(!isSearchOpen)}
+                            data-testid="bible-reader-search-btn"
+                            className={`p-1.5 rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled hover:text-primary'}`}
+                            title={isSearchOpen ? 'Close Scripture Search' : "Search Scripture (Keywords, References, Strong's)"}
+                            aria-label="Search Scripture"
+                        >
+                            <Search size={17} />
+                        </button>
+                    )}
                     <button
                         onClick={toggleInterlinear}
                         className={`p-1.5 rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
@@ -678,7 +691,21 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false 
 
             {/* Search Overlay */}
             <AnimatePresence>
-                {isSearchOpen && <BibleSearchOverlay key="search-overlay" />}
+                {isSearchOpen && (
+                    <BibleSearchOverlay
+                        key="search-overlay"
+                        onSelectVerse={(target) => {
+                            setBook(target.book);
+                            setChapter(target.chapter);
+                            setTimeout(() => {
+                                const el =
+                                    contentRef.current?.querySelector(`#verse-${target.verse}`) ||
+                                    document.getElementById(`verse-${target.verse}`);
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 120);
+                        }}
+                    />
+                )}
             </AnimatePresence>
         </div>
     );

@@ -3,13 +3,15 @@ import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
 import { db } from '@/lib/db';
 import type { StrongsEntry } from '@/types/database';
-import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, Hash, Volume2, BookOpen, Link2, Clock, Trash2, Pin, ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
 import { popoutService } from '@/lib/utils/popoutService';
 import { useResearchStore } from '@/stores/researchStore';
+import { searchStrongsLexicon } from '@/lib/search/bibleSearchEngine';
 
 export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndependent = false }) => {
     const { selectedStrongsId, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar } = useUIStore();
     const [entry, setEntry] = useState<StrongsEntry | null>(null);
+    const [keywordMatches, setKeywordMatches] = useState<StrongsEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [history, setHistory] = useState<string[]>([]);
@@ -26,15 +28,53 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
     useEffect(() => {
         const savedHistory = localStorage.getItem('parchments-lexicon-history');
         if (savedHistory) {
-            setHistory(JSON.parse(savedHistory));
+            try {
+                setHistory(JSON.parse(savedHistory));
+            } catch {
+                // ignore malformed storage
+            }
         }
     }, []);
 
+    // Live keyword / ID search when typing
+    useEffect(() => {
+        let active = true;
+        const trimmed = searchQuery.trim();
+        if (!trimmed) {
+            setKeywordMatches([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            const cleanId = trimmed.startsWith('#') ? trimmed.slice(1).toUpperCase() : trimmed.toUpperCase();
+            if (/^[HG]\d+$/i.test(cleanId)) {
+                const res = await db.strongsEntries.get(cleanId);
+                if (active) {
+                    setKeywordMatches(res ? [res] : []);
+                }
+                return;
+            }
+            if (trimmed.length >= 2) {
+                const matches = await searchStrongsLexicon(trimmed, 20);
+                if (active) {
+                    setKeywordMatches(matches);
+                }
+            }
+        }, 180);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [searchQuery]);
+
     const loadEntry = async (id: string) => {
         setLoading(true);
-        const normalizedId = id.toUpperCase();
+        const normalizedId = id.replace(/^#/, '').trim().toUpperCase();
         const res = await db.strongsEntries.get(normalizedId);
         setEntry(res || null);
+        setKeywordMatches([]);
+        setSearchQuery('');
         setLoading(false);
 
         if (res) {
@@ -43,19 +83,33 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
     };
 
     const updateHistory = (id: string) => {
-        setHistory(prev => {
-            const newHistory = [id, ...prev.filter(h => h !== id)].slice(0, 10);
+        setHistory((prev) => {
+            const newHistory = [id, ...prev.filter((h) => h !== id)].slice(0, 10);
             localStorage.setItem('parchments-lexicon-history', JSON.stringify(newHistory));
             return newHistory;
         });
     };
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        const id = searchQuery.trim().toUpperCase();
-        if (/^[HG]\d+$/i.test(id)) {
-            loadEntry(id);
+        const trimmed = searchQuery.trim();
+        if (!trimmed) return;
+        const cleanId = trimmed.replace(/^#/, '').toUpperCase();
+        if (/^[HG]\d+$/i.test(cleanId)) {
+            await loadEntry(cleanId);
+            return;
+        }
+        setLoading(true);
+        const matches = await searchStrongsLexicon(trimmed, 20);
+        setLoading(false);
+        if (matches.length === 1) {
+            setEntry(matches[0]);
+            setKeywordMatches([]);
             setSearchQuery('');
+            updateHistory(matches[0].id);
+        } else {
+            setEntry(null);
+            setKeywordMatches(matches);
         }
     };
 
@@ -71,14 +125,14 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-primary">
                         <Hash size={16} />
-                        <h2 className="text-[10px] font-black uppercase tracking-widest leading-none">Lexicon</h2>
+                        <h2 className="text-[10px] font-black uppercase tracking-widest leading-none">Strong's Lexicon</h2>
                     </div>
                     <div className="flex items-center gap-1">
                         {!isIndependent && (
                             <button
                                 onClick={toggleRightSidebarFloating}
                                 className={`p-1 rounded-md transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
-                                title={isRightSidebarFloating ? "Dock" : "Undock"}
+                                title={isRightSidebarFloating ? 'Dock' : 'Undock'}
                             >
                                 {isRightSidebarFloating ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                             </button>
@@ -99,11 +153,24 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-disabled group-focus-within:text-primary transition-colors" size={14} />
                     <input
                         type="text"
-                        placeholder="Search Strong's (e.g. G2424)..."
+                        data-testid="lexicon-search-input"
+                        placeholder="Search Strong's ID (H3548) or word (priest)..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white dark:bg-dark-background border-light-border dark:border-dark-border rounded-xl pl-9 pr-4 py-2 text-xs focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                        className="w-full bg-white dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl pl-9 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
                     />
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearchQuery('');
+                                setKeywordMatches([]);
+                            }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-light-text-disabled hover:text-light-text-primary"
+                        >
+                            <X size={12} />
+                        </button>
+                    )}
                 </form>
             </div>
 
@@ -113,28 +180,65 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                         <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
                         <p className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">Lexicon Lookup...</p>
                     </div>
+                ) : searchQuery.trim() && keywordMatches.length > 0 ? (
+                    <div className="space-y-2.5" data-testid="lexicon-keyword-results">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
+                            Lexicon Matches ({keywordMatches.length})
+                        </p>
+                        {keywordMatches.map((m) => (
+                            <button
+                                key={m.id}
+                                onClick={() => loadEntry(m.id)}
+                                className="w-full text-left p-3 rounded-xl border border-light-border dark:border-dark-border hover:border-primary/40 hover:bg-primary/5 transition-all space-y-1"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-black uppercase">
+                                            {m.id}
+                                        </span>
+                                        <span className="font-serif text-base font-bold text-light-text-primary dark:text-dark-text-primary">
+                                            {m.lemma}
+                                        </span>
+                                        {m.xlit && (
+                                            <span className="text-xs italic text-light-text-secondary">
+                                                ({m.xlit})
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary line-clamp-2">
+                                    {m.kjv_def || m.strongs_def}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
                 ) : entry ? (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {/* Word Heading */}
                         <div className="space-y-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded uppercase tracking-tighter">
                                     {entry.id}
                                 </span>
                                 <button
                                     onClick={() => {
-                                        const { setSearchOpen, setSearchQuery, executeSearch } = useBibleStore.getState();
-                                        const { toggleBibleModal } = useUIStore.getState();
-                                        setSearchQuery(entry.id);
+                                        const { setSearchOpen, setSearchQuery: setBibleSearchQuery, executeSearch } = useBibleStore.getState();
+                                        const { openRightSidebar, isBibleModalOpen } = useUIStore.getState();
+                                        setBibleSearchQuery(entry.id);
                                         setSearchOpen(true);
-                                        toggleBibleModal();
-                                        executeSearch();
+                                        if (!isIndependent && !isBibleModalOpen) {
+                                            openRightSidebar('bible');
+                                        }
+                                        executeSearch(entry.id);
                                     }}
+                                    data-testid="lexicon-search-occurrences"
                                     className="p-1.5 bg-primary/5 text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-1.5"
-                                    title={`Search all occurrences of ${entry.id}`}
+                                    title={`Search all canonical Scripture occurrences of ${entry.id}`}
                                 >
                                     <Search size={12} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none pr-1">Search Occurrences</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none pr-1">
+                                        Search Occurrences
+                                    </span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -151,7 +255,11 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                                             });
                                         }
                                     }}
-                                    className={`ml-auto p-1.5 rounded-lg transition-all ${isItemPinned(entry.id) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-light-background dark:bg-dark-background text-light-text-disabled hover:text-primary hover:border-primary/50'}`}
+                                    className={`ml-auto p-1.5 rounded-lg transition-all ${
+                                        isItemPinned(entry.id)
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                            : 'bg-light-background dark:bg-dark-background text-light-text-disabled hover:text-primary hover:border-primary/50'
+                                    }`}
                                     title="Pin to Research"
                                 >
                                     <Pin size={14} />
@@ -173,7 +281,7 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                         <div className="space-y-4">
                             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-light-text-disabled">
                                 <BookOpen size={14} />
-                                <span>Strongs Definition</span>
+                                <span>Strong's Definition</span>
                             </div>
                             <p className="text-lg leading-relaxed text-light-text-primary dark:text-dark-text-primary font-serif">
                                 {entry.strongs_def}
@@ -207,19 +315,19 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                             <Hash size={20} className="text-light-text-disabled" />
                         </div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-light-text-secondary mb-2">Lexicon Ready</h3>
-                        <p className="text-[10px] text-light-text-disabled leading-relaxed max-w-[180px]">
-                            Select a word in the interlinear Bible view or use the search above.
+                        <p className="text-[10px] text-light-text-disabled leading-relaxed max-w-[190px]">
+                            Search any English keyword (e.g. "priest"), Strong's ID (H3548), or click an interlinear word.
                         </p>
                         <div className="mt-4 flex flex-col items-center">
                             <span className="text-[9px] font-black uppercase tracking-widest text-light-text-disabled mb-2">Explore Keywords</span>
-                            <div className="flex flex-wrap justify-center gap-1.5 max-w-[220px]">
+                            <div className="flex flex-wrap justify-center gap-1.5 max-w-[230px]">
                                 {[
+                                    { id: 'H3548', label: 'Priest (H3548)' },
                                     { id: 'G2424', label: 'Jesus (G2424)' },
                                     { id: 'G26', label: 'Love (G26)' },
                                     { id: 'G3056', label: 'Word (G3056)' },
-                                    { id: 'H1254', label: 'Create (H1254)' },
-                                    { id: 'H7965', label: 'Peace (H7965)' },
-                                ].map(pill => (
+                                    { id: 'H7965', label: 'Peace (H7965)' }
+                                ].map((pill) => (
                                     <button
                                         key={pill.id}
                                         onClick={() => loadEntry(pill.id)}
@@ -250,14 +358,15 @@ export const LexiconSidebar: React.FC<{ isIndependent?: boolean }> = ({ isIndepe
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {history.map(h => (
+                            {history.map((h) => (
                                 <button
                                     key={h}
                                     onClick={() => loadEntry(h)}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${selectedStrongsId === h
-                                        ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
-                                        : 'bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border text-light-text-secondary hover:border-primary/50'
-                                        }`}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                                        selectedStrongsId === h
+                                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                                            : 'bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border text-light-text-secondary hover:border-primary/50'
+                                    }`}
                                 >
                                     {h}
                                 </button>

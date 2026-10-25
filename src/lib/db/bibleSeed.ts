@@ -42,7 +42,7 @@ export const seedBibleData = async () => {
 
     // Check for Strongs
     const strongsCount = await db.strongsEntries.count();
-    if (strongsCount === 0) {
+    if (strongsCount < 14000) {
         console.info('[BibleDB] Strongs lexicon missing. Triggering ingestion...');
         await BibleIngestionService.ingestStrongs();
     }

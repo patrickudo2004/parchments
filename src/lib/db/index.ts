@@ -388,22 +388,32 @@ export const dbHelpers = {
             const direct = await db.dictionary.get(lower);
             if (direct) return direct;
             return await db.dictionary
-                .filter(d => d.term.toLowerCase() === lower || d.id === lower)
+                .filter(d => d.term.toLowerCase() === lower)
                 .first();
         } catch (error) {
             console.error('[dbHelpers] getDictionaryEntry error:', error);
-            return null;
+            return undefined;
         }
     },
 
-    searchDictionary: async (query: string, limit = 20) => {
+    searchDictionary: async (query: string, limit = 25) => {
         if (!query.trim()) return [];
         const lower = query.toLowerCase().trim();
         try {
-            return await db.dictionary
+            const allMatches = await db.dictionary
                 .filter(d => d.term.toLowerCase().includes(lower) || d.id.includes(lower))
-                .limit(limit)
                 .toArray();
+            return allMatches
+                .sort((a, b) => {
+                    const aT = a.term.toLowerCase();
+                    const bT = b.term.toLowerCase();
+                    if (aT === lower && bT !== lower) return -1;
+                    if (bT === lower && aT !== lower) return 1;
+                    if (aT.startsWith(lower) && !bT.startsWith(lower)) return -1;
+                    if (bT.startsWith(lower) && !aT.startsWith(lower)) return 1;
+                    return aT.localeCompare(bT);
+                })
+                .slice(0, limit);
         } catch (error) {
             console.error('[dbHelpers] searchDictionary error:', error);
             return [];
@@ -414,10 +424,20 @@ export const dbHelpers = {
         if (!query.trim()) return [];
         const lower = query.toLowerCase().trim();
         try {
-            return await db.topicalIndex
+            const allMatches = await db.topicalIndex
                 .filter(t => t.topic.toLowerCase().includes(lower) || t.id.includes(lower))
-                .limit(limit)
                 .toArray();
+            return allMatches
+                .sort((a, b) => {
+                    const aT = a.topic.toLowerCase();
+                    const bT = b.topic.toLowerCase();
+                    if (aT === lower && bT !== lower) return -1;
+                    if (bT === lower && aT !== lower) return 1;
+                    if (aT.startsWith(lower) && !bT.startsWith(lower)) return -1;
+                    if (bT.startsWith(lower) && !aT.startsWith(lower)) return 1;
+                    return aT.localeCompare(bT);
+                })
+                .slice(0, limit);
         } catch (error) {
             console.error('[dbHelpers] searchTopicalIndex error:', error);
             return [];

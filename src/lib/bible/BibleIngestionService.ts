@@ -112,6 +112,8 @@ export class BibleIngestionService {
             };
 
             await db.bibleVersions.put(kjvMetadata);
+            const { invalidateBibleSearchCache } = await import('../search/bibleSearchEngine');
+            invalidateBibleSearchCache('kjv');
 
             console.info('[BibleIngestion] KJV ingestion completed successfully.');
             return true;
@@ -123,7 +125,7 @@ export class BibleIngestionService {
 
     static async isKJVDownloaded() {
         const kjv = await db.bibleVersions.get('kjv');
-        return !!kjv?.isDownloaded;
+        return !!kjv?.isDownloaded && (await db.bibleVerses.where('versionId').equals('kjv').count()) >= 31000;
     }
 
     static async ingestStrongs() {
@@ -224,6 +226,8 @@ export class BibleIngestionService {
                 console.info(`[BibleIngestion] Ingested interlinear data for ${book.name}`);
             }
 
+            const { invalidateBibleSearchCache } = await import('../search/bibleSearchEngine');
+            invalidateBibleSearchCache('kjv');
             console.info('[BibleIngestion] Interlinear ingestion complete.');
             return true;
         } catch (error) {

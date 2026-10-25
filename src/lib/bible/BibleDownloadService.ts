@@ -75,6 +75,9 @@ class BibleDownloadService {
 
                     if (status === 'complete') {
                         worker.terminate();
+                        import('../search/bibleSearchEngine').then(({ invalidateBibleSearchCache }) => {
+                            invalidateBibleSearchCache(version.id);
+                        });
                         resolve(true);
                     } else if (status === 'error') {
                         worker.terminate();

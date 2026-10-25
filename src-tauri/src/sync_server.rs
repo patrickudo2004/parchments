@@ -369,7 +369,7 @@ async fn handle_connection(
             msg = ws_receiver.next() => {
                 match msg {
                     Some(Ok(Message::Binary(data))) => {
-                        if handshake.mode == PeerMode::Editor || is_host_loopback {
+                        if handshake.mode == PeerMode::Editor || is_host_conn {
                             let _ = tx.send(data);
                         } else {
                             log::warn!("[SyncServer] Rejected binary update from read-only follower peer {}", addr);

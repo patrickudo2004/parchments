@@ -708,11 +708,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
 
                     {/* Voice Note Player (Inline) */}
                     {currentNote.type === 'voice' && (
-                        <div className="mb-12">
+                        <div className="mb-8">
                             <VoiceNotePlayer
                                 audioBlob={currentNote.audioBlob}
                                 audioUrl={currentNote.audioUrl}
                                 noteId={currentNote.id}
+                                initialDuration={currentNote.duration}
                                 existingTranscript={currentNote.transcript}
                                 onTranscriptSaved={(text) => {
                                     if (currentNote.id) {
@@ -721,10 +722,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                 }}
                             />
 
-                            {/* Transcript Display */}
-                            {currentNote.transcript && (
-                                <div className="mt-8 p-6 bg-light-background/50 dark:bg-dark-background/30 rounded-2xl border border-light-border dark:border-dark-border">
-                                    <div className="flex items-center justify-between mb-4">
+                            {/* Fallback transcript card ONLY for legacy voice notes whose editor content is empty */}
+                            {currentNote.transcript && (!currentNote.content || currentNote.content === '<p></p>') && (
+                                <div className="mt-6 p-5 bg-light-background/50 dark:bg-dark-background/30 rounded-2xl border border-light-border dark:border-dark-border">
+                                    <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-[10px] font-black uppercase tracking-widest text-light-text-secondary dark:text-dark-text-secondary opacity-50">
                                             Voice Transcript
                                         </h3>
@@ -735,38 +736,28 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                             Copy Text
                                         </button>
                                     </div>
-                                    <p className="text-base leading-relaxed text-light-text-main dark:text-dark-text-main font-medium border-l-2 border-primary/30 pl-4 py-2">
+                                    <p className="text-base leading-relaxed text-light-text-main dark:text-dark-text-main font-medium border-l-2 border-primary/30 pl-4 py-1">
                                         {currentNote.transcript}
                                     </p>
                                 </div>
                             )}
 
-                            <div className="mt-8 border-b-2 border-dashed border-light-border dark:border-dark-border opacity-50" />
+                            <div className="mt-6 border-b border-dashed border-light-border dark:border-dark-border opacity-50" />
                         </div>
                     )}
 
-                    {/* Tiptap Editor */}
-                    {/* If we have a structured transcript field, we hide the visual editor content if it duplicates the transcript */
-                        /* Logic: If type is voice AND we have transcript field, hide the editor content (which contains the backup transcript) */
-                        (currentNote.type === 'voice' && currentNote.transcript) ? (
-                            <div className="hidden">
-                                {/* Hide content because we already showed the transcript above */}
-                                <EditorContent editor={editor} />
-                            </div>
-                        ) : (
-                            <ScriptureTooltipProvider>
-                                <div
-                                    className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''} ${pulpitMode ? 'pulpit-active select-none' : ''}`}
-                                    style={{
-                                        fontSize: pulpitMode ? `${Math.max(editorFontSize * 1.35, 24)}px` : `${editorFontSize}px`,
-                                        lineHeight: pulpitMode ? 1.8 : editorLineSpacing,
-                                    }}
-                                >
-                                    <EditorContent editor={editor} />
-                                </div>
-                            </ScriptureTooltipProvider>
-                        )
-                    }
+                    {/* Tiptap Editor — Always visible & editable (including on Voice Notes for continued typing, formatting & inline dictation) */}
+                    <ScriptureTooltipProvider>
+                        <div
+                            className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''} ${pulpitMode ? 'pulpit-active select-none' : ''}`}
+                            style={{
+                                fontSize: pulpitMode ? `${Math.max(editorFontSize * 1.35, 24)}px` : `${editorFontSize}px`,
+                                lineHeight: pulpitMode ? 1.8 : editorLineSpacing,
+                            }}
+                        >
+                            <EditorContent editor={editor} />
+                        </div>
+                    </ScriptureTooltipProvider>
                 </div>
             </div>
 

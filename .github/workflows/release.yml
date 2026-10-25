@@ -26,6 +26,9 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: sync Cargo.lock
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
       - name: install rust targets (macos only)
         if: matrix.platform == 'macos-latest'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin

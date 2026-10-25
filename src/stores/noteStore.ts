@@ -484,8 +484,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const targetFolderId = folderId || activeWorkspaceId;
 
         const initialHtml = transcript
-            ? `<h1>Voice Note</h1><p>${transcript}</p>`
-            : '<h1>Voice Note</h1><p><em>Transcribing audio...</em></p>';
+            ? `<p>${transcript}</p>`
+            : '<p><em>Transcribing audio...</em></p>';
 
         const note = await dbHelpers.createNote({
             title: `Voice Note ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
@@ -525,7 +525,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                             updated = existing.replace(metaMatch[0], `<!-- parchments-meta: ${JSON.stringify(meta)} -->`);
                         } catch {}
                     }
-                    if (updated.includes('<p>No transcript available.</p>')) {
+                    if (updated.includes('Transcribing audio...')) {
+                        updated = updated.replace('Transcribing audio...', transcript);
+                    } else if (updated.includes('<p>No transcript available.</p>')) {
                         updated = updated.replace('<p>No transcript available.</p>', `<p>${transcript}</p>`);
                     } else if (updated.includes('<h1>Voice Transcript</h1>')) {
                         updated = updated.replace(/<h1>Voice Transcript<\/h1><p>.*?<\/p>/, `<h1>Voice Transcript</h1><p>${transcript}</p>`);
@@ -536,14 +538,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
         } else {
-            const formattedHtml = `<h1>Voice Note</h1><p>${transcript}</p>`;
+            const formattedHtml = `<p>${transcript}</p>`;
             await db.notes.update(noteId, { transcript, content: formattedHtml, updatedAt: Date.now() });
             const updatedNotes = notes.map(n => n.id === noteId ? { ...n, transcript, content: formattedHtml, updatedAt: Date.now() } : n);
             set({ notes: updatedNotes });
         }
 
         if (currentNote && currentNote.id === noteId) {
-            const formattedHtml = `<h1>Voice Note</h1><p>${transcript}</p>`;
+            const formattedHtml = `<p>${transcript}</p>`;
             set({ currentNote: { ...currentNote, transcript, content: formattedHtml, updatedAt: Date.now() } });
             const activeEd = useUIStore.getState().activeEditor;
             if (activeEd) {

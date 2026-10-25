@@ -1,7 +1,7 @@
 {
   "name": "parchments",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "node scripts/run_e2e_scenarios.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",

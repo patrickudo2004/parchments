@@ -76,12 +76,14 @@ export const FilesSidebar: React.FC = () => {
 
     const renderWorkspaceSwitcher = () => {
         const activeWorkspaceFolder = folders.find(f => f.id === activeWorkspaceId);
+        const isLocalConnected = isLocalMode && Boolean(localDirectoryHandle);
+        const isLocalDisconnected = isLocalMode && !localDirectoryHandle;
         const displayName = isLocalMode
             ? (localDirectoryHandle?.name || lastLocalFolderName || 'Local Folder')
             : (activeWorkspaceFolder?.name || 'Study Journal');
-        const workspaceName = isLocalMode
-            ? `📁 ${displayName}`
-            : `💾 ${displayName}`;
+        const workspaceLabel = isLocalDisconnected
+            ? `Reconnect: ${displayName}`
+            : displayName;
 
         const workspaces = folders.filter(f => f.parentId === null);
 
@@ -106,19 +108,42 @@ export const FilesSidebar: React.FC = () => {
             });
         };
 
+        const switcherTooltip = isLocalConnected
+            ? `Connected Local Folder: ${displayName} (Saving physical .md files on your computer)`
+            : isLocalDisconnected
+                ? `Folder Permission Needed: Click to reconnect '${displayName}'`
+                : `Browser Database: ${displayName} (Saved in offline IndexedDB)`;
+
         return (
-            <div className="relative z-40">
+            <div className="relative z-40 w-full min-w-0">
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
                     }}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-light-text-primary dark:text-dark-text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors border border-transparent hover:border-light-border dark:hover:border-dark-border max-w-[170px] sm:max-w-[210px]"
-                    title={isLocalMode ? `Local Folder: ${displayName} (Files stored directly on your computer)` : `Browser Database: ${displayName} (Offline IndexedDB database)`}
+                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                        isLocalDisconnected
+                            ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
+                            : 'text-light-text-primary dark:text-dark-text-primary bg-light-background/50 dark:bg-dark-background/40 border-light-border/70 dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background'
+                    }`}
+                    title={switcherTooltip}
                 >
-                    <FolderOpen size={14} className="text-primary shrink-0" />
-                    <span className="truncate">{workspaceName}</span>
-                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
+                    <span className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {isLocalMode ? (
+                            <>
+                                <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                        isLocalConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                                    }`}
+                                />
+                                <HardDrive size={13} className={isLocalConnected ? 'text-primary shrink-0' : 'text-amber-500 shrink-0'} />
+                            </>
+                        ) : (
+                            <Database size={13} className="text-blue-500 shrink-0" />
+                        )}
+                        <span className="truncate text-left">{workspaceLabel}</span>
+                    </span>
+                    <ChevronDown size={13} className={`shrink-0 transition-transform duration-200 ${isWorkspaceDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isWorkspaceDropdownOpen && (
@@ -127,16 +152,28 @@ export const FilesSidebar: React.FC = () => {
                             className="fixed inset-0 z-30" 
                             onClick={() => setIsWorkspaceDropdownOpen(false)} 
                         />
-                        <div className="absolute left-0 mt-1 w-64 rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-2 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute left-0 mt-1 w-68 min-w-[260px] rounded-xl border border-light-border dark:border-dark-border bg-white dark:bg-dark-surface shadow-2xl z-50 py-2 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
                             <div className="px-3 py-1 text-[10px] font-black uppercase tracking-widest text-light-text-secondary opacity-60">
-                                Storage Location
+                                Active Storage Location
                             </div>
-                            {isLocalMode ? (
-                                <div className="px-3 py-2 flex items-center gap-2 text-primary font-bold bg-primary/10 rounded-lg mx-2 mb-1">
-                                    <Folder size={14} className="shrink-0" />
+                            {isLocalConnected ? (
+                                <div className="px-3 py-2 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 rounded-lg mx-2 mb-1">
+                                    <HardDrive size={14} className="shrink-0 text-emerald-500" />
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-xs font-bold">{displayName}</p>
-                                        <p className="text-[10px] text-light-text-secondary dark:text-dark-text-secondary font-normal">Files saved on your local hard drive</p>
+                                        <p className="text-[10px] text-light-text-secondary dark:text-dark-text-secondary font-normal">
+                                            Connected • {localFiles.filter(f => f.kind === 'file').length} notes on disk
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : isLocalDisconnected ? (
+                                <div className="px-3 py-2 flex items-start gap-2 text-amber-700 dark:text-amber-400 font-bold bg-amber-500/10 border border-amber-500/25 rounded-lg mx-2 mb-1">
+                                    <AlertTriangle size={14} className="shrink-0 text-amber-500 mt-0.5" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-bold">{displayName} (Disconnected)</p>
+                                        <p className="text-[10px] text-light-text-secondary dark:text-dark-text-secondary font-normal leading-tight mt-0.5">
+                                            Browser requires 1 click to re-enable folder access after restart.
+                                        </p>
                                     </div>
                                 </div>
                             ) : (
@@ -147,8 +184,11 @@ export const FilesSidebar: React.FC = () => {
                                             onClick={() => handleSelectWorkspace(w.id)}
                                             className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-light-background dark:hover:bg-dark-background transition-colors ${w.id === activeWorkspaceId ? 'text-primary font-bold bg-primary/5' : ''}`}
                                         >
-                                            <span className="truncate">{w.name} (Offline DB)</span>
-                                            {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                            <span className="truncate flex items-center gap-1.5">
+                                                <Database size={12} className="text-blue-500 shrink-0" />
+                                                <span className="truncate">{w.name} (Browser DB)</span>
+                                            </span>
+                                            {w.id === activeWorkspaceId && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                                         </button>
                                     ))}
                                 </div>
@@ -158,6 +198,29 @@ export const FilesSidebar: React.FC = () => {
                             
                             {isLocalMode ? (
                                 <>
+                                    {isLocalDisconnected ? (
+                                        <button
+                                            onClick={() => {
+                                                setIsWorkspaceDropdownOpen(false);
+                                                reconnectLocalFolder();
+                                            }}
+                                            className="w-full px-3 py-2 text-left bg-primary/10 hover:bg-primary/20 transition-colors flex items-center gap-2 text-primary font-bold"
+                                        >
+                                            <RotateCcw size={14} className="shrink-0" />
+                                            <span className="truncate">Reconnect '{displayName}'</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                setIsWorkspaceDropdownOpen(false);
+                                                refreshLocalFiles(true);
+                                            }}
+                                            className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
+                                        >
+                                            <RotateCcw size={14} className="text-primary shrink-0" />
+                                            <span>Refresh Folder Files</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setIsWorkspaceDropdownOpen(false);
@@ -166,17 +229,17 @@ export const FilesSidebar: React.FC = () => {
                                         className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
                                     >
                                         <Upload size={14} className="text-primary shrink-0" />
-                                        <span>Change Local Folder...</span>
+                                        <span>Choose Different Local Folder...</span>
                                     </button>
                                     <button
                                         onClick={() => {
                                             setIsWorkspaceDropdownOpen(false);
                                             setLocalMode(false);
                                         }}
-                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-primary font-medium"
+                                        className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-blue-500 font-medium"
                                     >
                                         <Database size={14} className="shrink-0" />
-                                        <span>Switch to Offline Browser Database</span>
+                                        <span>Switch to Browser Database</span>
                                     </button>
                                 </>
                             ) : (
@@ -186,8 +249,20 @@ export const FilesSidebar: React.FC = () => {
                                         className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-primary font-medium"
                                     >
                                         <FolderPlus size={14} className="shrink-0" />
-                                        <span>Create Workspace...</span>
+                                        <span>New Browser Workspace...</span>
                                     </button>
+                                    {lastLocalFolderName && (
+                                        <button
+                                            onClick={() => {
+                                                setIsWorkspaceDropdownOpen(false);
+                                                reconnectLocalFolder();
+                                            }}
+                                            className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold"
+                                        >
+                                            <RotateCcw size={14} className="shrink-0" />
+                                            <span className="truncate">Reconnect '{lastLocalFolderName}'</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setIsWorkspaceDropdownOpen(false);
@@ -196,7 +271,7 @@ export const FilesSidebar: React.FC = () => {
                                         className="w-full px-3 py-2 text-left hover:bg-light-background dark:hover:bg-dark-background transition-colors flex items-center gap-2 text-light-text-primary dark:text-dark-text-primary"
                                     >
                                         <HardDrive size={14} className="text-primary shrink-0" />
-                                        <span>Switch to Local Folder...</span>
+                                        <span>Open Local Folder...</span>
                                     </button>
                                 </>
                             )}
@@ -243,12 +318,12 @@ export const FilesSidebar: React.FC = () => {
 
     // Periodic File System Refresh for Desktop mode (watch for external changes)
     React.useEffect(() => {
-        if (!isLocalMode) return;
+        if (!isLocalMode || !localDirectoryHandle) return;
         const interval = setInterval(() => {
             refreshLocalFiles();
         }, 10000); // 10 seconds
         return () => clearInterval(interval);
-    }, [isLocalMode, refreshLocalFiles]);
+    }, [isLocalMode, localDirectoryHandle, refreshLocalFiles]);
 
     const toggleFolder = (e: React.MouseEvent, folderId: string) => {
         e.stopPropagation();
@@ -388,7 +463,10 @@ export const FilesSidebar: React.FC = () => {
     };
 
     const isFolderEmpty = (folderId: string) => {
-        return !notes.some(n => n.folderId === folderId);
+        if (isLocalMode) {
+            return !localFiles.some(f => f.parentId === folderId);
+        }
+        return !notes.some(n => n.folderId === folderId) && !folders.some(f => f.parentId === folderId);
     };
 
     // Desktop Tree Item Renderer
@@ -398,13 +476,11 @@ export const FilesSidebar: React.FC = () => {
 
         let children: any[] = [];
         if (isLocalMode) {
-            const localChildren = localFiles.filter(f => f.parentId === item.id);
-            const dbChildren = notes
-                .filter(n => n.folderId === item.id && !localChildren.some(lc => lc.id === n.id))
-                .map(n => ({ ...n, type: 'file' as const, name: n.title }));
-            children = [...localChildren, ...dbChildren];
+            children = localFiles.filter(f => f.parentId === item.id);
         } else if (item.type === 'folder') {
-            children = notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }));
+            const childFolders = folders.filter(f => f.parentId === item.id).map(f => ({ ...f, type: 'folder' as const }));
+            const childNotes = notes.filter(n => n.folderId === item.id).map(n => ({ ...n, type: 'file' as const, name: n.title }));
+            children = [...childFolders, ...childNotes];
         }
 
         const finalChildren = children;
@@ -456,7 +532,7 @@ export const FilesSidebar: React.FC = () => {
                                 <Pin size={12} />
                             </button>
                         )}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="hidden group-hover:flex focus-within:flex items-center gap-0.5">
                             {!hasChildren && !isItemPinned(`note-${item.id}`) && (
                                 <button
                                     onClick={(e) => {
@@ -557,26 +633,43 @@ export const FilesSidebar: React.FC = () => {
                         <FolderOpen size={40} className="animate-pulse" />
                     </div>
                     <div className="space-y-2 max-w-xs">
-                        <h2 className="text-xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">Open Your Library</h2>
+                        <h2 className="text-xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">
+                            {storageFoundation === 'local' && lastLocalFolderName ? `Reconnect '${lastLocalFolderName}'` : 'Open Your Library'}
+                        </h2>
                         <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary leading-relaxed">
-                            Parchments is a local-first workspace. Continue with your offline browser database or open a local folder.
+                            {storageFoundation === 'local' && lastLocalFolderName
+                                ? 'Tap Reconnect to re-enable browser access to your local folder, or switch to your Browser Database.'
+                                : 'Parchments is a local-first workspace. Continue with your offline browser database or open a local folder.'}
                         </p>
                     </div>
                     <div className="w-full space-y-2.5">
+                        {storageFoundation === 'local' && lastLocalFolderName && (
+                            <button
+                                onClick={reconnectLocalFolder}
+                                className="w-full py-3 bg-primary text-[#121212] text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <RotateCcw size={15} />
+                                <span>Reconnect '{lastLocalFolderName}'</span>
+                            </button>
+                        )}
                         <button
                             onClick={() => {
                                 setLocalMode(false);
                             }}
-                            className="w-full py-3 bg-primary text-[#121212] text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all active:scale-95"
+                            className={`w-full py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 ${
+                                storageFoundation === 'local' && lastLocalFolderName
+                                    ? 'border border-light-border dark:border-white/10 text-light-text-primary dark:text-white'
+                                    : 'bg-primary text-[#121212] shadow-lg shadow-primary/20 hover:bg-primary-hover'
+                            }`}
                         >
-                            Continue with Browser Database (Offline)
+                            Continue with Browser Database
                         </button>
                         {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
                             <button
                                 onClick={openLocalFolder}
                                 className="w-full py-2.5 border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-all active:scale-95"
                             >
-                                Open Local Folder
+                                Choose Different Local Folder
                             </button>
                         )}
                     </div>
@@ -584,11 +677,11 @@ export const FilesSidebar: React.FC = () => {
             );
         }
 
-        // 2. ACTIVE DRILL DOWN CALCULATION
+        // 2. ACTIVE DRILL DOWN CALCULATION (Strictly isolated between Local Folder and Browser DB)
         const normalizePath = (p: string | null | undefined) => p ? p.replace(/\\/g, '/').replace(/\/+$/, '') : null;
 
         const currentFolder = isLocalMode
-            ? (localFiles.find(f => (String(f.id) === String(selectedFolderId) || normalizePath(f.id) === normalizePath(selectedFolderId)) && f.kind === 'directory') || folders.find(f => String(f.id) === String(selectedFolderId)))
+            ? localFiles.find(f => (String(f.id) === String(selectedFolderId) || normalizePath(f.id) === normalizePath(selectedFolderId)) && f.kind === 'directory')
             : folders.find(f => String(f.id) === String(selectedFolderId));
         const parentFolderId = currentFolder 
             ? (currentFolder.parentId === activeWorkspaceId ? null : currentFolder.parentId) 
@@ -596,13 +689,9 @@ export const FilesSidebar: React.FC = () => {
         
         let activeSubfolders: any[] = [];
         if (isLocalMode) {
-            const localDirs = localFiles
+            activeSubfolders = localFiles
                 .filter(f => f.kind === 'directory' && (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || normalizePath(f.parentId) === normalizePath(selectedFolderId)) : (!f.parentId || f.parentId === '')))
                 .map(f => ({ ...f, type: 'folder' as const }));
-            const dbFolders = folders
-                .filter(f => (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || String(f.parentId) === String(currentFolder?.name)) : (f.parentId === null || f.parentId === activeWorkspaceId)) && !localDirs.some(ld => String(ld.id) === String(f.id)))
-                .map(f => ({ ...f, type: 'folder' as const }));
-            activeSubfolders = [...localDirs, ...dbFolders];
         } else {
             activeSubfolders = folders.filter(f => 
                 selectedFolderId 
@@ -613,7 +702,7 @@ export const FilesSidebar: React.FC = () => {
 
         let activeNotes: any[] = [];
         if (isLocalMode) {
-            const localNotesList = localFiles
+            activeNotes = localFiles
                 .filter(f => f.kind === 'file' && (selectedFolderId ? (String(f.parentId) === String(selectedFolderId) || normalizePath(f.parentId) === normalizePath(selectedFolderId)) : (!f.parentId || f.parentId === '')))
                 .map(f => ({
                     id: f.id,
@@ -626,9 +715,6 @@ export const FilesSidebar: React.FC = () => {
                     fileHandle: f.handle,
                     kind: 'file' as const
                 }));
-            const dbNotesList = notes
-                .filter(n => (selectedFolderId ? (String(n.folderId) === String(selectedFolderId) || String(n.folderId) === String(currentFolder?.name)) : (n.folderId === null || n.folderId === activeWorkspaceId)) && !localNotesList.some(ln => String(ln.id) === String(n.id)));
-            activeNotes = [...localNotesList, ...dbNotesList];
         } else {
             activeNotes = notes.filter(n => 
                 selectedFolderId 
@@ -889,17 +975,11 @@ export const FilesSidebar: React.FC = () => {
     const rootNotes = notes.filter(n => n.folderId === activeWorkspaceId).map(n => ({ ...n, id: n.id!, type: 'file' as const, name: n.title }));
 
     const allFolders = isLocalMode
-        ? [
-            ...localFiles.filter(D => !D.parentId && D.kind === 'directory').map(f => ({ ...f, type: 'folder' as const })),
-            ...folders.filter(f => f.parentId === null && !localFiles.some(lf => lf.id === f.id)).map(f => ({ ...f, type: 'folder' as const }))
-        ]
+        ? localFiles.filter(D => !D.parentId && D.kind === 'directory').map(f => ({ ...f, type: 'folder' as const }))
         : rootFolders;
 
     const allNotes = isLocalMode
-        ? [
-            ...localFiles.filter(D => !D.parentId && D.kind === 'file').map(f => ({ ...f, type: 'file' as const })),
-            ...rootNotes.filter(n => !localFiles.some(lf => lf.id === n.id))
-        ]
+        ? localFiles.filter(D => !D.parentId && D.kind === 'file').map(f => ({ ...f, type: 'file' as const }))
         : rootNotes;
 
     const rootItems = [...allFolders, ...allNotes];
@@ -912,60 +992,68 @@ export const FilesSidebar: React.FC = () => {
             data-sidebar
             className="flex flex-col h-full shrink-0 select-none overflow-hidden"
         >
-            <div className="p-3 border-b border-light-border dark:border-dark-border flex items-center justify-between gap-1 relative z-30">
+            <div className="p-2.5 border-b border-light-border dark:border-dark-border flex flex-col gap-2 relative z-30">
                 {renderWorkspaceSwitcher()}
-                <div className="flex items-center gap-0.5 shrink-0 text-light-text-secondary dark:text-dark-text-secondary">
-                    <button
-                        onClick={handleCreateNote}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
-                        title={isLocalMode ? "New Local Note" : "New Note"}
-                    >
-                        <FilePlus size={16} />
-                    </button>
-                    <button
-                        onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
-                        title="Lectio Mode"
-                    >
-                        <BookOpen size={16} />
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (!hasStudyspace) {
-                                toggleNoFolderModal(true);
-                            } else {
-                                toggleTemplateModal();
-                            }
-                        }}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
-                        title="New Study Template"
-                    >
-                        <PenTool size={16} />
-                    </button>
-                    <button
-                        onClick={() => handleStartRecordingInFolder(selectedFolderId)}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
-                        title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}
-                    >
-                        <Mic size={16} />
-                    </button>
-                    <button
-                        onClick={handleCreateFolder}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background"
-                        title={isLocalMode ? "New Local Folder" : "New Folder"}
-                    >
-                        <FolderPlus size={16} />
-                    </button>
-                    <button
-                        onClick={handleJoinRoom}
-                        className="p-1 rounded transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
-                        title="Join Shared Room"
-                    >
-                        <Users size={16} />
-                    </button>
-                    <button onClick={openLocalFolder} className="p-1 hover:bg-light-background dark:hover:bg-dark-background rounded transition-colors text-primary" title="Open Local Studyspace">
-                        <Upload size={16} />
-                    </button>
+                <div className="flex items-center justify-between px-0.5 text-light-text-secondary dark:text-dark-text-secondary">
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={handleCreateNote}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background hover:text-light-text-primary dark:hover:text-white"
+                            title={isLocalMode ? "New Local Note" : "New Note"}
+                        >
+                            <FilePlus size={15} />
+                        </button>
+                        <button
+                            onClick={handleCreateFolder}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background hover:text-light-text-primary dark:hover:text-white"
+                            title={isLocalMode ? "New Local Folder" : "New Folder"}
+                        >
+                            <FolderPlus size={15} />
+                        </button>
+                        <button
+                            onClick={() => handleStartRecordingInFolder(selectedFolderId)}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background hover:text-light-text-primary dark:hover:text-white"
+                            title={isLocalMode ? "New Local Voice Note" : "New Voice Note"}
+                        >
+                            <Mic size={15} />
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (!hasStudyspace) {
+                                    toggleNoFolderModal(true);
+                                } else {
+                                    toggleTemplateModal();
+                                }
+                            }}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                            title="New Study Template"
+                        >
+                            <PenTool size={15} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => useReadingPlanStore.setState({ isLectioModeActive: true, activePlanId: null })}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                            title="Lectio Mode"
+                        >
+                            <BookOpen size={15} />
+                        </button>
+                        <button
+                            onClick={handleJoinRoom}
+                            className="p-1.5 rounded-md transition-colors hover:bg-light-background dark:hover:bg-dark-background text-primary"
+                            title="Join Shared Room"
+                        >
+                            <Users size={15} />
+                        </button>
+                        <button
+                            onClick={openLocalFolder}
+                            className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-md transition-colors text-primary"
+                            title="Open Local Folder"
+                        >
+                            <Upload size={15} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

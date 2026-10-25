@@ -2,7 +2,38 @@ import { create } from 'zustand';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
-import { fileSystem, isCapacitor, type FileSystemDirectoryHandle, type FileSystemHandle, type FileSystemFileHandle } from '@/lib/filesystem/FileSystemService';
+import {
+    fileSystem,
+    isCapacitor,
+    checkIsTauri,
+    isWebFileSystemSupported,
+    type FileSystemDirectoryHandle,
+    type FileSystemHandle,
+    type FileSystemFileHandle
+} from '@/lib/filesystem/FileSystemService';
+import {
+    savePersistedDirectoryHandle,
+    loadPersistedDirectoryHandle,
+    clearPersistedDirectoryHandle,
+    queryDirectoryPermission,
+    requestDirectoryPermission
+} from '@/lib/filesystem/fsHandleStore';
+
+const AUDIO_FILE_REGEX = /\.(webm|mp4|m4a|mp3|ogg|wav)$/i;
+
+function isAudioFileName(name: string): boolean {
+    return AUDIO_FILE_REGEX.test(name);
+}
+
+function isSupportedLocalNoteFile(name: string): boolean {
+    const lower = name.toLowerCase();
+    return (
+        MarkdownService.isMarkdownFile(name) ||
+        MarkdownService.isHtmlFile(name) ||
+        lower.endsWith('.txt') ||
+        isAudioFileName(name)
+    );
+}
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 import { MarkdownService } from '@/lib/markdown/MarkdownService';
 import { useUIStore } from '@/stores/uiStore';
@@ -230,8 +261,9 @@ interface NoteStore {
     broadcastNoteDeletion: (folderId: string | null, noteId: string) => Promise<void>;
 
     // Local Actions
-
-    refreshLocalFiles: (handle?: FileSystemDirectoryHandle) => Promise<void>;
+    pendingLocalRawHandle: any | null;
+    needsLocalReconnect: boolean;
+    refreshLocalFiles: (forceUpdate?: boolean) => Promise<void>;
     openLocalFolder: () => Promise<void>;
     openLocalFile: (item: LocalItem) => Promise<void>;
     openLooseFile: () => Promise<void>;
@@ -259,9 +291,10 @@ interface NoteStore {
     initStorageFoundation: () => Promise<void>;
 }
 
-const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
-const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
-const autoSandbox = isCapacitor || isMobileOrTabletViewport || !isFileSystemSupported;
+const hasNativeFs = typeof window !== 'undefined' && (checkIsTauri() || isCapacitor);
+const isFileSystemSupported = isWebFileSystemSupported();
+// Never disable local folder mode merely because the desktop browser window is < 1024px wide
+const autoSandbox = isCapacitor || (!hasNativeFs && !isFileSystemSupported);
 
 const savedStorageFoundation = typeof window !== 'undefined' ? (localStorage.getItem('parchments-storage-foundation') as 'local' | 'browser' | null) : null;
 const savedLastFolderName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
@@ -275,6 +308,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     setSelectedFolderId: (id) => set({ selectedFolderId: id }),
     storageFoundation: savedStorageFoundation,
     lastLocalFolderName: savedLastFolderName,
+    pendingLocalRawHandle: null,
+    needsLocalReconnect: savedStorageFoundation === 'local' && !autoSandbox,
     isMigrationModalOpen: false,
     pendingMigrationCount: 0,
     setIsMigrationModalOpen: (open) => set({ isMigrationModalOpen: open }),
@@ -410,22 +445,29 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
         
         const hasChosenFoundation = storageFoundation !== null;
+        const latestState = get();
         set({
             folders,
-            hasStudyspace: !hasChosenFoundation ? false : (!isLocalMode ? true : (folders.length > 0 || get().hasStudyspace))
+            hasStudyspace: !hasChosenFoundation
+                ? false
+                : (!latestState.isLocalMode ? true : Boolean(latestState.localDirectoryHandle))
         });
     },
 
     createNote: async (folderId, title, forceId) => {
-        const { isLocalMode, localDirectoryHandle, createLocalNote, activeWorkspaceId } = get();
+        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
 
-        // Fallback to DB if localized but no folder is open (Incognito/PWA fallback)
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!get().localDirectoryHandle) {
+                await get().reconnectLocalFolder();
+            }
+            if (!get().localDirectoryHandle) {
+                useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
+                throw new Error('Local folder is not connected');
+            }
             const name = title || UNTITLED_NOTE;
             await createLocalNote(name, folderId, '', forceId);
-            // Re-fetch from currentNote because createLocalNote sets it
             const currentNote = get().currentNote;
-            // BROADCAST: Notify collaborators of the new note
             console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${folderId}`);
             get().broadcastFolderChange(folderId);
             return currentNote as Note;
@@ -447,16 +489,23 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createNoteFromTemplate: async (folderId, templateId) => {
-        const { isLocalMode, localDirectoryHandle, createLocalNote, activeWorkspaceId } = get();
+        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
         const template = STUDY_TEMPLATES[templateId as keyof typeof STUDY_TEMPLATES];
         if (!template) throw new Error('Template not found');
 
         const dateStr = new Date().toLocaleDateString().replace(/[/:]/g, '-');
         const title = `${template.name} - ${dateStr}`;
 
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!get().localDirectoryHandle) {
+                await get().reconnectLocalFolder();
+            }
+            if (!get().localDirectoryHandle) {
+                useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
+                throw new Error('Local folder is not connected');
+            }
             await createLocalNote(title, folderId, template.content);
-            return {} as Note; // In local mode, refreshing file list handles selection
+            return (get().currentNote || {}) as Note;
         }
 
         const targetFolderId = folderId || activeWorkspaceId;
@@ -475,10 +524,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createVoiceNote: async (folderId, audioBlob, duration, transcript) => {
-        const { isLocalMode, localDirectoryHandle, createLocalVoiceNote, activeWorkspaceId } = get();
-        if (isLocalMode && localDirectoryHandle) {
+        const { isLocalMode, createLocalVoiceNote, activeWorkspaceId } = get();
+        if (isLocalMode) {
+            if (!get().localDirectoryHandle) {
+                await get().reconnectLocalFolder();
+            }
+            if (!get().localDirectoryHandle) {
+                useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
+                throw new Error('Local folder is not connected');
+            }
             await createLocalVoiceNote(audioBlob, folderId, transcript);
-            return {} as Note;
+            return (get().currentNote || {}) as Note;
         }
 
         const targetFolderId = folderId || activeWorkspaceId;
@@ -570,7 +626,28 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     createFolder: async (name, parentId = null, forceId) => {
         const { isLocalMode, activeWorkspaceId } = get();
-        const targetParentId = parentId || (!isLocalMode ? activeWorkspaceId : null);
+        if (isLocalMode) {
+            if (!get().localDirectoryHandle) {
+                await get().reconnectLocalFolder();
+            }
+            if (!get().localDirectoryHandle) {
+                useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
+                throw new Error('Local folder is not connected');
+            }
+            const safeFolderName = (name || UNTITLED_FOLDER).replace(/[:/\\*?"<>|]/g, '-').trim() || UNTITLED_FOLDER;
+            await get().createLocalFolder(safeFolderName, parentId || null);
+            const folderId = parentId ? `${parentId}/${safeFolderName}` : safeFolderName;
+            return {
+                id: folderId,
+                name: safeFolderName,
+                parentId: parentId || null,
+                order: 0,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+        }
+
+        const targetParentId = parentId || activeWorkspaceId;
 
         const folder = await dbHelpers.createFolder({
             name,
@@ -585,11 +662,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     deleteNote: async (id) => {
         const { isLocalMode, localDirectoryHandle, localFiles, notes, currentNote } = get();
 
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
             const item = localFiles.find(f => f.id === id && f.kind === 'file');
             if (item) {
                 try {
-                    // Find parent
                     let parentHandle = localDirectoryHandle;
                     if (item.parentId) {
                         const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
@@ -598,25 +675,15 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
                     await fileSystem.deleteEntry(parentHandle, item.name);
 
-                    // Refresh
-                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-                    const files: LocalItem[] = rawFiles.map(f => ({
-                        id: f.id,
-                        name: f.name,
-                        kind: f.kind,
-                        handle: f.handle,
-                        parentId: f.parentId
-                    }));
+                    if (currentNote?.id === id) {
+                        set({ currentNote: null, currentFileHandle: null });
+                    }
+                    await get().refreshLocalFiles(true);
 
-                    set({
-                        localFiles: files,
-                        currentNote: currentNote?.id === id ? null : currentNote
-                    });
-
-                    // SYNC: Broadcast the change to collaborators if this folder is shared
                     get().broadcastFolderChange(item.parentId);
                 } catch (error) {
                     console.error('Failed to delete local file:', error);
+                    useUIStore.getState().showToast('Failed to delete local file.', 'error');
                 }
             }
         } else {
@@ -634,7 +701,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     deleteFolder: async (id) => {
         const { isLocalMode, localDirectoryHandle, localFiles, folders } = get();
 
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
             const item = localFiles.find(f => f.id === id && f.kind === 'directory');
             if (item) {
                 try {
@@ -645,24 +713,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     }
 
                     await fileSystem.deleteEntry(parentHandle, item.name);
+                    if (get().selectedFolderId === id) {
+                        set({ selectedFolderId: null });
+                    }
+                    await get().refreshLocalFiles(true);
 
-                    // Refresh
-                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-                    const files: LocalItem[] = rawFiles.map(f => ({
-                        id: f.id,
-                        name: f.name,
-                        kind: f.kind,
-                        handle: f.handle,
-                        parentId: f.parentId
-                    }));
-                    set({ localFiles: files });
-
-                    // SYNC: Broadcast deletion
                     if (item.parentId) {
                         get().broadcastNoteDeletion(item.parentId, item.id);
                     }
                 } catch (error) {
                     console.error('Failed to delete local folder:', error);
+                    useUIStore.getState().showToast('Failed to delete local folder.', 'error');
                 }
             }
         } else {
@@ -676,37 +737,39 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     renameNote: async (id, newName) => {
         const { isLocalMode, localDirectoryHandle, localFiles, notes, currentNote } = get();
 
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
             const item = localFiles.find(f => f.id === id && f.kind === 'file');
             if (item) {
                 try {
-                    // Local rename
-                    const ext = item.name.split('.').pop();
-                    const cleanNewName = newName.replace(/[:/\\*?"<>|]/g, '-');
-                    const finalName = (cleanNewName.endsWith('.html') || cleanNewName.endsWith('.md') || cleanNewName.endsWith('.txt'))
+                    const ext = item.name.includes('.') ? item.name.split('.').pop() : 'md';
+                    const cleanNewName = newName.replace(/[:/\\*?"<>|]/g, '-').trim();
+                    if (!cleanNewName) return;
+                    const finalName = (MarkdownService.isMarkdownFile(cleanNewName) || MarkdownService.isHtmlFile(cleanNewName) || cleanNewName.endsWith('.txt'))
                         ? cleanNewName
                         : `${cleanNewName}.${ext}`;
 
-                    await fileSystem.renameEntry(item.handle, finalName);
+                    let parentHandle = localDirectoryHandle;
+                    if (item.parentId) {
+                        const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                        if (parent) parentHandle = parent.handle as FileSystemDirectoryHandle;
+                    }
 
-                    // Refresh
-                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-                    const mappedFiles: LocalItem[] = rawFiles.map(f => ({
-                        id: f.id,
-                        name: f.name,
-                        kind: f.kind,
-                        handle: f.handle,
-                        parentId: f.parentId
-                    }));
+                    const updatedHandle = await fileSystem.renameEntry(item.handle, finalName, parentHandle) as FileSystemFileHandle;
 
-                    set({
-                        localFiles: get().sortLocalItems(mappedFiles),
-                        currentNote: currentNote?.id === id
-                            ? { ...currentNote, title: newName.replace(/\.html$|\.md$|\.txt$/, '') }
-                            : currentNote
-                    });
+                    if (currentNote?.id === id) {
+                        set({
+                            currentFileHandle: updatedHandle,
+                            currentNote: {
+                                ...currentNote,
+                                title: finalName.replace(/\.(html|htm|md|markdown|mdown|mkdn|txt)$/i, '')
+                            }
+                        });
+                    }
+                    await get().refreshLocalFiles(true);
                 } catch (error) {
                     console.error('Failed to rename local file:', error);
+                    useUIStore.getState().showToast('Could not rename file on disk.', 'error');
                     throw error;
                 }
             }
@@ -724,24 +787,25 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     renameFolder: async (id, newName) => {
         const { isLocalMode, localDirectoryHandle, localFiles, folders } = get();
 
-        if (isLocalMode && localDirectoryHandle) {
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
             const item = localFiles.find(f => f.id === id && f.kind === 'directory');
             if (item) {
                 try {
-                    await fileSystem.renameEntry(item.handle, newName);
+                    const cleanNewName = newName.replace(/[:/\\*?"<>|]/g, '-').trim();
+                    if (!cleanNewName) return;
 
-                    // Refresh
-                    const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-                    const files: LocalItem[] = rawFiles.map(f => ({
-                        id: f.id,
-                        name: f.name,
-                        kind: f.kind,
-                        handle: f.handle,
-                        parentId: f.parentId
-                    }));
-                    set({ localFiles: files });
+                    let parentHandle = localDirectoryHandle;
+                    if (item.parentId) {
+                        const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                        if (parent) parentHandle = parent.handle as FileSystemDirectoryHandle;
+                    }
+
+                    await fileSystem.renameEntry(item.handle, cleanNewName, parentHandle);
+                    await get().refreshLocalFiles(true);
                 } catch (error) {
                     console.error('Failed to rename local folder:', error);
+                    useUIStore.getState().showToast('Could not rename folder on disk.', 'error');
                     throw error;
                 }
             }
@@ -814,21 +878,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     openLocalFolder: async () => {
         try {
             const handle = await fileSystem.openDirectory();
-            const rawFiles = await fileSystem.readDirectoryRecursive(handle);
-
-            // Map and sort
-            const files: LocalItem[] = rawFiles.map(f => ({
-                id: f.id,
-                name: f.name,
-                kind: f.kind,
-                handle: f.handle,
-                parentId: f.parentId
-            }));
 
             localStorage.setItem('parchments-storage-foundation', 'local');
             localStorage.setItem('parchments-last-folder-name', handle.name);
             if (handle.path) {
                 localStorage.setItem('parchments-last-folder-path', handle.path);
+            }
+            if (handle.rawHandle) {
+                await savePersistedDirectoryHandle(handle.rawHandle);
             }
 
             // Check if there are existing notes in db.notes that can be migrated
@@ -840,28 +897,61 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 storageFoundation: 'local',
                 lastLocalFolderName: handle.name,
                 localDirectoryHandle: handle,
-                localFiles: get().sortLocalItems(files),
+                pendingLocalRawHandle: handle.rawHandle || null,
+                needsLocalReconnect: false,
                 hasStudyspace: true,
+                currentNote: null,
+                currentFileHandle: null,
+                selectedFolderId: null,
                 pendingMigrationCount: dbNotesCount,
                 isMigrationModalOpen: shouldPromptMigration
             });
 
-            // Auto-reveal left sidebar on folder connection (Option A)
+            // Canonical scan (populates localFiles with stable UUIDs and ingests plan.json)
+            await get().refreshLocalFiles(true);
+
+            // Auto-reveal left sidebar on folder connection
             useUIStore.getState().openLeftSidebar('files');
-        } catch (error) {
+            useUIStore.getState().showToast(`Connected local folder '${handle.name}'`, 'success');
+        } catch (error: any) {
+            if (error?.name === 'AbortError' || error?.message?.includes('No directory selected')) {
+                return;
+            }
             console.error('Failed to open directory:', error);
-            // User likely cancelled, do nothing
+            if (error?.code === 'UNSUPPORTED_BROWSER') {
+                useUIStore.getState().showToast(
+                    'Direct local folder access requires Chrome, Edge, or Opera (or the Parchments Desktop App).',
+                    'error'
+                );
+            } else if (error?.name === 'SecurityError' || error?.name === 'NotAllowedError') {
+                useUIStore.getState().showToast(
+                    'Browser blocked that system folder (root Desktop/Documents/Downloads are restricted). Please select or create a subfolder like Documents/Parchments.',
+                    'error'
+                );
+            } else {
+                useUIStore.getState().showToast(
+                    `Could not open local folder: ${error?.message || 'Permission denied'}`,
+                    'error'
+                );
+            }
         }
     },
 
     selectStorageFoundation: async (type: 'local' | 'browser') => {
         if (type === 'browser') {
             localStorage.setItem('parchments-storage-foundation', 'browser');
-            set({ storageFoundation: 'browser', isLocalMode: false, hasStudyspace: true });
+            set({
+                storageFoundation: 'browser',
+                isLocalMode: false,
+                needsLocalReconnect: false,
+                hasStudyspace: true,
+                currentNote: null,
+                currentFileHandle: null,
+                selectedFolderId: null
+            });
             await get().loadFolders();
             await get().loadNotes();
 
-            // Auto-reveal left sidebar on workspace initialization (Option A)
             useUIStore.getState().openLeftSidebar('files');
         } else {
             await get().openLocalFolder();
@@ -869,38 +959,178 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     reconnectLocalFolder: async () => {
-        await get().openLocalFolder();
-    },
-
-    initStorageFoundation: async () => {
-        const { isLocalMode } = get();
+        const isDesktopTauri = checkIsTauri();
         const savedPath = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-path') : null;
         const savedName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
-        const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
 
-        if (isLocalMode && savedPath && isTauri) {
+        // 1. Desktop Tauri reconnect via path
+        if (isDesktopTauri && savedPath) {
             try {
                 const handle: FileSystemDirectoryHandle = {
                     kind: 'directory',
                     name: savedName || 'Studyspace',
                     path: savedPath
                 };
-                const rawFiles = await fileSystem.readDirectoryRecursive(handle);
-                const files: LocalItem[] = rawFiles.map(f => ({
-                    id: f.id,
-                    name: f.name,
-                    kind: f.kind,
-                    handle: f.handle,
-                    parentId: f.parentId
-                }));
+                localStorage.setItem('parchments-storage-foundation', 'local');
                 set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    lastLocalFolderName: handle.name,
                     localDirectoryHandle: handle,
-                    localFiles: get().sortLocalItems(files),
+                    needsLocalReconnect: false,
+                    hasStudyspace: true,
+                    currentNote: null,
+                    currentFileHandle: null,
+                    selectedFolderId: null
+                });
+                await get().refreshLocalFiles(true);
+                await get().flushWorkspaceLockBuffer();
+                useUIStore.getState().openLeftSidebar('files');
+                useUIStore.getState().showToast(`Reconnected '${handle.name}'`, 'success');
+                return;
+            } catch (err) {
+                console.warn('[NoteStore] Tauri path reconnect failed, falling back to picker:', err);
+            }
+        }
+
+        // 2. Web App 1-click reconnect using persisted FileSystemDirectoryHandle in IndexedDB
+        if (!isDesktopTauri) {
+            const rawHandle = get().pendingLocalRawHandle || (await loadPersistedDirectoryHandle());
+            if (rawHandle) {
+                try {
+                    const perm = await requestDirectoryPermission(rawHandle, 'readwrite');
+                    if (perm === 'granted') {
+                        const handle: FileSystemDirectoryHandle = {
+                            kind: 'directory',
+                            name: rawHandle.name || savedName || 'Local Folder',
+                            rawHandle
+                        };
+                        localStorage.setItem('parchments-storage-foundation', 'local');
+                        localStorage.setItem('parchments-last-folder-name', handle.name);
+                        set({
+                            isLocalMode: true,
+                            storageFoundation: 'local',
+                            lastLocalFolderName: handle.name,
+                            localDirectoryHandle: handle,
+                            pendingLocalRawHandle: rawHandle,
+                            needsLocalReconnect: false,
+                            hasStudyspace: true,
+                            currentNote: null,
+                            currentFileHandle: null,
+                            selectedFolderId: null
+                        });
+                        await get().refreshLocalFiles(true);
+                        await get().flushWorkspaceLockBuffer();
+                        useUIStore.getState().openLeftSidebar('files');
+                        useUIStore.getState().showToast(`Reconnected '${handle.name}'`, 'success');
+                        return;
+                    } else {
+                        useUIStore.getState().showToast('Folder permission was not granted.', 'info');
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('[NoteStore] Cached handle reconnect failed (folder may have moved), opening picker:', err);
+                    await clearPersistedDirectoryHandle();
+                    set({ pendingLocalRawHandle: null });
+                }
+            }
+        }
+
+        // 3. Fallback: open directory picker dialog
+        await get().openLocalFolder();
+    },
+
+    initStorageFoundation: async () => {
+        const savedFoundation = typeof window !== 'undefined'
+            ? (localStorage.getItem('parchments-storage-foundation') as 'local' | 'browser' | null)
+            : null;
+        const savedPath = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-path') : null;
+        const savedName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
+        const isDesktopTauri = checkIsTauri();
+
+        if (isDesktopTauri && savedFoundation === 'local' && savedPath) {
+            try {
+                const handle: FileSystemDirectoryHandle = {
+                    kind: 'directory',
+                    name: savedName || 'Studyspace',
+                    path: savedPath
+                };
+                set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    lastLocalFolderName: handle.name,
+                    localDirectoryHandle: handle,
+                    needsLocalReconnect: false,
                     hasStudyspace: true
                 });
-                console.log(`[NoteStore] Auto-reconnected to local folder: ${savedName} (${savedPath}) with ${files.length} items`);
+                await get().refreshLocalFiles(true);
+                console.log(`[NoteStore] Auto-reconnected Tauri local folder: ${handle.name} (${savedPath})`);
+                return;
             } catch (err) {
-                console.warn('[NoteStore] Failed to auto-reconnect local folder:', err);
+                console.warn('[NoteStore] Failed to auto-reconnect Tauri local folder:', err);
+                set({ needsLocalReconnect: true, hasStudyspace: false });
+                return;
+            }
+        }
+
+        // Web App: load persisted FileSystemDirectoryHandle from IndexedDB
+        if (!isDesktopTauri && !isCapacitor) {
+            const savedRawHandle = await loadPersistedDirectoryHandle();
+            if (savedRawHandle) {
+                const folderName = savedRawHandle.name || savedName || 'Local Folder';
+                if (savedFoundation === 'local' && !autoSandbox) {
+                    const perm = await queryDirectoryPermission(savedRawHandle, 'readwrite');
+                    if (perm === 'granted') {
+                        try {
+                            const handle: FileSystemDirectoryHandle = {
+                                kind: 'directory',
+                                name: folderName,
+                                rawHandle: savedRawHandle
+                            };
+                            set({
+                                isLocalMode: true,
+                                storageFoundation: 'local',
+                                lastLocalFolderName: folderName,
+                                localDirectoryHandle: handle,
+                                pendingLocalRawHandle: savedRawHandle,
+                                needsLocalReconnect: false,
+                                hasStudyspace: true
+                            });
+                            await get().refreshLocalFiles(true);
+                            console.log(`[NoteStore] Auto-restored Web local folder '${folderName}' with ${get().localFiles.length} items`);
+                            return;
+                        } catch (err) {
+                            console.warn('[NoteStore] Cached web handle became invalid:', err);
+                            await clearPersistedDirectoryHandle();
+                        }
+                    } else {
+                        // Browser requires 1 user-gesture click to re-grant permission after full browser restart
+                        set({
+                            isLocalMode: true,
+                            storageFoundation: 'local',
+                            lastLocalFolderName: folderName,
+                            pendingLocalRawHandle: savedRawHandle,
+                            localDirectoryHandle: null,
+                            needsLocalReconnect: true,
+                            hasStudyspace: false
+                        });
+                        return;
+                    }
+                } else {
+                    // Even if currently in Browser DB mode, cache the handle for 1-click switching back
+                    set({
+                        pendingLocalRawHandle: savedRawHandle,
+                        lastLocalFolderName: folderName
+                    });
+                }
+            } else if (savedFoundation === 'local' && !autoSandbox) {
+                set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    localDirectoryHandle: null,
+                    needsLocalReconnect: true,
+                    hasStudyspace: false
+                });
             }
         }
     },
@@ -1002,17 +1232,25 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    refreshLocalFiles: async () => {
+    refreshLocalFiles: async (forceUpdate = false) => {
         const { localDirectoryHandle } = get();
         if (!localDirectoryHandle) return;
 
         try {
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
 
-            // 1. Map to LocalItem structure while parsing/injecting canonical UUIDs
+            // 1. Map to LocalItem structure while parsing canonical UUIDs
             const mappedFiles: LocalItem[] = [];
             for (const f of rawFiles) {
-                if (f.kind === 'file' && (MarkdownService.isHtmlFile(f.name) || MarkdownService.isMarkdownFile(f.name) || f.name.endsWith('.txt'))) {
+                if (f.kind === 'directory') {
+                    mappedFiles.push({
+                        id: f.id,
+                        name: f.name,
+                        kind: 'directory',
+                        handle: f.handle,
+                        parentId: f.parentId
+                    });
+                } else if (f.kind === 'file' && (MarkdownService.isHtmlFile(f.name) || MarkdownService.isMarkdownFile(f.name) || f.name.toLowerCase().endsWith('.txt'))) {
                     try {
                         const fileHandle = f.handle as FileSystemFileHandle;
                         const rawContent = await fileSystem.readFile(fileHandle) as string;
@@ -1128,14 +1366,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         console.error('[refreshLocalFiles] Failed to ingest discovered plan:', f.name, e);
                     }
 
-                    mappedFiles.push({
-                        id: f.id,
-                        name: f.name,
-                        kind: f.kind,
-                        handle: f.handle,
-                        parentId: f.parentId
-                    });
-                } else {
+                    // plan.json is ingested into readingPlans DB; do not clutter note tree with raw JSON
+                } else if (f.kind === 'file' && isSupportedLocalNoteFile(f.name)) {
                     mappedFiles.push({
                         id: f.id,
                         name: f.name,
@@ -1149,71 +1381,56 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // 2. STABLE SORTING using helper
             const newFiles = get().sortLocalItems(mappedFiles);
 
-            // 3. CHANGE DETECTION (Diffing)
-            // Only update state if the list actually changed to prevent jumping/flickering
-            const currentFiles = get().localFiles;
-            const hasChanged = currentFiles.length !== newFiles.length ||
+            // 3. CHANGE DETECTION (Diffing) — capture prevLocalFiles BEFORE updating state
+            const prevLocalFiles = get().localFiles;
+            const hasChanged = forceUpdate || prevLocalFiles.length !== newFiles.length ||
                 newFiles.some((f, i) =>
-                    f.id !== currentFiles[i]?.id ||
-                    f.name !== currentFiles[i]?.name ||
-                    f.kind !== currentFiles[i]?.kind ||
-                    f.parentId !== currentFiles[i]?.parentId
+                    f.id !== prevLocalFiles[i]?.id ||
+                    f.name !== prevLocalFiles[i]?.name ||
+                    f.kind !== prevLocalFiles[i]?.kind ||
+                    f.parentId !== prevLocalFiles[i]?.parentId
                 );
 
             if (!hasChanged) {
-                // console.log('[File System] No changes detected, skipping refresh');
                 return;
             }
 
             // 4. APPLY UPDATE
             set({ localFiles: newFiles });
-            console.log('[File System] Refreshed file list:', newFiles.length, 'items (Changes detected)');
+            console.log('[File System] Refreshed file list:', newFiles.length, 'items');
 
-            // SYNC STEP: Clean up IndexedDB orphans
-            // Find all notes in DB that belong to this local folder but no longer exist on disk
-            try {
-                // Get all valid file IDs from the file system
-                const validFileIds = new Set(newFiles.map(f => f.id));
+            // 5. Clean up externally deleted files (only on background polls, never on initial mount)
+            if (!forceUpdate && prevLocalFiles.length > 0) {
+                try {
+                    const validFileIds = new Set(newFiles.map(f => f.id));
+                    const validNames = new Set(newFiles.map(f => `${f.parentId || ''}::${f.name}`));
+                    const activeNoteId = get().currentNote?.id;
 
-                // Get all notes from DB that are in this local structure
-                // We identify them by checking if they are NOT in the validFileIds set
-                // but ARE currently loaded in the 'localFiles' state (before update) or just scan DB
-
-                // Better approach: Scan DB notes that have a folderId matching one of our local folders
-                // or just iterate all notes and check if they are "local-like" (id contains path separators usually)
-                // For now, let's just use the fact that we know the valid IDs.
-
-                // Actually, since we don't store "isLocal" flag in DB strictly, 
-                // we should rely on the fact that local mode uses file paths as IDs.
-
-                // Let's iterate the PREVIOUS localFiles to find what was removed
-                const prevLocalFiles = get().localFiles;
-                const activeNoteId = get().currentNote?.id;
-
-                for (const prevFile of prevLocalFiles) {
-                    if (!validFileIds.has(prevFile.id)) {
-                        console.log(`[File System] Detected deleted file: ${prevFile.id}`);
-
-                        // 1. Remove from DB
-                        await db.notes.delete(prevFile.id);
-
-                        // 2. If it was the active note, close it
-                        if (activeNoteId === prevFile.id) {
-                            set({ currentNote: null, currentFileHandle: null });
-                        }
-
-                        // 3. SYNC: Broadcast if parent folder is shared
-                        if (prevFile.parentId) {
-                            get().broadcastFolderChange(prevFile.parentId);
+                    for (const prevFile of prevLocalFiles) {
+                        const stillExistsByName = validNames.has(`${prevFile.parentId || ''}::${prevFile.name}`);
+                        if (!validFileIds.has(prevFile.id) && !stillExistsByName) {
+                            console.log(`[File System] Detected externally removed file: ${prevFile.name}`);
+                            if (activeNoteId === prevFile.id) {
+                                set({ currentNote: null, currentFileHandle: null });
+                            }
+                            if (prevFile.parentId) {
+                                get().broadcastFolderChange(prevFile.parentId);
+                            }
                         }
                     }
+                } catch (dbError) {
+                    console.error('[File System] Failed to clean up removed local files:', dbError);
                 }
-            } catch (dbError) {
-                console.error('[File System] Failed to clean up DB orphans:', dbError);
             }
-
-        } catch (error) {
+        } catch (error: any) {
             console.error('[File System] Failed to refresh:', error);
+            if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+                set({
+                    localDirectoryHandle: null,
+                    needsLocalReconnect: true,
+                    hasStudyspace: false
+                });
+            }
         }
     },
 
@@ -1222,7 +1439,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         try {
             const fileHandle = item.handle as FileSystemFileHandle;
-            const isAudio = item.name.toLowerCase().endsWith('.webm');
+            const isAudio = isAudioFileName(item.name);
 
             let content = '';
             let audioBlob: Blob | undefined;
@@ -1231,30 +1448,31 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             let parsedFrontmatter: Record<string, any> = {};
 
             if (isAudio) {
-                // Read as Blob directly
                 audioBlob = await fileSystem.readFile(fileHandle, true) as Blob;
                 noteType = 'voice';
 
-                // Try to find matching transcript (Recording X.webm -> Transcript X.html)
-                const timestampMatch = item.name.match(/Recording (.*?)\.webm/);
+                // Match sibling transcript (.md or .html)
+                const timestampMatch = item.name.match(/Recording (.*?)\.(webm|mp4|m4a|mp3|ogg|wav)$/i);
                 if (timestampMatch) {
                     const timestamp = timestampMatch[1];
-                    const transcriptName = `Transcript ${timestamp}.html`;
                     const { localFiles } = get();
                     const transcriptFile = localFiles.find(f =>
                         f.parentId === item.parentId &&
-                        f.name === transcriptName &&
+                        (f.name === `Transcript ${timestamp}.md` || f.name === `Transcript ${timestamp}.html`) &&
                         f.kind === 'file'
                     );
                     if (transcriptFile) {
                         const rawContent = await fileSystem.readFile(transcriptFile.handle as FileSystemFileHandle) as string;
-                        content = await get().hydrateAssets(rawContent);
-                        // For recordings, if we find a transcript, we treat the transcript as the primary handle for saves
+                        const htmlContent = MarkdownService.isMarkdownFile(transcriptFile.name)
+                            ? MarkdownService.markdownToHtml(rawContent).html
+                            : rawContent;
+                        content = await get().hydrateAssets(htmlContent);
                         targetHandle = transcriptFile.handle as FileSystemFileHandle;
                     } else {
-                        // Prevent saving to the audio file handle
                         targetHandle = null as any;
                     }
+                } else {
+                    targetHandle = null as any;
                 }
             } else {
                 const rawContent = await fileSystem.readFile(fileHandle) as string;
@@ -1324,7 +1542,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Construct a temporary Note object for the editor
             const tempNote: Note = {
                 id: item.id,
-                title: item.name.replace(/\.html$|\.txt$|\.md$|\.webm$/, ''), // Remove extension for display
+                title: item.name.replace(/\.(html|htm|txt|md|markdown|mdown|mkdn|webm|mp4|m4a|mp3|ogg|wav)$/i, ''),
                 content: content,
                 folderId: null,
                 tags: [],
@@ -1355,12 +1573,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             }
 
-            // Sanitize filename to ensure Windows and other OS compatibility (remove : / \ * ? " < > |)
-            const sanitizedFileName = fileName.replace(/[:/\\*?"<>|]/g, '-');
-            let name = sanitizedFileName;
-            if (!MarkdownService.isMarkdownFile(name) && !MarkdownService.isHtmlFile(name) && !name.endsWith('.txt')) {
-                name = `${name}.md`;
+            // Sanitize filename and ensure we never overwrite an existing file on disk
+            const sanitizedFileName = (fileName || UNTITLED_NOTE).replace(/[:/\\*?"<>|]/g, '-').trim() || UNTITLED_NOTE;
+            let desiredName = sanitizedFileName;
+            if (!MarkdownService.isMarkdownFile(desiredName) && !MarkdownService.isHtmlFile(desiredName) && !desiredName.toLowerCase().endsWith('.txt')) {
+                desiredName = `${desiredName}.md`;
             }
+            const name = await fileSystem.getUniqueFileName(parentHandle, desiredName);
 
             let initialContent = content;
             if (MarkdownService.isMarkdownFile(name)) {
@@ -1395,8 +1614,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 parentId: targetFolderId
             });
 
-            // Refresh file list asynchronously so it gets mapped correctly in localFiles
-            await get().refreshLocalFiles();
+            await get().refreshLocalFiles(true);
         } catch (error) {
             console.error('Failed to create local note:', error);
             throw error;
@@ -1418,17 +1636,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             }
 
             await fileSystem.createDirectory(parentHandle, folderName);
-
-            // Refresh file list
-            const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
-            const files = rawFiles.map(f => ({
-                id: f.id,
-                name: f.name,
-                kind: f.kind,
-                handle: f.handle,
-                parentId: f.parentId
-            }));
-            set({ localFiles: get().sortLocalItems(files) });
+            await get().refreshLocalFiles(true);
         } catch (error) {
             console.error('Failed to create local folder:', error);
             throw error;
@@ -1486,8 +1694,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 activeEd.commands.setContent(`<h1>Voice Transcript</h1><p>${transcript || 'Transcribing audio...'}</p>`);
             }
 
-            // Refresh file list asynchronously so it gets mapped correctly in localFiles
-            await get().refreshLocalFiles();
+            await get().refreshLocalFiles(true);
 
             // BROADCAST: Notify collaborators of the new voice note
             if (targetFolderId) {
@@ -1505,7 +1712,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     saveCurrentNote: async (title, content, targetNoteId?: string) => {
-        const { currentNote, isLocalMode, currentFileHandle, notes, renameNote, localFiles, dehydrateAssets } = get();
+        const { currentNote, isLocalMode, currentFileHandle, notes, localFiles, dehydrateAssets } = get();
 
         // If targetNoteId is specified and differs from current active note (e.g. background flush on note switch or close)
         if (targetNoteId && (!currentNote || currentNote.id !== targetNoteId)) {
@@ -1549,8 +1756,6 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             if (extracted && extracted.length > 2 && extracted !== UNTITLED_NOTE) {
                 finalTitle = extracted;
                 console.log(`[Auto-Naming] Detected title from content: "${finalTitle}"`);
-                // Trigger an async rename so we don't block the save
-                setTimeout(() => renameNote(currentNote.id, finalTitle), 100);
             }
         }
 
@@ -1589,16 +1794,42 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         if (isLocalMode && currentFileHandle) {
             // File System Mode
             try {
+                let activeHandle = currentFileHandle;
                 let diskContent = portableContent;
-                if (MarkdownService.isMarkdownFile(currentFileHandle.name)) {
+                if (MarkdownService.isMarkdownFile(activeHandle.name)) {
                     diskContent = MarkdownService.htmlToMarkdown(portableContent, currentNote.metadata);
                 }
 
-                let fsContent = get().dehydrateAssets(diskContent);
-                await fileSystem.writeFile(currentFileHandle, fsContent);
-                // Update store state to reflect changes
+                const fsContent = get().dehydrateAssets(diskContent);
+                await fileSystem.writeFile(activeHandle, fsContent);
+
+                // If the note title changed from the physical filename, rename the file on disk too
+                const currentBaseName = activeHandle.name.replace(/\.(md|markdown|mdown|mkdn|html|htm|txt)$/i, '');
+                const sanitizedTitle = finalTitle.replace(/[:/\\*?"<>|]/g, '-').trim();
+                let resolvedTitle = finalTitle;
+
+                if (sanitizedTitle && sanitizedTitle !== currentBaseName && get().localDirectoryHandle) {
+                    const extMatch = activeHandle.name.match(/\.(md|markdown|mdown|mkdn|html|htm|txt)$/i);
+                    const ext = extMatch ? extMatch[0] : '.md';
+                    const localItem = get().localFiles.find(f => f.id === currentNote.id && f.kind === 'file');
+                    let parentDir = get().localDirectoryHandle!;
+                    if (localItem?.parentId) {
+                        const parentFolder = get().localFiles.find(f => f.id === localItem.parentId && f.kind === 'directory');
+                        if (parentFolder) parentDir = parentFolder.handle as FileSystemDirectoryHandle;
+                    }
+                    const desiredFileName = await fileSystem.getUniqueFileName(parentDir, `${sanitizedTitle}${ext}`);
+                    try {
+                        activeHandle = await fileSystem.renameEntry(activeHandle, desiredFileName, parentDir) as FileSystemFileHandle;
+                        resolvedTitle = desiredFileName.replace(/\.(md|markdown|mdown|mkdn|html|htm|txt)$/i, '');
+                        await get().refreshLocalFiles(true);
+                    } catch (renameErr) {
+                        console.warn('[NoteStore] Title file rename skipped:', renameErr);
+                    }
+                }
+
                 set({
-                    currentNote: { ...currentNote, title: finalTitle, content: portableContent, updatedAt: Date.now() }
+                    currentFileHandle: activeHandle,
+                    currentNote: { ...currentNote, title: resolvedTitle, content: portableContent, updatedAt: Date.now() }
                 });
             } catch (error) {
                 console.warn('[NoteStore] File system write blocked or handle locked. Caching in IndexedDB Safe-Buffer...', error);
@@ -1741,11 +1972,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         } else {
             localStorage.setItem('parchments-storage-foundation', 'local');
         }
+        const hasHandle = Boolean(get().localDirectoryHandle);
         set({
             isLocalMode: enabled,
             storageFoundation: enabled ? 'local' : 'browser',
-            hasStudyspace: !enabled ? true : get().hasStudyspace,
+            hasStudyspace: !enabled ? true : hasHandle,
+            needsLocalReconnect: enabled && !hasHandle,
             currentNote: null,
+            currentFileHandle: null,
             selectedFolderId: null
         });
         if (!enabled) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     BookOpen,
     FilePlus,
@@ -29,19 +29,22 @@ export const EmptyState: React.FC = () => {
         hasStudyspace,
         openLocalFolder,
         selectStorageFoundation,
+        storageFoundation,
         lastLocalFolderName,
         reconnectLocalFolder
     } = useNoteStore();
 
     const { openRightSidebar, isLeftSidebarOpen, closeLeftSidebar } = useUIStore();
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+    const didInitialCloseRef = useRef(false);
 
-    // Option A: Ensure sidebars are cleanly closed on welcome screen / initial launch
+    // Only auto-close the left sidebar ONCE on first-ever launch (never block the user from clicking the Files icon!)
     useEffect(() => {
-        if (!hasStudyspace && isLeftSidebarOpen) {
+        if (!didInitialCloseRef.current && storageFoundation === null && !hasStudyspace && isLeftSidebarOpen) {
+            didInitialCloseRef.current = true;
             closeLeftSidebar();
         }
-    }, [hasStudyspace, isLeftSidebarOpen, closeLeftSidebar]);
+    }, [storageFoundation, hasStudyspace, isLeftSidebarOpen, closeLeftSidebar]);
 
     const isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
     const isNativeApp = typeof window !== 'undefined' && (
@@ -156,7 +159,9 @@ export const EmptyState: React.FC = () => {
                             ) : (
                                 <div className="p-3 rounded-2xl bg-light-background dark:bg-white/[0.03] border border-light-border dark:border-white/5 text-[11px] text-light-text-secondary dark:text-white/50 flex items-start gap-2">
                                     <AlertCircle size={15} className="text-amber-500 shrink-0 mt-0.5" />
-                                    <span>Desktop only: Mobile web browsers restrict direct file system access. Use Browser Database below.</span>
+                                    <span>
+                                        Requires Chrome, Edge, or Opera on desktop (File System Access API), or the Parchments Desktop App. Use Browser Database below in Safari, Firefox, or mobile browsers.
+                                    </span>
                                 </div>
                             )}
                         </div>

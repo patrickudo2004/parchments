@@ -180,23 +180,29 @@ async function run() {
 
         const switcherInfo = await page.evaluate(() => {
             const buttons = Array.from(document.querySelectorAll('button'));
-            const btn = buttons.find(b => b.textContent?.includes('💾') || b.textContent?.includes('📁') || b.getAttribute('title')?.includes('Database'));
+            const btn = buttons.find(b => b.getAttribute('title')?.includes('Browser Database') || b.getAttribute('title')?.includes('Local Folder'));
+            const newNoteBtn = buttons.find(b => b.getAttribute('title') === 'New Note' || b.getAttribute('title') === 'New Local Note');
             if (!btn) return null;
             const rect = btn.getBoundingClientRect();
+            const noteRect = newNoteBtn ? newNoteBtn.getBoundingClientRect() : null;
+            const overlapsActionRow = noteRect
+                ? !(rect.bottom <= noteRect.top + 1 || rect.right <= noteRect.left + 1)
+                : false;
             return {
                 text: btn.textContent?.trim(),
                 width: rect.width,
-                title: btn.getAttribute('title')
+                title: btn.getAttribute('title'),
+                overlapsActionRow
             };
         });
 
         recordResult('Scenario 2', 'Workspace switcher found with clear foundation icon', !!switcherInfo, `Text: ${switcherInfo?.text}`);
-        recordResult('Scenario 2', 'Workspace switcher width >= 140px (no "Local Folder..." truncation)', (switcherInfo?.width || 0) >= 140, `Width: ${switcherInfo?.width}px`);
+        recordResult('Scenario 2', 'Workspace switcher full-width >= 200px with zero icon collision', (switcherInfo?.width || 0) >= 200 && !switcherInfo?.overlapsActionRow, `Width: ${Math.round(switcherInfo?.width || 0)}px, Overlaps: ${switcherInfo?.overlapsActionRow}`);
 
         // Click workspace switcher to open dropdown
         await page.evaluate(() => {
             const buttons = Array.from(document.querySelectorAll('button'));
-            const btn = buttons.find(b => b.textContent?.includes('💾') || b.textContent?.includes('📁') || b.getAttribute('title')?.includes('Database'));
+            const btn = buttons.find(b => b.getAttribute('title')?.includes('Browser Database') || b.getAttribute('title')?.includes('Local Folder'));
             if (btn) btn.click();
         });
         await new Promise(r => setTimeout(r, 400));
@@ -207,7 +213,7 @@ async function run() {
         });
 
         recordResult('Scenario 2', 'Dropdown contains Storage Location label', switcherDropdownText.includes('Storage Location'));
-        recordResult('Scenario 2', 'Dropdown contains option to Switch to Local Folder', switcherDropdownText.includes('Switch to Local Folder'));
+        recordResult('Scenario 2', 'Dropdown contains option to Open Local Folder', switcherDropdownText.includes('Open Local Folder') || switcherDropdownText.includes('Switch to Local Folder'));
 
         const sc2Path = path.join(screenshotsDir, 'scenario2_studyspace_dropdown.png');
         await page.screenshot({ path: sc2Path });
@@ -500,6 +506,195 @@ async function run() {
         const sc8DesktopPath = path.join(screenshotsDir, 'scenario8_desktop_1440.png');
         await page.screenshot({ path: sc8DesktopPath });
 
+        // ==============================================================
+        // SCENARIO 9: Web App Local Folder Full Lifecycle (Issue 3 Deep Test)
+        // ==============================================================
+        console.log('\n--- Scenario 9: Web App Local Folder Access, Reload Persistence & Isolation ---');
+
+        // 9.1 Create a Browser DB note first so we can verify strict isolation (no DB bleed into Local Mode)
+        const preLocalDbCount = await page.evaluate(async () => {
+            const ns = (window).useNoteStore.getState();
+            await ns.selectStorageFoundation('browser');
+            await ns.createNote(null, 'Browser Exclusive Note');
+            return (window).useNoteStore.getState().notes.length;
+        });
+
+        // 9.2 Provision a real native Chromium FileSystemDirectoryHandle via OPFS & wire showDirectoryPicker
+        const connectResult = await page.evaluate(async () => {
+            const opfsRoot = await navigator.storage.getDirectory();
+            // Clean any previous test vault
+            try { await opfsRoot.removeEntry('MyStudyVault', { recursive: true }); } catch {}
+            const vaultHandle = await opfsRoot.getDirectoryHandle('MyStudyVault', { create: true });
+
+            // Seed an existing Markdown file + hidden .assets and .git folders on disk
+            const romFile = await vaultHandle.getFileHandle('Romans 8 Exegesis.md', { create: true });
+            const w = await romFile.createWritable();
+            await w.write('---\ntitle: Romans 8 Exegesis\n---\n# No Condemnation\n\nWalk in the Spirit.');
+            await w.close();
+            await vaultHandle.getDirectoryHandle('.assets', { create: true });
+            await vaultHandle.getDirectoryHandle('.git', { create: true });
+
+            let pickerCalls = 0;
+            (window).showDirectoryPicker = async () => {
+                pickerCalls++;
+                return vaultHandle;
+            };
+            (window).__getPickerCalls = () => pickerCalls;
+
+            await (window).useNoteStore.getState().openLocalFolder();
+
+            const state = (window).useNoteStore.getState();
+            const sidebarEl = document.querySelector('[data-sidebar]');
+            const sidebarText = sidebarEl ? sidebarEl.textContent || '' : '';
+
+            return {
+                isLocalMode: state.isLocalMode,
+                hasStudyspace: state.hasStudyspace,
+                folderName: state.localDirectoryHandle?.name,
+                localFileNames: state.localFiles.map(f => f.name),
+                sidebarHasDiskFile: sidebarText.includes('Romans 8 Exegesis.md'),
+                sidebarLeakedBrowserNote: sidebarText.includes('Browser Exclusive Note') || sidebarText.includes('Study Journal'),
+                hasDotfilesInTree: state.localFiles.some(f => f.name.startsWith('.'))
+            };
+        });
+
+        recordResult('Scenario 9', 'Web Local Folder mounts cleanly via File System Access API', connectResult.isLocalMode && connectResult.hasStudyspace && connectResult.folderName === 'MyStudyVault', `Folder: ${connectResult.folderName}`);
+        recordResult('Scenario 9', 'Existing disk .md file appears immediately in FilesSidebar', connectResult.sidebarHasDiskFile, `Files: ${connectResult.localFileNames.join(', ')}`);
+        recordResult('Scenario 9', 'Strict Storage Isolation: Browser DB notes/folders do NOT bleed into Local Folder tree', !connectResult.sidebarLeakedBrowserNote && !connectResult.hasDotfilesInTree);
+
+        // 9.3 Create two untitled notes & rename/save to disk — verify collision protection & zero DB leakage
+        const diskWriteResult = await page.evaluate(async () => {
+            const ns = (window).useNoteStore.getState();
+            await ns.createNote(null); // Untitled Note.md
+            await ns.createNote(null); // Untitled Note 2.md (must NOT overwrite first!)
+            await ns.saveCurrentNote('Ephesians 2 Grace', '<h1>By Grace</h1><p>Saved onto disk directly.</p>');
+
+            const opfsRoot = await navigator.storage.getDirectory();
+            const vaultHandle = await opfsRoot.getDirectoryHandle('MyStudyVault');
+            const diskEntries = [];
+            for await (const entry of vaultHandle.values()) {
+                if (!entry.name.startsWith('.')) diskEntries.push(entry.name);
+            }
+            const ephFile = await (await vaultHandle.getFileHandle('Ephesians 2 Grace.md')).getFile();
+            const ephText = await ephFile.text();
+
+            return {
+                diskEntries: diskEntries.sort(),
+                hasFirstUntitled: diskEntries.includes('Untitled Note.md'),
+                hasRenamedEph: diskEntries.includes('Ephesians 2 Grace.md'),
+                ephContainsMarkdown: ephText.includes('Saved onto disk directly'),
+                dbNoteCountAfter: (window).useNoteStore.getState().notes.length
+            };
+        });
+
+        recordResult('Scenario 9', 'Creating multiple Untitled Notes in Local Folder avoids overwriting existing files', diskWriteResult.hasFirstUntitled && diskWriteResult.hasRenamedEph, `Disk files: ${diskWriteResult.diskEntries.join(', ')}`);
+        recordResult('Scenario 9', 'Editing note & title writes physical .md file to disk without leaking into Browser DB', diskWriteResult.ephContainsMarkdown && diskWriteResult.dbNoteCountAfter === preLocalDbCount);
+
+        // 9.4 Page Reload at Narrow Desktop Width (900px < 1024px) — Verify Auto-Restore via Persisted IndexedDB Handle
+        await page.setViewport({ width: 900, height: 800 });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => {
+            const s = (window).useNoteStore?.getState();
+            return s && s.isLocalMode && s.hasStudyspace && s.localFiles.length >= 3;
+        }, { timeout: 10000 }).catch(() => {});
+
+        const reloadAutoRestore = await page.evaluate(() => {
+            const s = (window).useNoteStore.getState();
+            return {
+                isLocalMode: s.isLocalMode,
+                hasStudyspace: s.hasStudyspace,
+                folderName: s.localDirectoryHandle?.name,
+                fileCount: s.localFiles.length
+            };
+        });
+        recordResult('Scenario 9', 'Web page reload (<1024px split window) auto-restores Local Folder from IndexedDB handle with 0 clicks', reloadAutoRestore.isLocalMode && reloadAutoRestore.hasStudyspace && reloadAutoRestore.folderName === 'MyStudyVault' && reloadAutoRestore.fileCount >= 3, `Restored ${reloadAutoRestore.fileCount} files in '${reloadAutoRestore.folderName}'`);
+
+        // 9.5 Simulate Full Browser Restart (queryPermission = 'prompt') — Verify Zero Zombie Mode & 1-Click Reconnect
+        await page.setViewport({ width: 1440, height: 900 });
+        await page.evaluateOnNewDocument(() => {
+            if (window.__simulateBrowserRestartPerm) {
+                let granted = false;
+                FileSystemHandle.prototype.queryPermission = async function () {
+                    return granted ? 'granted' : 'prompt';
+                };
+                FileSystemHandle.prototype.requestPermission = async function () {
+                    granted = true;
+                    return 'granted';
+                };
+            }
+        });
+        // Enable flag via sessionStorage check inside evaluateOnNewDocument
+        await page.evaluateOnNewDocument(() => {
+            if (sessionStorage.getItem('e2e-sim-restart') === '1') {
+                let granted = false;
+                FileSystemHandle.prototype.queryPermission = async function () {
+                    return granted ? 'granted' : 'prompt';
+                };
+                FileSystemHandle.prototype.requestPermission = async function () {
+                    granted = true;
+                    return 'granted';
+                };
+            }
+        });
+        await page.evaluate(() => sessionStorage.setItem('e2e-sim-restart', '1'));
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => !!(window).useNoteStore, { timeout: 10000 });
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Open left sidebar via toggleLeftSidebar('files') and verify EmptyState does NOT slam it shut!
+        const postRestartState = await page.evaluate(() => {
+            (window).useUIStore.getState().openLeftSidebar('files');
+            return {
+                isLocalMode: (window).useNoteStore.getState().isLocalMode,
+                hasStudyspace: (window).useNoteStore.getState().hasStudyspace,
+                needsLocalReconnect: (window).useNoteStore.getState().needsLocalReconnect,
+                lastLocalFolderName: (window).useNoteStore.getState().lastLocalFolderName
+            };
+        });
+        await new Promise(r => setTimeout(r, 400));
+
+        const postRestartUi = await page.evaluate(() => {
+            const isSidebarStillOpen = (window).useUIStore.getState().isLeftSidebarOpen;
+            const btns = Array.from(document.querySelectorAll('button'));
+            const reconnectBtn = btns.find(b => b.textContent?.includes('Reconnect Folder') || b.textContent?.includes("Reconnect 'MyStudyVault'"));
+            return {
+                isSidebarStillOpen,
+                hasReconnectBtn: !!reconnectBtn
+            };
+        });
+
+        recordResult('Scenario 9', 'After browser restart (permission prompt), NO Zombie Local Mode — shows clear Reconnect state & sidebar stays open', postRestartState.isLocalMode && !postRestartState.hasStudyspace && postRestartState.needsLocalReconnect && postRestartUi.isSidebarStillOpen && postRestartUi.hasReconnectBtn);
+
+        const sc9DisconnectedPath = path.join(screenshotsDir, 'scenario9_local_folder_reconnect_prompt.png');
+        await page.screenshot({ path: sc9DisconnectedPath });
+
+        // Click 1-click Reconnect button (without showDirectoryPicker defined, proving it uses cached IndexedDB handle!)
+        await page.evaluate(() => {
+            const btns = Array.from(document.querySelectorAll('button'));
+            const reconnectBtn = btns.find(b => b.textContent?.includes('Reconnect Folder') || b.textContent?.includes("Reconnect 'MyStudyVault'"));
+            if (reconnectBtn) reconnectBtn.click();
+        });
+
+        await page.waitForFunction(() => {
+            const s = (window).useNoteStore?.getState();
+            return s && s.hasStudyspace && s.localFiles.length >= 3;
+        }, { timeout: 8000 }).catch(() => {});
+
+        const afterOneClickReconnect = await page.evaluate(() => {
+            sessionStorage.removeItem('e2e-sim-restart');
+            const s = (window).useNoteStore.getState();
+            return {
+                hasStudyspace: s.hasStudyspace,
+                needsLocalReconnect: s.needsLocalReconnect,
+                fileNames: s.localFiles.map(f => f.name)
+            };
+        });
+
+        recordResult('Scenario 9', '1-Click Reconnect restores exact Local Folder & all .md files without OS picker dialog', afterOneClickReconnect.hasStudyspace && !afterOneClickReconnect.needsLocalReconnect && afterOneClickReconnect.fileNames.includes('Ephesians 2 Grace.md'), `Files: ${afterOneClickReconnect.fileNames.join(', ')}`);
+
+        const sc9ConnectedPath = path.join(screenshotsDir, 'scenario9_local_folder_connected.png');
+        await page.screenshot({ path: sc9ConnectedPath });
+
     } catch (err) {
         console.error('\n[E2E Runner Exception]:', err);
     } finally {
@@ -516,7 +711,7 @@ async function run() {
     const passed = testResults.filter(r => r.passed).length;
     const failed = total - passed;
 
-    console.log(`Total Scenarios Tested : 8`);
+    console.log(`Total Scenarios Tested : 9`);
     console.log(`Total Assertions Checked: ${total}`);
     console.log(`Passed Assertions      : ${passed}`);
     console.log(`Failed Assertions      : ${failed}`);

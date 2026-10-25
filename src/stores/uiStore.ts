@@ -334,7 +334,12 @@ export const useUIStore = create<UIStore>()(
             setRightSidebarWidth: (width) => set({ rightSidebarWidth: width }),
             openLeftSidebar: (content) => set({ isLeftSidebarOpen: true, leftSidebarContent: content || 'files' }),
             closeLeftSidebar: () => set({ isLeftSidebarOpen: false, leftSidebarContent: null }),
-            openRightSidebar: (content) => set({ rightSidebarOpen: true, rightSidebarContent: content }),
+            openRightSidebar: (content) => set((state) => ({
+                rightSidebarOpen: true,
+                rightSidebarContent: content,
+                mobileBibleState: content === 'bible' && state.mobileBibleState === 'closed' ? 'half' : state.mobileBibleState,
+                ...(typeof window !== 'undefined' && window.innerWidth < 1024 ? { isLeftSidebarOpen: false, leftSidebarContent: null } : {})
+            })),
             closeRightSidebar: () => set({ rightSidebarOpen: false, rightSidebarContent: null }),
             setEditorStats: (words, characters) => set({ wordCount: words, characterCount: characters }),
             setLeftSidebarPosition: (pos) => set({ leftSidebarPosition: pos }),

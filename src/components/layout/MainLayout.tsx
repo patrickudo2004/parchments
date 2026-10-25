@@ -7,6 +7,7 @@ import { StatusBar } from './StatusBar';
 import { useUIStore } from '@/stores/uiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useReadingPlanStore } from '@/stores/readingPlanStore';
+import { useBibleStore } from '@/stores/bibleStore';
 import { MobileNav } from './MobileNav';
 
 import { BibleModal } from '@/components/bible/BibleModal';
@@ -134,6 +135,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         }))
     );
     const { isLectioModeActive } = useReadingPlanStore();
+    const isBibleSearchOpen = useBibleStore(s => s.isSearchOpen);
     const hasStudyspace = useNoteStore(s => s.hasStudyspace);
     const openLocalFolder = useNoteStore(s => s.openLocalFolder);
     const createNote = useNoteStore(s => s.createNote);
@@ -156,6 +158,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             const w = window.innerWidth;
             setIsMobile(w < 768);
             setIsTablet(w >= 768 && w < 1024);
+            if (w >= 768 && w < 1024 && useUIStore.getState().isLeftSidebarOpen && useUIStore.getState().rightSidebarOpen) {
+                useUIStore.getState().closeLeftSidebar();
+            }
         };
         checkBreakpoints();
         window.addEventListener('resize', checkBreakpoints);
@@ -293,7 +298,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     if (isLeftSidebarOpen) toggleLeftSidebar();
                                     if (rightSidebarOpen) toggleRightSidebar();
                                 }}
-                                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55]"
+                                className={`${isTablet ? 'absolute' : 'fixed'} inset-0 bg-black/40 backdrop-blur-sm z-[55]`}
                             />
                         )}
                     </AnimatePresence>
@@ -322,7 +327,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     x: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.x : 0,
                                     y: !isTablet && isLeftSidebarFloating ? leftSidebarPosition.y : 0
                                 }}
-                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 relative ${!isResizingLeft && (isMobile || isTablet || !isLeftSidebarFloating) ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isTablet ? 'fixed inset-y-0 left-12 z-[60] shadow-2xl border-r' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : ''}`}
+                                className={`bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border flex flex-col h-full shrink-0 ${!isResizingLeft && (isMobile || isTablet || !isLeftSidebarFloating) ? 'transition-all duration-300 ease-in-out' : ''} ${isMobile ? 'fixed inset-y-0 left-0 z-[60] shadow-2xl' : isTablet ? 'absolute inset-y-0 left-12 z-[60] shadow-2xl border-r' : isLeftSidebarFloating ? 'absolute inset-y-0 left-0 z-[40] shadow-2xl border-r rounded-r-xl overflow-hidden' : 'relative'}`}
                                 style={{
                                     width: isMobile ? '85vw' : isTablet ? '320px' : `${Math.max(leftSidebarWidth || 280, 240)}px`,
                                     height: !isTablet && isLeftSidebarFloating ? '80vh' : '100%',
@@ -360,7 +365,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {/* Main Content Area - Editor */}
                     <main className={`overflow-hidden bg-light-surface dark:bg-dark-surface shadow-sm relative z-0 ${
                         isMobile && rightSidebarOpen && rightSidebarContent === 'bible'
-                            ? mobileBibleState === 'full'
+                            ? (mobileBibleState === 'full' || isBibleSearchOpen)
                                 ? 'hidden'
                                 : 'h-[55%] w-full order-last'
                             : 'flex-1 h-full'
@@ -399,16 +404,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                     x: !isTablet && isRightSidebarFloating ? rightSidebarPosition.x : 0,
                                     y: !isTablet && isRightSidebarFloating ? rightSidebarPosition.y : 0
                                 }}
-                                className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
+                                className={`bg-light-surface dark:bg-dark-surface border-light-border dark:border-dark-border flex flex-col shrink-0 transition-all duration-300 ease-in-out ${
                                     isMobile && rightSidebarContent === 'bible'
-                                        ? `w-full border-b order-first z-10 ${mobileBibleState === 'full' ? 'fixed inset-0 z-[65]' : 'h-[45%]'}`
+                                        ? `w-full border-b order-first ${(mobileBibleState === 'full' || isBibleSearchOpen) ? 'fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[65]' : 'relative z-10 h-[45%]'}`
                                         : isMobile
                                             ? 'fixed inset-y-0 right-0 z-[60] shadow-2xl border-l'
                                             : isTablet
-                                                ? 'fixed inset-y-0 right-12 z-[60] shadow-2xl border-l'
+                                                ? 'absolute inset-y-0 right-12 z-[60] shadow-2xl border-l'
                                                 : isRightSidebarFloating
                                                     ? 'absolute inset-y-0 right-0 z-[40] shadow-2xl border-l rounded-l-xl overflow-hidden'
-                                                    : 'border-l h-full'
+                                                    : 'relative border-l h-full'
                                 }`}
                                 style={isMobile && rightSidebarContent === 'bible' ? {} : {
                                     width: isMobile ? '85vw' : isTablet ? '380px' : `${Math.max(rightSidebarWidth || 350, 200)}px`,

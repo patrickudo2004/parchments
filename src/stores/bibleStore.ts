@@ -39,6 +39,7 @@ interface BibleStore {
     searchTestamentFilter: 'all' | 'ot' | 'nt';
     searchBookFilter: string | null;
     searchWholeWord: boolean;
+    searchViewMode: 'list' | 'books';
     searchMode: BibleSearchResponse['mode'];
     searchParsedRef: BibleReference | null;
     searchStrongsEntry: StrongsEntry | null;
@@ -57,6 +58,7 @@ interface BibleStore {
     setSearchTestamentFilter: (testament: 'all' | 'ot' | 'nt') => void;
     setSearchBookFilter: (book: string | null) => void;
     setSearchWholeWord: (wholeWord: boolean) => void;
+    setSearchViewMode: (mode: 'list' | 'books') => void;
     executeSearch: (overrideQuery?: string) => Promise<void>;
 }
 
@@ -81,6 +83,7 @@ export const useBibleStore = create<BibleStore>()(
             searchTestamentFilter: 'all',
             searchBookFilter: null,
             searchWholeWord: false,
+            searchViewMode: 'list',
             searchMode: 'empty',
             searchParsedRef: null,
             searchStrongsEntry: null,
@@ -161,6 +164,8 @@ export const useBibleStore = create<BibleStore>()(
                 }
             },
 
+            setSearchViewMode: (mode) => set({ searchViewMode: mode }),
+
             executeSearch: async (overrideQuery?: string) => {
                 const state = get();
                 const activeQuery = overrideQuery !== undefined ? overrideQuery : state.searchQuery;
@@ -227,7 +232,8 @@ export const useBibleStore = create<BibleStore>()(
                 parallelVersions: state.parallelVersions,
                 bibleFocus: state.bibleFocus,
                 interlinearEnabled: state.interlinearEnabled,
-                verseHoverPreviews: state.verseHoverPreviews
+                verseHoverPreviews: state.verseHoverPreviews,
+                searchViewMode: state.searchViewMode
             })
         }
     )

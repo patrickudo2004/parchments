@@ -1081,6 +1081,258 @@ async function run() {
             `Handed off ${handoffCheck.totalCount} results (${handoffCheck.firstRef} first)`
         );
 
+        // ==============================================================
+        // SCENARIO 11: Expand All & Group by Book Across Desktop, Tablet & Mobile Touch
+        // ==============================================================
+        console.log('\n--- Scenario 11: Expand All & Group by Book (Desktop, Tablet & Mobile Touch) ---');
+        await page.setViewport({ width: 1440, height: 900, hasTouch: false, isMobile: false });
+        await new Promise(r => setTimeout(r, 300));
+
+        // 11.1 List View Batched Default (100) -> Expand All (846) -> Collapse back to 100
+        const initialListBatchCheck = await page.evaluate(() => {
+            const items = document.querySelectorAll('[data-testid="bible-search-result-item"]');
+            const hasTopExpandAll = !!document.querySelector('[data-testid="bible-expand-all-btn"]');
+            const hasFooterExpandAll = !!document.querySelector('[data-testid="bible-search-expand-all-footer"]');
+            const hasLoadMore = !!document.querySelector('[data-testid="bible-search-load-more"]');
+            return {
+                renderedCount: items.length,
+                hasTopExpandAll,
+                hasFooterExpandAll,
+                hasLoadMore
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            'List view renders initial 100-verse batch with both Next-100 & Expand All (846) controls',
+            initialListBatchCheck.renderedCount === 100 &&
+                initialListBatchCheck.hasTopExpandAll &&
+                initialListBatchCheck.hasFooterExpandAll &&
+                initialListBatchCheck.hasLoadMore,
+            `Initial batch: ${initialListBatchCheck.renderedCount}`
+        );
+
+        await page.click('[data-testid="bible-expand-all-btn"]');
+        await page.waitForFunction(() => {
+            return document.querySelectorAll('[data-testid="bible-search-result-item"]').length === 846;
+        }, { timeout: 10000 });
+
+        const expandedListCheck = await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('[data-testid="bible-search-result-item"]'));
+            return {
+                renderedCount: items.length,
+                firstRef: items[0]?.getAttribute('data-ref') || '',
+                lastRef: items[items.length - 1]?.getAttribute('data-ref') || '',
+                hasCollapseBtn: !!document.querySelector('[data-testid="bible-collapse-list-btn"]')
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            "Clicking 'Expand All (846)' in List view mounts all 846 verses from Genesis 14:18 through Revelation 20:6",
+            expandedListCheck.renderedCount === 846 &&
+                expandedListCheck.firstRef === 'Genesis 14:18' &&
+                expandedListCheck.lastRef === 'Revelation 20:6' &&
+                expandedListCheck.hasCollapseBtn,
+            `Expanded: ${expandedListCheck.renderedCount} (${expandedListCheck.firstRef} -> ${expandedListCheck.lastRef})`
+        );
+
+        await page.click('[data-testid="bible-collapse-list-btn"]');
+        await page.waitForFunction(() => {
+            return document.querySelectorAll('[data-testid="bible-search-result-item"]').length === 100;
+        }, { timeout: 5000 });
+
+        // 11.2 Switch to 'By Book (36)' View -> Verify Canonical OT/NT Grouping & Multi-Book Simultaneous Study
+        await page.click('[data-testid="bible-view-books"]');
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="bible-books-accordion"]'), { timeout: 5000 });
+
+        const byBookInitialCheck = await page.evaluate(() => {
+            const headers = Array.from(document.querySelectorAll('[data-testid="bible-book-group-header"]'));
+            const books = headers.map(h => h.getAttribute('data-book'));
+            const accordionText = document.querySelector('[data-testid="bible-books-accordion"]')?.textContent || '';
+            return {
+                bookCount: books.length,
+                firstBook: books[0],
+                secondBook: books[1],
+                lastBook: books[books.length - 1],
+                hasOtHeader: accordionText.includes('Old Testament') && accordionText.includes('28 Books'),
+                hasNtHeader: accordionText.includes('New Testament') && accordionText.includes('8 Books')
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            "Group by Book ('By Book (36)') organizes all 846 matches into 28 OT & 8 NT canonical book groups (Genesis -> Revelation)",
+            byBookInitialCheck.bookCount === 36 &&
+                byBookInitialCheck.firstBook === 'Genesis' &&
+                byBookInitialCheck.secondBook === 'Exodus' &&
+                byBookInitialCheck.lastBook === 'Revelation' &&
+                byBookInitialCheck.hasOtHeader &&
+                byBookInitialCheck.hasNtHeader,
+            `Books: ${byBookInitialCheck.bookCount} (${byBookInitialCheck.firstBook} .. ${byBookInitialCheck.lastBook})`
+        );
+
+        // Expand Genesis (6) AND Hebrews (34) simultaneously
+        await page.click('[data-testid="bible-book-group-header"][data-book="Genesis"]');
+        await page.click('[data-testid="bible-book-group-header"][data-book="Hebrews"]');
+        await new Promise(r => setTimeout(r, 250));
+
+        const multiBookOpenCheck = await page.evaluate(() => {
+            const genPanel = document.querySelector('[data-testid="bible-book-group-panel"][data-book="Genesis"]');
+            const hebPanel = document.querySelector('[data-testid="bible-book-group-panel"][data-book="Hebrews"]');
+            const genItems = genPanel ? genPanel.querySelectorAll('[data-testid="bible-search-result-item"]').length : 0;
+            const hebItems = hebPanel ? hebPanel.querySelectorAll('[data-testid="bible-search-result-item"]').length : 0;
+            return { genItems, hebItems };
+        });
+        recordResult(
+            'Scenario 11',
+            'Multiple books (Genesis + Hebrews) expand simultaneously in By Book view for cross-testament study',
+            multiBookOpenCheck.genItems === 6 && multiBookOpenCheck.hebItems === 34,
+            `Genesis: ${multiBookOpenCheck.genItems}, Hebrews: ${multiBookOpenCheck.hebItems}`
+        );
+
+        // Collapse Hebrews & scroll back to top so Genesis (6) + OT overview fit cleanly in the desktop screenshot
+        await page.click('[data-testid="bible-book-group-header"][data-book="Hebrews"]');
+        await page.evaluate(() => {
+            const sc = document.querySelector('[data-testid="bible-search-results"]');
+            if (sc) sc.scrollTop = 0;
+        });
+        await new Promise(r => setTimeout(r, 250));
+        const sc11DesktopPath = path.join(screenshotsDir, 'scenario11_desktop_group_by_book.png');
+        await page.screenshot({ path: sc11DesktopPath });
+
+        // 11.3 Expand All Books & Collapse All Books in By Book View
+        await page.click('[data-testid="bible-books-expand-all-btn"]');
+        await page.waitForFunction(() => {
+            return document.querySelectorAll('[data-testid="bible-book-group-panel"]').length === 36;
+        }, { timeout: 10000 });
+
+        const allBooksExpandedCheck = await page.evaluate(() => {
+            const panels = document.querySelectorAll('[data-testid="bible-book-group-panel"]').length;
+            const totalVerses = document.querySelectorAll('[data-testid="bible-search-result-item"]').length;
+            const btnText = document.querySelector('[data-testid="bible-books-expand-all-btn"]')?.textContent || '';
+            return { panels, totalVerses, isCollapseLabel: btnText.includes('Collapse All') };
+        });
+        recordResult(
+            'Scenario 11',
+            "'Expand All' in By Book view opens all 36 canonical books (846 verses) & toggles to 'Collapse All'",
+            allBooksExpandedCheck.panels === 36 && allBooksExpandedCheck.totalVerses === 846 && allBooksExpandedCheck.isCollapseLabel,
+            `Open book panels: ${allBooksExpandedCheck.panels}, Verses: ${allBooksExpandedCheck.totalVerses}`
+        );
+
+        await page.click('[data-testid="bible-books-expand-all-btn"]');
+        await page.waitForFunction(() => document.querySelectorAll('[data-testid="bible-book-group-panel"]').length === 0, { timeout: 5000 });
+
+        // 11.4 Tablet Touch Viewport (768x1024) — Drawer Layout, Zero Horizontal Overflow & Touch Tap
+        // Note: Puppeteer reloads page once when hasTouch toggles false -> true; wait for stores & re-open search
+        await page.setViewport({ width: 768, height: 1024, hasTouch: true, isMobile: false });
+        await page.waitForFunction(() => !!(window).useBibleStore && !!(window).useUIStore, { timeout: 15000 });
+        await page.evaluate(async () => {
+            const ui = (window).useUIStore.getState();
+            ui.openRightSidebar('bible');
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchViewMode('books');
+            bible.setSearchOpen(true);
+            bible.setSearchQuery('priest');
+            await bible.executeSearch('priest');
+        });
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="bible-book-group-header"][data-book="Genesis"]'), { timeout: 15000 });
+        await new Promise(r => setTimeout(r, 300));
+
+        await page.tap('[data-testid="bible-book-group-header"][data-book="Genesis"]');
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="bible-book-group-panel"][data-book="Genesis"]'), { timeout: 5000 });
+
+        const tabletTouchCheck = await page.evaluate(() => {
+            const ui = (window).useUIStore.getState();
+            const overlay = document.querySelector('[data-testid="bible-search-overlay"]');
+            const header = document.querySelector('[data-testid="bible-book-group-header"][data-book="Genesis"]');
+            const headerRect = header?.getBoundingClientRect();
+            const genItems = document.querySelectorAll('[data-testid="bible-book-group-panel"][data-book="Genesis"] [data-testid="bible-search-result-item"]').length;
+            return {
+                leftClosedNoCollision: !ui.isLeftSidebarOpen,
+                noOverflow: !!overlay && overlay.scrollWidth <= overlay.clientWidth + 1,
+                headerHeight: headerRect ? Math.round(headerRect.height) : 0,
+                genItems
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            'Tablet (768x1024 touch) renders By Book drawer cleanly with zero drawer collision, >=44px touch targets & tap-to-expand',
+            tabletTouchCheck.leftClosedNoCollision && tabletTouchCheck.noOverflow && tabletTouchCheck.headerHeight >= 44 && tabletTouchCheck.genItems === 6,
+            `Touch target: ${tabletTouchCheck.headerHeight}px, Left drawer closed: ${tabletTouchCheck.leftClosedNoCollision}`
+        );
+
+        const sc11TabletPath = path.join(screenshotsDir, 'scenario11_tablet_768_group_by_book.png');
+        await page.screenshot({ path: sc11TabletPath });
+
+        // 11.5 Mobile Touch Viewport (375x667) — Full-Height Search Above MobileNav, >=16px Anti-Zoom Input & Tap Navigation
+        // Note: Puppeteer also reloads when isMobile toggles false -> true; wait for stores & open Bible search in 'half' state
+        await page.setViewport({ width: 375, height: 667, hasTouch: true, isMobile: true });
+        await page.waitForFunction(() => !!(window).useBibleStore && !!(window).useUIStore, { timeout: 15000 });
+        await page.evaluate(async () => {
+            const ui = (window).useUIStore.getState();
+            ui.setMobileBibleState('half');
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchViewMode('books');
+            bible.setSearchOpen(true);
+            bible.setSearchQuery('priest');
+            await bible.executeSearch('priest');
+        });
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="bible-book-group-header"][data-book="Genesis"]'), { timeout: 15000 });
+        await page.tap('[data-testid="bible-book-group-header"][data-book="Genesis"]');
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="bible-book-group-panel"][data-book="Genesis"]'), { timeout: 5000 });
+        await new Promise(r => setTimeout(r, 350));
+
+        const mobileSearchLayoutCheck = await page.evaluate(() => {
+            const overlay = document.querySelector('[data-testid="bible-search-overlay"]');
+            const nav = document.querySelector('nav');
+            const input = document.querySelector('[data-testid="bible-search-input"]');
+            const overlayRect = overlay?.getBoundingClientRect();
+            const navRect = nav?.getBoundingClientRect();
+            const inputFontSize = input ? parseFloat(window.getComputedStyle(input).fontSize) : 0;
+            return {
+                overlayHeight: overlayRect ? Math.round(overlayRect.height) : 0,
+                aboveMobileNav: !!(overlayRect && navRect && overlayRect.bottom <= navRect.top + 2),
+                noPageOverflow: document.documentElement.scrollWidth <= window.innerWidth + 1,
+                inputFontSize
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            'Mobile (375x667 touch) promotes Bible Search to full height above MobileNav with >=16px anti-zoom input & zero clipping',
+            mobileSearchLayoutCheck.overlayHeight >= 550 &&
+                mobileSearchLayoutCheck.aboveMobileNav &&
+                mobileSearchLayoutCheck.noPageOverflow &&
+                mobileSearchLayoutCheck.inputFontSize >= 16,
+            `Height: ${mobileSearchLayoutCheck.overlayHeight}px, Input: ${mobileSearchLayoutCheck.inputFontSize}px, Above MobileNav: ${mobileSearchLayoutCheck.aboveMobileNav}`
+        );
+
+        const sc11MobilePath = path.join(screenshotsDir, 'scenario11_mobile_375_group_by_book.png');
+        await page.screenshot({ path: sc11MobilePath });
+
+        // Tap Genesis 14:18 result on Mobile Touch -> Verify search closes & split reader navigates to Genesis 14:18
+        await page.tap('[data-testid="bible-search-result-item"]');
+        await new Promise(r => setTimeout(r, 500));
+
+        const mobileTapNavCheck = await page.evaluate(() => {
+            const bible = (window).useBibleStore.getState();
+            const ui = (window).useUIStore.getState();
+            return {
+                searchClosed: !bible.isSearchOpen,
+                mobileStateRestored: ui.mobileBibleState === 'half',
+                focusedBook: bible.bibleFocus?.book,
+                focusedChapter: bible.bibleFocus?.chapter,
+                focusedVerse: bible.bibleFocus?.verse
+            };
+        });
+        recordResult(
+            'Scenario 11',
+            'Tapping Genesis 14:18 on Mobile Touch closes search & restores split reader directly at Genesis 14:18',
+            mobileTapNavCheck.searchClosed &&
+                mobileTapNavCheck.mobileStateRestored &&
+                mobileTapNavCheck.focusedBook === 'Genesis' &&
+                mobileTapNavCheck.focusedChapter === 14 &&
+                mobileTapNavCheck.focusedVerse === 18,
+            `Navigated to ${mobileTapNavCheck.focusedBook} ${mobileTapNavCheck.focusedChapter}:${mobileTapNavCheck.focusedVerse} (state: ${mobileTapNavCheck.mobileStateRestored ? 'half' : 'other'})`
+        );
+
     } catch (err) {
         console.error('\n[E2E Runner Exception]:', err);
     } finally {
@@ -1097,7 +1349,7 @@ async function run() {
     const passed = testResults.filter(r => r.passed).length;
     const failed = total - passed;
 
-    console.log(`Total Scenarios Tested : 10`);
+    console.log(`Total Scenarios Tested : 11`);
     console.log(`Total Assertions Checked: ${total}`);
     console.log(`Passed Assertions      : ${passed}`);
     console.log(`Failed Assertions      : ${failed}`);

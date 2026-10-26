@@ -15,6 +15,7 @@ import { LandingPage } from '@/components/marketing/LandingPage';
 import { UserGuide } from '@/components/marketing/UserGuide';
 import { PrivacyPolicy } from '@/components/marketing/PrivacyPolicy';
 import { TermsOfService } from '@/components/marketing/TermsOfService';
+import { AccessibilityStatement } from '@/components/marketing/AccessibilityStatement';
 import { ReleasesPage } from '@/components/marketing/ReleasesPage';
 import { useNoteStore } from '@/stores/noteStore';
 import { Capacitor } from '@capacitor/core';
@@ -65,6 +66,7 @@ const App: React.FC = () => {
             <Route path="/guide" element={<UserGuide />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/accessibility" element={<AccessibilityStatement />} />
             <Route path="/releases" element={<ReleasesPage />} />
             <Route path="/join/*" element={<JoinHandler />} />
             <Route path="*" element={

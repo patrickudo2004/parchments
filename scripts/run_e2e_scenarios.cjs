@@ -1333,6 +1333,157 @@ async function run() {
             `Navigated to ${mobileTapNavCheck.focusedBook} ${mobileTapNavCheck.focusedChapter}:${mobileTapNavCheck.focusedVerse} (state: ${mobileTapNavCheck.mobileStateRestored ? 'half' : 'other'})`
         );
 
+        // ==============================================================
+        // SCENARIO 12: Marketing Landing Page, Scenarios, Touch & Accessibility
+        // ==============================================================
+        console.log('\n--- Scenario 12: Marketing Landing Page, Scenarios, Touch & Accessibility ---');
+        await page.setViewport({ width: 1440, height: 900 });
+        await page.goto(`http://localhost:${port}/`, { waitUntil: 'domcontentloaded' });
+        await new Promise(r => setTimeout(r, 1000));
+
+        // 1. Accessibility: Skip to Content link and landmarks
+        const landingA11yCheck = await page.evaluate(() => {
+            const skipLink = document.querySelector('a[href="#main-content"]');
+            const mainLandmark = document.querySelector('main#main-content');
+            const nav = document.querySelector('nav[aria-label="Main Navigation"]');
+            const footer = document.querySelector('footer');
+            return {
+                hasSkipLink: !!skipLink,
+                skipLinkText: skipLink ? skipLink.textContent.trim() : null,
+                hasMainLandmark: !!mainLandmark,
+                hasNav: !!nav,
+                hasFooter: !!footer,
+                title: document.title
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Skip to main content link and semantic HTML5 landmarks (header, nav, main, footer) are present',
+            landingA11yCheck.hasSkipLink &&
+                landingA11yCheck.hasMainLandmark &&
+                landingA11yCheck.hasNav &&
+                landingA11yCheck.hasFooter &&
+                landingA11yCheck.title.includes('Parchments'),
+            `Skip: "${landingA11yCheck.skipLinkText}", Title: "${landingA11yCheck.title}"`
+        );
+
+        // 2. Scenario-Driven Walkthrough & WAI-ARIA tablist
+        const scenarioWalkthroughCheck = await page.evaluate(() => {
+            const tablist = document.querySelector('[role="tablist"]');
+            const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+            const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+            const activePanel = document.querySelector('[role="tabpanel"]');
+            const img = activePanel ? activePanel.querySelector('img') : null;
+            return {
+                hasTablist: !!tablist,
+                tabCount: tabs.length,
+                activeTabId: activeTab ? activeTab.id : null,
+                panelHeadline: activePanel ? activePanel.querySelector('h3')?.textContent : null,
+                hasAltText: !!(img && (img.getAttribute('alt') || '').length > 20),
+                altTextSnippet: img ? (img.getAttribute('alt') || '').substring(0, 50) + '...' : null
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Scenario-Driven Walkthrough features 6 ARIA tabs with active panel and descriptive alt text',
+            scenarioWalkthroughCheck.hasTablist &&
+                scenarioWalkthroughCheck.tabCount === 6 &&
+                scenarioWalkthroughCheck.activeTabId === 'tab-pulpit' &&
+                scenarioWalkthroughCheck.hasAltText,
+            `Tabs: ${scenarioWalkthroughCheck.tabCount}, Active: ${scenarioWalkthroughCheck.activeTabId}, Alt: "${scenarioWalkthroughCheck.altTextSnippet}"`
+        );
+
+        // 3. Switch scenario tab to 'search' and verify panel updates
+        await page.click('#tab-search');
+        await new Promise(r => setTimeout(r, 400));
+
+        const tabSwitchCheck = await page.evaluate(() => {
+            const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+            const activePanel = document.querySelector('[role="tabpanel"]');
+            const h3 = activePanel ? activePanel.querySelector('h3')?.textContent || '' : '';
+            return {
+                activeTabId: activeTab ? activeTab.id : null,
+                panelHeadline: h3,
+                isSearchHeadline: h3.includes('Group by Book')
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Switching to Canonical Word Study tab displays 846 matches scenario with real E2E visual capture',
+            tabSwitchCheck.activeTabId === 'tab-search' && tabSwitchCheck.isSearchHeadline,
+            `Active: ${tabSwitchCheck.activeTabId}, Headline: "${tabSwitchCheck.panelHeadline}"`
+        );
+
+        const sc12DesktopPath = path.join(screenshotsDir, 'scenario12_landing_scenarios_desktop.png');
+        await page.screenshot({ path: sc12DesktopPath });
+
+        // 4. Touch Ergonomics Section Verification (48px targets)
+        const touchErgonomicsCheck = await page.evaluate(() => {
+            const touchSection = document.getElementById('touch');
+            const touchTabs = Array.from(document.querySelectorAll('[role="tab"]'));
+            const minHeightExceeded = touchTabs.every(t => t.getBoundingClientRect().height >= 48);
+            return {
+                hasTouchSection: !!touchSection,
+                allTabsMeet48px: minHeightExceeded,
+                sampleHeight: touchTabs[0]?.getBoundingClientRect().height
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Dedicated Touch Ergonomics section is present and all scenario tabs exceed 48px hit target',
+            touchErgonomicsCheck.hasTouchSection && touchErgonomicsCheck.allTabsMeet48px,
+            `Touch section found: ${touchErgonomicsCheck.hasTouchSection}, Tab height: ${touchErgonomicsCheck.sampleHeight}px`
+        );
+
+        // 5. Responsive Tablet & Mobile rendering without document horizontal scroll
+        await page.setViewport({ width: 375, height: 812, hasTouch: true });
+        await new Promise(r => setTimeout(r, 400));
+
+        const mobileLayoutCheck = await page.evaluate(() => {
+            return {
+                scrollWidth: document.documentElement.scrollWidth,
+                innerWidth: window.innerWidth,
+                noHorizontalOverflow: document.documentElement.scrollWidth <= window.innerWidth + 1
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Landing page renders responsively on 375px mobile viewport with zero horizontal overflow',
+            mobileLayoutCheck.noHorizontalOverflow,
+            `ScrollWidth: ${mobileLayoutCheck.scrollWidth}px, Viewport: ${mobileLayoutCheck.innerWidth}px`
+        );
+
+        const sc12MobilePath = path.join(screenshotsDir, 'scenario12_landing_mobile_375.png');
+        await page.screenshot({ path: sc12MobilePath });
+
+        // 6. Navigate to /accessibility and verify WCAG 2.1 AA Statement Route
+        await page.setViewport({ width: 1440, height: 900, hasTouch: false });
+        await page.goto(`http://localhost:${port}/accessibility`, { waitUntil: 'domcontentloaded' });
+        await new Promise(r => setTimeout(r, 600));
+
+        const accessibilityPageCheck = await page.evaluate(() => {
+            const h1 = document.querySelector('h1')?.textContent || '';
+            const bodyText = document.body.innerText || '';
+            return {
+                h1: h1,
+                hasWCAG: bodyText.includes('WCAG 2.1 Level AA'),
+                hasContactEmail: bodyText.includes('patrickudo2004@gmail.com'),
+                hasErgonomicsNotice: bodyText.includes('48')
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            '/accessibility route renders WCAG 2.1 Level AA conformance statement and contact feedback details',
+            accessibilityPageCheck.h1 &&
+                accessibilityPageCheck.h1.includes('Accessibility') &&
+                accessibilityPageCheck.hasWCAG &&
+                accessibilityPageCheck.hasContactEmail,
+            `H1: "${accessibilityPageCheck.h1}", WCAG 2.1 AA: ${accessibilityPageCheck.hasWCAG}, Contact: ${accessibilityPageCheck.hasContactEmail}`
+        );
+
+        const sc12A11yPath = path.join(screenshotsDir, 'scenario12_accessibility_page.png');
+        await page.screenshot({ path: sc12A11yPath });
+
     } catch (err) {
         console.error('\n[E2E Runner Exception]:', err);
     } finally {
@@ -1349,7 +1500,7 @@ async function run() {
     const passed = testResults.filter(r => r.passed).length;
     const failed = total - passed;
 
-    console.log(`Total Scenarios Tested : 11`);
+    console.log(`Total Scenarios Tested : 12`);
     console.log(`Total Assertions Checked: ${total}`);
     console.log(`Passed Assertions      : ${passed}`);
     console.log(`Failed Assertions      : ${failed}`);

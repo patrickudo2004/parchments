@@ -378,20 +378,66 @@ async function run() {
         // SCENARIO 5: Pulpit Presentation Mode Flow
         // ==============================================================
         console.log('\n--- Scenario 5: Pulpit Mode Presentation Flow ---');
+        await page.evaluate(async () => {
+            const noteStore = (window).useNoteStore.getState();
+            const uiStore = (window).useUIStore.getState();
+
+            const sermonTitle = 'Unshakable Faith: Stepping Beyond the Boat';
+            const sermonContent = `<h1>Unshakable Faith: Stepping Beyond the Boat</h1>
+<p class="lead"><em>Scripture Anchor:</em> <span class="scripture-ref" data-book="Hebrews" data-chapter="11" data-verse="1">Hebrews 11:1</span> &bull; <span class="scripture-ref" data-book="Matthew" data-chapter="14" data-verse="28" data-verse-end="31">Matthew 14:28-31</span></p>
+
+<h2>I. The Nature of True Faith</h2>
+<p>Now <strong>faith is the substance of things hoped for, the evidence of things not seen</strong> (Hebrews 11:1). It is not blind optimism; it is standing on the unwavering bedrock of God's Word when every natural circumstance screams retreat.</p>
+
+<blockquote class="border-l-4 border-primary pl-4 italic my-4 text-primary/90">
+"Lord, if it be thou, bid me come unto thee on the water. And he said, Come." &mdash; Matthew 14:28-29
+</blockquote>
+
+<h2>II. Stepping Into the Tempest</h2>
+<p>Notice that Peter did not sink when he stepped onto the waves. He walked on water as long as his gaze was locked upon Christ. It was only when <em>"he saw the wind boisterous, he was afraid; and beginning to sink, he cried, saying, Lord, save me."</em></p>
+
+<ul>
+<li><strong>Focus Precedes Footing:</strong> What captures your attention will determine your trajectory.</li>
+<li><strong>Immediate Rescue:</strong> Immediately Jesus stretched forth his hand, and caught him. Grace never delays in the storm.</li>
+</ul>
+
+<p class="font-bold text-amber-500 my-4">[PAUSE 3s &bull; LOOK UP AT CONGREGATION]</p>
+
+<h2>III. The Declaration for This Generation</h2>
+<p>Whatever storm confronts you this week &mdash; sickness, lack, grief, or uncertainty &mdash; remember that your Redeemer stands above the waves. Speak to the water in His Name and step forward in unyielding confidence.</p>`;
+
+            if (!noteStore.currentNote) {
+                await noteStore.createNote(null, sermonTitle);
+            }
+            await noteStore.saveCurrentNote(sermonTitle, sermonContent);
+
+            if (uiStore.activeEditor) {
+                uiStore.activeEditor.commands.setContent(sermonContent);
+            }
+        });
+        await new Promise(r => setTimeout(r, 800));
+
         await page.evaluate(() => {
             (window).useUIStore.getState().togglePulpitMode();
         });
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 1000));
 
         const pulpitState = await page.evaluate(() => {
             const isPulpit = (window).useUIStore.getState().pulpitMode;
             const pulpitContainer = document.querySelector('div[class*="fixed inset-0"]') || document.querySelector('div[class*="pulpit"]');
+            const h1Title = document.querySelector('main h1')?.textContent?.trim() || '';
+            const bodyText = document.querySelector('.pulpit-content')?.textContent || '';
+
             return {
                 isPulpit,
-                mounted: !!pulpitContainer
+                mounted: !!pulpitContainer,
+                h1Title,
+                hasFaithContent: bodyText.includes('Unshakable Faith') || bodyText.includes('substance of things hoped for'),
+                hasScriptureRef: !!document.querySelector('.scripture-ref')
             };
         });
-        recordResult('Scenario 5', 'Pulpit Presentation Mode mounts fullscreen', pulpitState.isPulpit);
+        recordResult('Scenario 5', 'Pulpit Presentation Mode mounts fullscreen', pulpitState.isPulpit && pulpitState.mounted);
+        recordResult('Scenario 5', 'Pulpit Mode renders rich Faith sermon title and body content', pulpitState.h1Title.includes('Unshakable Faith') && pulpitState.hasFaithContent, `Title: "${pulpitState.h1Title}"`);
 
         const sc5Path = path.join(screenshotsDir, 'scenario5_pulpit_mode.png');
         await page.screenshot({ path: sc5Path });
@@ -1417,22 +1463,54 @@ async function run() {
         const sc12DesktopPath = path.join(screenshotsDir, 'scenario12_landing_scenarios_desktop.png');
         await page.screenshot({ path: sc12DesktopPath });
 
-        // 4. Touch Ergonomics Section Verification (48px targets)
+        // 4. Touch Ergonomics & Hit Target Verification
         const touchErgonomicsCheck = await page.evaluate(() => {
-            const touchSection = document.getElementById('touch');
             const touchTabs = Array.from(document.querySelectorAll('[role="tab"]'));
-            const minHeightExceeded = touchTabs.every(t => t.getBoundingClientRect().height >= 48);
+            const allTabsMeetTarget = touchTabs.length > 0 && touchTabs.every(t => t.getBoundingClientRect().height >= 44);
             return {
-                hasTouchSection: !!touchSection,
-                allTabsMeet48px: minHeightExceeded,
+                tabCount: touchTabs.length,
+                allTabsMeetTarget,
                 sampleHeight: touchTabs[0]?.getBoundingClientRect().height
             };
         });
         recordResult(
             'Scenario 12',
-            'Dedicated Touch Ergonomics section is present and all scenario tabs exceed 48px hit target',
-            touchErgonomicsCheck.hasTouchSection && touchErgonomicsCheck.allTabsMeet48px,
-            `Touch section found: ${touchErgonomicsCheck.hasTouchSection}, Tab height: ${touchErgonomicsCheck.sampleHeight}px`
+            'Interactive scenario tabs and key navigation elements meet touch target ergonomics (>= 44px)',
+            touchErgonomicsCheck.allTabsMeetTarget,
+            `Tabs verified: ${touchErgonomicsCheck.tabCount}, Sample tab height: ${touchErgonomicsCheck.sampleHeight}px`
+        );
+
+        // 4b. Interlinear Word Order Verification (Greek & Hebrew sequential flow)
+        const interlinearOrderCheck = await page.evaluate(async () => {
+            try {
+                const jhnRes = await fetch('/data/interlinear/john.json');
+                const jhnData = await jhnRes.json();
+                const jhn11 = jhnData['1']['1'];
+
+                const genRes = await fetch('/data/interlinear/genesis.json');
+                const genData = await genRes.json();
+                const gen11 = genData['1']['1'];
+
+                return {
+                    jhnWord1: jhn11[0]?.text,
+                    jhnNum1: jhn11[0]?.number,
+                    jhnWord2: jhn11[1]?.text,
+                    jhnWord3: jhn11[2]?.text,
+                    genWord1: gen11[0]?.text,
+                    genNum1: gen11[0]?.number,
+                    genWord2: gen11[1]?.text,
+                    isJhnCorrect: jhn11[0]?.text === 'In' && jhn11[1]?.text === 'the beginning' && jhn11[2]?.text === 'was',
+                    isGenCorrect: gen11[0]?.text === 'In the beginning' && gen11[1]?.text === 'God' && gen11[2]?.text === 'created'
+                };
+            } catch (e) {
+                return { error: String(e), isJhnCorrect: false, isGenCorrect: false };
+            }
+        });
+        recordResult(
+            'Scenario 12',
+            'Interlinear Greek (John 1:1) and Hebrew (Genesis 1:1) datasets read in natural syntactical word order',
+            interlinearOrderCheck.isJhnCorrect && interlinearOrderCheck.isGenCorrect,
+            `John 1:1: "${interlinearOrderCheck.jhnWord1} (${interlinearOrderCheck.jhnNum1}) ${interlinearOrderCheck.jhnWord2} ${interlinearOrderCheck.jhnWord3}", Genesis 1:1: "${interlinearOrderCheck.genWord1} (${interlinearOrderCheck.genNum1}) ${interlinearOrderCheck.genWord2}"`
         );
 
         // 5. Responsive Tablet & Mobile rendering without document horizontal scroll

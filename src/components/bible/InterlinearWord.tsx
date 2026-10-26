@@ -22,6 +22,8 @@ export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word }) => {
         executeSearch();
     };
 
+    const isHebrew = word.number.toUpperCase().startsWith('H');
+
     return (
         <div className="flex flex-col items-start min-w-fit group/word relative">
             <span className="text-[10px] font-black uppercase tracking-tight text-light-text-disabled leading-none mb-1">
@@ -32,7 +34,10 @@ export const InterlinearWord: React.FC<InterlinearWordProps> = ({ word }) => {
                     onClick={() => openLexicon(word.number.toUpperCase())}
                     className="group flex flex-col items-start"
                 >
-                    <span className="text-base font-serif text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors">
+                    <span
+                        dir={isHebrew ? 'rtl' : 'ltr'}
+                        className={`font-serif text-light-text-primary dark:text-dark-text-primary group-hover:text-primary transition-colors ${isHebrew ? 'text-lg leading-normal' : 'text-base'}`}
+                    >
                         {entry?.lemma || '...'}
                     </span>
                     <span className="text-[9px] font-bold text-primary opacity-50 group-hover:opacity-100 transition-opacity">

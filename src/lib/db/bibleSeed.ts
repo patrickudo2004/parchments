@@ -49,7 +49,7 @@ export const seedBibleData = async () => {
 
     // Check for Interlinear
     const john1_1 = await db.bibleVerses.get('kjv-john-1-1');
-    if (john1_1 && !john1_1.interlinear) {
+    if (john1_1 && (!john1_1.interlinear || john1_1.interlinear[0]?.number?.toLowerCase() !== 'g1722')) {
         console.info('[BibleDB] Interlinear data missing for KJV. Triggering ingestion...');
         await BibleIngestionService.ingestInterlinear();
     }

@@ -159,7 +159,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                                         </span>
                                     ) : (
                                         interlinearEnabled && v.interlinear ? (
-                                            <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2">
+                                            <div className="flex flex-wrap gap-x-4 gap-y-6 mt-2" dir="ltr">
                                                 {v.interlinear.map((word, idx) => (
                                                     <InterlinearWord key={idx} word={word} />
                                                 ))}

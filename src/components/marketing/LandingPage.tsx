@@ -8,15 +8,11 @@ import {
     Cpu,
     ArrowRight,
     Sparkles,
-    Smartphone,
-    Tablet,
     Check,
     ChevronRight,
-    Play,
     Globe,
     ExternalLink,
-    CheckCircle2,
-    Sliders
+    CheckCircle2
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
 
@@ -27,7 +23,6 @@ interface ScenarioItem {
     scenarioTitle: string;
     device: string;
     image: string;
-    secondaryImage?: string;
     headline: string;
     caption: string;
     altText: string;
@@ -41,11 +36,11 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
         label: 'Pulpit Delivery',
         badge: 'Sunday Morning Ready',
         scenarioTitle: 'Scenario 1: Sunday Morning at the Pulpit',
-        device: 'iPad & Tablet Touch (768px – 1024px)',
+        device: 'iPad & Tablet (768px – 1024px)',
         image: '/screenshots/scenarios/scenario5_pulpit_mode.png',
         headline: 'Live Stage Prompter with Target Countdown & Amber Warning',
         caption: 'Preaching with an iPad on the pulpit stand: high-contrast text, 35-minute pacing timer with 5-minute amber alert, and Alt+1..4 sermon part switcher.',
-        altText: 'Parchments Pulpit Presentation Mode on an iPad showing sermon notes in high-contrast sans-serif, a 35-minute countdown clock, an amber 5-minute alert, and Alt+1 through Alt+4 sermon part switcher.',
+        altText: 'Parchments Pulpit Presentation Mode on an iPad showing the sermon Unshakable Faith in high-contrast typography with a 35-minute countdown clock and stage pacing cues.',
         story: 'When stepping up to preach, the last thing you need is a distracting interface, an unexpected operating system alert, or a frozen cloud connection. Pulpit Mode transforms your iPad or tablet into a distraction-free stage prompter with hands-free pacing timers, amber overtime warnings, and instant access to unscripted scriptures.',
         highlights: [
             'Target preaching countdown timer with 5-min amber warning',
@@ -77,9 +72,9 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
     {
         id: 'mobile',
         label: 'Mobile Pocket Exegesis',
-        badge: 'Touch Ergonomics',
+        badge: 'Mobile Companion',
         scenarioTitle: 'Scenario 3: Pastoral Care & Study on the Move',
-        device: 'Mobile Phone Touch (375px – 430px)',
+        device: 'Mobile Phone (375px – 430px)',
         image: '/screenshots/scenarios/scenario11_mobile_375_group_by_book.png',
         headline: 'Full-Height Touch Drawers & Anti-Zoom Mobile Inputs',
         caption: 'Adaptive 602px search overlay positioned above the bottom navigation bar, with 16px anti-zoom inputs and generous touch targets meeting the strict 48px standard.',
@@ -182,8 +177,8 @@ const COMPARISON_DATA = [
         notion: 'Manual copy-paste'
     },
     {
-        feature: 'Touch Ergonomics (Tablets & Phones >= 48px)',
-        parchments: 'Strict >= 48px touch targets & drawers',
+        feature: 'Universal Form Factors (Desktop, Tablet & Phone)',
+        parchments: 'Fluid responsive layout & drawers',
         logos: 'Cluttered tablet interface',
         obsidian: 'Desktop UI scaled down',
         notion: 'Mobile app'
@@ -248,7 +243,7 @@ export const LandingPage: React.FC = () => {
 
                         {/* Hero Subtitle */}
                         <p className="text-lg md:text-2xl text-white/70 max-w-3xl mx-auto leading-relaxed font-normal">
-                            The local-first Bible study, sermon composition, and exegesis studio. Built for pastors, biblical scholars, and serious students who demand <span className="text-white font-semibold">absolute privacy</span>, <span className="text-white font-semibold">touch ergonomics</span>, and <span className="text-white font-semibold">stage-ready delivery</span>.
+                            The local-first Bible study, sermon composition, and exegesis studio. Built for pastors, biblical scholars, and serious students who demand <span className="text-white font-semibold">absolute privacy</span>, <span className="text-white font-semibold">zero cloud lock-in</span>, and <span className="text-white font-semibold">stage-ready delivery</span>.
                         </p>
 
                         {/* Hero Primary Actions (>= 48px touch targets) */}
@@ -360,7 +355,7 @@ export const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* Scenario-Driven Interactive Showcase (Replacing Abstract Gallery) */}
+            {/* Scenario-Driven Interactive Showcase */}
             <section id="scenarios" className="py-20 md:py-28 relative border-t border-white/5" aria-labelledby="scenarios-heading">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-14 space-y-4">
@@ -376,7 +371,7 @@ export const LandingPage: React.FC = () => {
                         </p>
                     </div>
 
-                    {/* Scenario Navigation Tabs (WAI-ARIA Tablist, >= 48px touch targets) */}
+                    {/* Scenario Navigation Tabs (WAI-ARIA Tablist) */}
                     <div
                         role="tablist"
                         aria-label="Parchments Feature Scenarios"
@@ -501,106 +496,6 @@ export const LandingPage: React.FC = () => {
                                     </a>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Dedicated Touch Ergonomics & Multi-Device Section */}
-            <section id="touch" className="py-24 md:py-32 relative bg-[#070707] border-t border-white/5" aria-labelledby="touch-heading">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="text-center mb-16 space-y-4">
-                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400">
-                            <Tablet size={14} aria-hidden="true" />
-                            <Smartphone size={14} aria-hidden="true" />
-                            <span className="text-xs font-black uppercase tracking-widest">Touch & Multi-Device Certified</span>
-                        </div>
-                        <h2 id="touch-heading" className="text-3xl md:text-6xl font-black tracking-tight">
-                            Built for fingers as much as keyboards.
-                        </h2>
-                        <p className="text-white/60 max-w-2xl mx-auto text-base md:text-lg">
-                            Most theological software was designed for desktop mouse pointers in the 1990s. Parchments is engineered from the ground up to excel on touchscreens, iPads, Android tablets, and smartphones.
-                        </p>
-                    </div>
-
-                    {/* Touch Invariants 3-Card Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                        {/* Touch Card 1: 48px Hit Targets */}
-                        <div className="bg-[#0c0c0c] border border-white/10 rounded-[28px] p-8 flex flex-col justify-between hover:border-amber-400/30 transition-all">
-                            <div className="space-y-4">
-                                <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl w-fit">
-                                    <Sliders size={20} aria-hidden="true" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Strict &ge; 48px Touch Targets</h3>
-                                <p className="text-white/60 text-sm leading-relaxed">
-                                    Every interactive button, verse chip, study drawer toggle, and font zoom tool adheres strictly to the 48x48px touch standard. Designed to accommodate natural finger taps, touch styluses, and speakers with hand tremors.
-                                </p>
-                            </div>
-                            <div className="mt-6 pt-4 border-t border-white/5 text-xs text-amber-400/80 font-mono">
-                                Fitts’s Law & WCAG 2.5.5 Compliant
-                            </div>
-                        </div>
-
-                        {/* Touch Card 2: Tablet Mutual-Exclusion Drawers */}
-                        <div className="bg-[#0c0c0c] border border-white/10 rounded-[28px] p-8 flex flex-col justify-between hover:border-amber-400/30 transition-all">
-                            <div className="space-y-4">
-                                <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl w-fit">
-                                    <Tablet size={20} aria-hidden="true" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Tablet Slide-Over Collision Guard</h3>
-                                <p className="text-white/60 text-sm leading-relaxed">
-                                    On iPad and 768px–1024px tablets, study drawers float over the sermon outline without squeezing text columns. Intelligent collision mutual exclusion prevents left navigation and right reference panels from overlapping.
-                                </p>
-                            </div>
-                            <div className="mt-6 pt-4 border-t border-white/5 text-xs text-amber-400/80 font-mono">
-                                Verified across 768px–1024px viewports
-                            </div>
-                        </div>
-
-                        {/* Touch Card 3: Mobile Anti-Zoom & PWA */}
-                        <div className="bg-[#0c0c0c] border border-white/10 rounded-[28px] p-8 flex flex-col justify-between hover:border-amber-400/30 transition-all">
-                            <div className="space-y-4">
-                                <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl w-fit">
-                                    <Smartphone size={20} aria-hidden="true" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Anti-Zoom Inputs & 100% Offline PWA</h3>
-                                <p className="text-white/60 text-sm leading-relaxed">
-                                    Input boxes are calibrated at 16px to prevent iOS Safari auto-zoom annoyances. Install Parchments directly to your home screen with zero app store gatekeepers, and study in full Airplane Mode with zero Wi-Fi.
-                                </p>
-                            </div>
-                            <div className="mt-6 pt-4 border-t border-white/5 text-xs text-amber-400/80 font-mono">
-                                Progressive Web App & Android APK
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Touch Action Banner */}
-                    <div className="mt-12 p-8 md:p-10 rounded-[32px] bg-gradient-to-br from-amber-500/10 via-[#0d0d0d] to-black border border-amber-500/20 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl">
-                        <div className="space-y-3 max-w-2xl">
-                            <h3 className="text-2xl md:text-3xl font-extrabold text-white">
-                                Test the touch responsiveness right now on your device.
-                            </h3>
-                            <p className="text-white/60 text-sm md:text-base leading-relaxed">
-                                Open the zero-install web workspace on your iPad, tablet, or phone. Experience seamless drawer sliding, gesture navigation, and distraction-free pulpit delivery without downloading an installer.
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 shrink-0">
-                            <a
-                                href="/app"
-                                className="min-h-[52px] px-8 py-3.5 bg-primary text-[#121212] font-black rounded-2xl flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 cursor-pointer touch-manipulation text-sm"
-                                aria-label="Open Parchments in your browser to test touch features"
-                            >
-                                <Play size={16} fill="currentColor" aria-hidden="true" />
-                                <span>Test Touch App Now</span>
-                            </a>
-                            <a
-                                href="/accessibility"
-                                className="min-h-[52px] px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl border border-white/10 transition-all flex items-center gap-2 text-sm touch-manipulation"
-                                aria-label="Read our Accessibility Statement and WCAG 2.1 compliance details"
-                            >
-                                <span>Accessibility Details</span>
-                                <ChevronRight size={16} aria-hidden="true" />
-                            </a>
                         </div>
                     </div>
                 </div>

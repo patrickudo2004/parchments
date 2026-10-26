@@ -27,8 +27,6 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
 
                     <div className="hidden md:flex items-center gap-6 lg:gap-8">
                         <a href="#scenarios" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Scenarios</a>
-                        <a href="#touch" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Touch & Devices</a>
-                        <a href="#workflows" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Workflows</a>
                         <a href="#comparison" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Comparison</a>
                         <a href="/guide" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Guide</a>
                         <a href="/releases" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Releases</a>
@@ -116,7 +114,6 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-6">Product</h4>
                             <ul className="space-y-4 text-sm text-white/40">
                                 <li><a href="#scenarios" className="hover:text-white transition-colors">Study Scenarios</a></li>
-                                <li><a href="#touch" className="hover:text-white transition-colors">Touch Ergonomics</a></li>
                                 <li><a href="/guide" className="hover:text-white transition-colors">User Guide</a></li>
                                 <li><a href="/accessibility" className="hover:text-white transition-colors">Accessibility Statement</a></li>
                                 <li><a href="/app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors italic">Web Preview (/app)</a></li>
@@ -174,7 +171,7 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                             <span className="hidden md:inline text-white/10" aria-hidden="true">•</span>
                             <div className="flex items-center gap-4">
                                 <a href="/privacy" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Privacy Policy</a>
-                                <a href="/terms" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Terms of Service</a>
+                                <a href="/terms" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Terms of Use</a>
                                 <a href="/accessibility" className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors font-bold">Accessibility</a>
                             </div>
                         </div>

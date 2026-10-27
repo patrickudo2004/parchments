@@ -304,7 +304,11 @@ async function run() {
             const ui = (window).useUIStore.getState();
             ui.openRightSidebar('bible');
         });
-        await new Promise(r => setTimeout(r, 1200));
+        await page.waitForFunction(() => {
+            const verseSpans = document.querySelectorAll('sup, span.cursor-pointer, div.group\\/row');
+            return verseSpans.length > 0;
+        }, { timeout: 6000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 600));
 
         const isBibleOpen = await page.evaluate(() => {
             const ui = (window).useUIStore.getState();
@@ -442,14 +446,89 @@ async function run() {
         const sc5Path = path.join(screenshotsDir, 'scenario5_pulpit_mode.png');
         await page.screenshot({ path: sc5Path });
 
+        // Test clicking scripture reference in Pulpit Mode to open PulpitScriptureModal
+        await page.evaluate(() => {
+            const ref = document.querySelector('main .scripture-ref');
+            if (ref) {
+                ref.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            }
+        });
+        await new Promise(r => setTimeout(r, 800));
+
+        const pulpitModalState = await page.evaluate(() => {
+            const modal = document.querySelector('div[class*="fixed inset-0 z-[120]"]');
+            const h3 = modal ? modal.querySelector('h3')?.textContent : '';
+            const modalText = modal ? modal.textContent : '';
+            return {
+                mounted: !!modal,
+                refTitle: h3,
+                hasDecryptedText: modalText.includes('substance of things hoped for') || modalText.includes('evidence of things not seen')
+            };
+        });
+        recordResult(
+            'Scenario 5',
+            'Clicking scripture reference in Pulpit Mode launches stage scripture modal with decrypted text',
+            pulpitModalState.mounted && pulpitModalState.hasDecryptedText,
+            `Ref: "${pulpitModalState.refTitle}"`
+        );
+
+        const sc5ModalPath = path.join(screenshotsDir, 'scenario5_pulpit_scripture_modal.png');
+        await page.screenshot({ path: sc5ModalPath });
+
+        // Close Pulpit Scripture Modal by clicking close button or pressing Escape
+        await page.evaluate(() => {
+            const closeBtn = document.querySelector('button[title*="Close"]');
+            if (closeBtn) closeBtn.click();
+        });
+        await new Promise(r => setTimeout(r, 400));
+
         // Exit Pulpit Mode
         await page.evaluate(() => {
             (window).useUIStore.getState().togglePulpitMode();
         });
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 600));
 
         const isPulpitStillOpen = await page.evaluate(() => (window).useUIStore?.getState()?.pulpitMode);
         recordResult('Scenario 5', 'Exiting Pulpit Mode returns cleanly to editor', !isPulpitStillOpen);
+
+        // Test hovering scripture reference in RichTextEditor to trigger instant frosted glass tooltip
+        const hoverRefCoords = await page.evaluate(() => {
+            const ref = document.querySelector('.scripture-ref');
+            if (ref) {
+                const rect = ref.getBoundingClientRect();
+                return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, text: ref.textContent };
+            }
+            return null;
+        });
+
+        if (hoverRefCoords) {
+            await page.mouse.move(hoverRefCoords.x, hoverRefCoords.y);
+            await new Promise(r => setTimeout(r, 800));
+
+            const tooltipState = await page.evaluate(() => {
+                const tooltip = document.querySelector('[role="tooltip"]') || document.querySelector('div[class*="z-[200]"]');
+                const text = tooltip ? tooltip.textContent : '';
+                return {
+                    mounted: !!tooltip,
+                    hasRef: text.includes('Hebrews 11:1') || text.includes('HEBREWS'),
+                    hasDecryptedVerse: text.includes('substance of things hoped for') || text.includes('evidence of things not seen')
+                };
+            });
+
+            recordResult(
+                'Scenario 5',
+                'Hovering scripture reference in editor triggers instant frosted glass tooltip with decrypted verse',
+                tooltipState.mounted && tooltipState.hasDecryptedVerse,
+                `Tooltip text matched: ${tooltipState.hasDecryptedVerse}`
+            );
+
+            const scPopoverPath = path.join(screenshotsDir, 'scenario13_scripture_popover.png');
+            await page.screenshot({ path: scPopoverPath });
+
+            // Move mouse away to dismiss tooltip
+            await page.mouse.move(20, 20);
+            await new Promise(r => setTimeout(r, 1200));
+        }
 
         // ==============================================================
         // SCENARIO 6: Voice Note Recording & Live Reactivity Flow (Issue 2)
@@ -1415,10 +1494,10 @@ async function run() {
 
         // 2. Scenario-Driven Walkthrough & WAI-ARIA tablist
         const scenarioWalkthroughCheck = await page.evaluate(() => {
-            const tablist = document.querySelector('[role="tablist"]');
-            const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-            const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
-            const activePanel = document.querySelector('[role="tabpanel"]');
+            const tablist = document.querySelector('#scenarios [role="tablist"]');
+            const tabs = Array.from(document.querySelectorAll('#scenarios [role="tab"]'));
+            const activeTab = document.querySelector('#scenarios [role="tab"][aria-selected="true"]');
+            const activePanel = document.querySelector('#scenarios [role="tabpanel"]');
             const img = activePanel ? activePanel.querySelector('img') : null;
             return {
                 hasTablist: !!tablist,
@@ -1431,9 +1510,9 @@ async function run() {
         });
         recordResult(
             'Scenario 12',
-            'Scenario-Driven Walkthrough features 6 ARIA tabs with active panel and descriptive alt text',
+            'Scenario-Driven Walkthrough features 7 ARIA tabs with active panel and descriptive alt text',
             scenarioWalkthroughCheck.hasTablist &&
-                scenarioWalkthroughCheck.tabCount === 6 &&
+                scenarioWalkthroughCheck.tabCount === 7 &&
                 scenarioWalkthroughCheck.activeTabId === 'tab-pulpit' &&
                 scenarioWalkthroughCheck.hasAltText,
             `Tabs: ${scenarioWalkthroughCheck.tabCount}, Active: ${scenarioWalkthroughCheck.activeTabId}, Alt: "${scenarioWalkthroughCheck.altTextSnippet}"`
@@ -1444,8 +1523,8 @@ async function run() {
         await new Promise(r => setTimeout(r, 400));
 
         const tabSwitchCheck = await page.evaluate(() => {
-            const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
-            const activePanel = document.querySelector('[role="tabpanel"]');
+            const activeTab = document.querySelector('#scenarios [role="tab"][aria-selected="true"]');
+            const activePanel = document.querySelector('#scenarios [role="tabpanel"]');
             const h3 = activePanel ? activePanel.querySelector('h3')?.textContent || '' : '';
             return {
                 activeTabId: activeTab ? activeTab.id : null,
@@ -1458,6 +1537,48 @@ async function run() {
             'Switching to Canonical Word Study tab displays 846 matches scenario with real E2E visual capture',
             tabSwitchCheck.activeTabId === 'tab-search' && tabSwitchCheck.isSearchHeadline,
             `Active: ${tabSwitchCheck.activeTabId}, Headline: "${tabSwitchCheck.panelHeadline}"`
+        );
+
+        // 3b. Switch scenario tab to 'popover' and verify panel updates
+        await page.click('#tab-popover');
+        await new Promise(r => setTimeout(r, 400));
+
+        const popoverTabCheck = await page.evaluate(() => {
+            const activeTab = document.querySelector('#scenarios [role="tab"][aria-selected="true"]');
+            const activePanel = document.querySelector('#scenarios [role="tabpanel"]');
+            const h3 = activePanel ? activePanel.querySelector('h3')?.textContent || '' : '';
+            return {
+                activeTabId: activeTab ? activeTab.id : null,
+                panelHeadline: h3,
+                isPopoverHeadline: h3.includes('Hover to Inspect')
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Switching to Scripture Popovers tab displays instant in-line preview scenario',
+            popoverTabCheck.activeTabId === 'tab-popover' && popoverTabCheck.isPopoverHeadline,
+            `Active: ${popoverTabCheck.activeTabId}, Headline: "${popoverTabCheck.panelHeadline}"`
+        );
+
+        // 3c. Interactive Live Scripture Popover Playground verification
+        await page.click('#sample-pill-matt-14');
+        await new Promise(r => setTimeout(r, 400));
+
+        const interactivePlaygroundCheck = await page.evaluate(() => {
+            const playground = document.getElementById('interactive-scripture-playground');
+            const activeRegion = playground ? playground.querySelector('div[role="region"]') : null;
+            const regionText = activeRegion ? activeRegion.textContent : '';
+            return {
+                hasPlayground: !!playground,
+                regionText,
+                hasMatthewText: regionText.includes('Matthew 14:28–31') && regionText.includes('water')
+            };
+        });
+        recordResult(
+            'Scenario 12',
+            'Interactive Live Scripture Popover Playground responds to user clicks/touches with instant decrypted scripture preview',
+            interactivePlaygroundCheck.hasPlayground && interactivePlaygroundCheck.hasMatthewText,
+            `Playground present: ${interactivePlaygroundCheck.hasPlayground}, Matthew text previewed: ${interactivePlaygroundCheck.hasMatthewText}`
         );
 
         const sc12DesktopPath = path.join(screenshotsDir, 'scenario12_landing_scenarios_desktop.png');

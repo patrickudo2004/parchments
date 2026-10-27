@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MarketingLayout } from './MarketingLayout';
 import {
     Download,
@@ -12,7 +12,10 @@ import {
     ChevronRight,
     Globe,
     ExternalLink,
-    CheckCircle2
+    CheckCircle2,
+    BookOpen,
+    Copy,
+    MousePointerClick
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
 
@@ -144,8 +147,79 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
             'Continuous paragraph flow mode with Masoretic poetry markers',
             'Automated academic citations formatted in SBL, Chicago, and Turabian'
         ]
+    },
+    {
+        id: 'popover',
+        label: 'Scripture Popovers',
+        badge: 'Zero Context-Switching',
+        scenarioTitle: 'Scenario 7: Instant In-Line Scripture Previews & Stage Modals',
+        device: 'Desktop Workstation & iPad Prompter',
+        image: '/screenshots/scenarios/scenario13_scripture_popover.png',
+        headline: 'Hover to Inspect, Tap to Contextualize: Zero Interruptions',
+        caption: 'Hover over any scripture reference in your study notes or sermon manuscript to view the full decrypted verse text in a frosted glass popover. Tap on an iPad at the pulpit to open a distraction-free stage reader without losing your place.',
+        altText: 'Parchments editor displaying rich sermon notes with a floating frosted glass scripture tooltip displaying Hebrews 11:1 in King James Version alongside the Pulpit Mode stage scripture modal.',
+        story: 'Never lose your train of thought looking up a reference in another app or tab. As you write, Parchments automatically recognizes scripture references (like Hebrews 11:1 or Matthew 14:28–31). Simply hover your mouse to read the passage instantly in a frosted popover, click to open it in context in the docked Bible reader, or tap at the pulpit to launch a high-contrast stage modal.',
+        highlights: [
+            'Real-time auto-recognition as you type with intelligent chapter/verse range parsing',
+            'Instant frosted glass hover preview with decrypted scripture text and active version badge',
+            'Multi-segment verse support with clear omitted verse dividers (e.g., vv. 2–13 omitted)',
+            '1-Click passage jump opening the docked Bible Reader directly to full chapter context',
+            'High-contrast Pulpit Scripture Modal for stage reading without losing prompter scroll position',
+            '100% offline local decryption—zero external server latency or tracking'
+        ]
     }
 ];
+
+interface InteractiveRefData {
+    id: string;
+    ref: string;
+    version: string;
+    headline: string;
+    verses: { num: number; text: string }[];
+    omittedNotice?: string;
+    versesAfter?: { num: number; text: string }[];
+    contextDescription: string;
+}
+
+const SAMPLE_SCRIPTURES: Record<string, InteractiveRefData> = {
+    'heb-11-1': {
+        id: 'heb-11-1',
+        ref: 'Hebrews 11:1',
+        version: 'KJV',
+        headline: 'Bedrock Definition of Faith',
+        verses: [
+            { num: 1, text: 'Now faith is the substance of things hoped for, the evidence of things not seen.' }
+        ],
+        contextDescription: 'The apostolic definition of confident trust in God\'s promises despite unseen circumstances.'
+    },
+    'matt-14': {
+        id: 'matt-14',
+        ref: 'Matthew 14:28–31',
+        version: 'KJV',
+        headline: 'Stepping Beyond the Boat',
+        verses: [
+            { num: 28, text: 'And Peter answered him and said, Lord, if it be thou, bid me come unto thee on the water.' },
+            { num: 29, text: 'And he said, Come. And when Peter was come down out of the ship, he walked on the water, to go to Jesus.' },
+            { num: 30, text: 'But when he saw the wind boisterous, he was afraid; and beginning to sink, he cried, saying, Lord, save me.' },
+            { num: 31, text: 'And immediately Jesus stretched forth his hand, and caught him, and said unto him, O thou of little faith, wherefore didst thou doubt?' }
+        ],
+        contextDescription: 'Peter stepping into the storm: faith empowers action, while distracted gaze prompts immediate divine rescue.'
+    },
+    'john-1': {
+        id: 'john-1',
+        ref: 'John 1:1, 14',
+        version: 'KJV',
+        headline: 'The Incarnation of the Word',
+        verses: [
+            { num: 1, text: 'In the beginning was the Word, and the Word was with God, and the Word was God.' }
+        ],
+        omittedNotice: 'vv. 2–13 omitted',
+        versesAfter: [
+            { num: 14, text: 'And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.' }
+        ],
+        contextDescription: 'Multi-segment parsing demonstrating automatic skipping and visual omitted verse dividers in a single anchor.'
+    }
+};
 
 const COMPARISON_DATA = [
     {
@@ -161,6 +235,13 @@ const COMPARISON_DATA = [
         logos: 'Forced account & telemetry',
         obsidian: 'Local vault',
         notion: 'Server-side stored'
+    },
+    {
+        feature: 'Smart Scripture Auto-Detection & Hover Popups',
+        parchments: 'Built-in (Decrypted hover tooltips + stage modals)',
+        logos: 'Cloud lookups / separate panels',
+        obsidian: 'Requires third-party community regex plugins',
+        notion: 'Not supported (manual copy-paste only)'
     },
     {
         feature: 'Live Sunday Pulpit Deck & Stage Prompter',
@@ -201,6 +282,8 @@ const COMPARISON_DATA = [
 
 export const LandingPage: React.FC = () => {
     const [activeScenarioId, setActiveScenarioId] = useState('pulpit');
+    const [activePopoverRef, setActivePopoverRef] = useState('heb-11-1');
+    const [copiedRef, setCopiedRef] = useState<string | null>(null);
     const [showBanner, setShowBanner] = useState(false);
 
     useEffect(() => {
@@ -216,6 +299,7 @@ export const LandingPage: React.FC = () => {
     };
 
     const currentScenario = SCENARIO_ITEMS.find(s => s.id === activeScenarioId) || SCENARIO_ITEMS[0];
+    const activeSample = SAMPLE_SCRIPTURES[activePopoverRef] || SAMPLE_SCRIPTURES['heb-11-1'];
 
     return (
         <MarketingLayout>
@@ -355,6 +439,192 @@ export const LandingPage: React.FC = () => {
                 </div>
             </section>
 
+            {/* Interactive Live Scripture Popover Playground */}
+            <section
+                id="interactive-scripture-playground"
+                className="py-16 md:py-24 relative border-t border-white/5 bg-gradient-to-b from-white/[0.02] via-transparent to-transparent overflow-hidden"
+                aria-labelledby="interactive-preview-heading"
+            >
+                <div className="max-w-5xl mx-auto px-6">
+                    <div className="text-center mb-10 space-y-3">
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
+                            <MousePointerClick size={14} className="text-primary" aria-hidden="true" />
+                            <span className="text-xs font-black uppercase tracking-widest text-primary">Interactive Preview • Zero Context-Switching</span>
+                        </div>
+                        <h2 id="interactive-preview-heading" className="text-3xl md:text-5xl font-black tracking-tight">
+                            Hover to inspect. Tap to read. Zero interruptions.
+                        </h2>
+                        <p className="text-white/60 max-w-2xl mx-auto text-sm md:text-base">
+                            Type any scripture reference in your study manuscript and Parchments automatically links it. Hover your mouse or tap with your finger below to experience instant in-line scripture decryption.
+                        </p>
+                    </div>
+
+                    {/* Interactive Editor Simulator Card */}
+                    <div className="rounded-3xl border border-white/10 bg-[#16161a] p-6 sm:p-10 shadow-2xl relative overflow-hidden">
+                        {/* Fake Window Chrome */}
+                        <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10 text-xs text-white/40">
+                            <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block" />
+                                <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
+                                <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+                                <span className="ml-3 font-mono text-[11px] text-white/60">Study Journal • Unshakable Faith.md</span>
+                            </div>
+                            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 text-[10px] uppercase tracking-wider font-bold text-primary">
+                                <Sparkles size={11} /> Auto-Linked References
+                            </span>
+                        </div>
+
+                        {/* Interactive Manuscript Text */}
+                        <div className="space-y-4 font-serif text-base sm:text-lg text-white/90 leading-relaxed">
+                            <p>
+                                Biblical faith is not passive resignation; it is stepping boldly upon the Word when physical circumstances seem impossible. As the author of Hebrews reminds every believer:
+                            </p>
+                            <blockquote className="border-l-2 border-primary pl-4 italic my-3 text-white/80">
+                                "Now faith is the substance of things hoped for, the evidence of things not seen."
+                            </blockquote>
+                            <p className="font-sans text-xs sm:text-sm font-bold uppercase tracking-wider text-white/40 pt-2">
+                                Select or hover over an anchor reference to inspect:
+                            </p>
+                        </div>
+
+                        {/* Interactive Scripture Reference Pills */}
+                        <div className="flex flex-wrap items-center gap-3 pt-3 pb-8" role="tablist" aria-label="Sample Scripture References">
+                            {Object.values(SAMPLE_SCRIPTURES).map((item) => {
+                                const isSelected = activePopoverRef === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        id={`sample-pill-${item.id}`}
+                                        role="tab"
+                                        aria-selected={isSelected}
+                                        onClick={() => setActivePopoverRef(item.id)}
+                                        onMouseEnter={() => setActivePopoverRef(item.id)}
+                                        onFocus={() => setActivePopoverRef(item.id)}
+                                        className={`min-h-[46px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 border cursor-pointer active:scale-95 touch-manipulation ${
+                                            isSelected
+                                                ? 'bg-primary text-black border-primary shadow-lg shadow-primary/20 scale-105'
+                                                : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
+                                        }`}
+                                    >
+                                        <BookOpen size={14} className={isSelected ? 'text-black' : 'text-primary'} aria-hidden="true" />
+                                        <span>{item.ref}</span>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-black ${isSelected ? 'bg-black/20 text-black' : 'bg-white/10 text-white/60'}`}>
+                                            {item.version}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Live Floating Frosted Popover Card (Simulating Exact In-App Tooltip) */}
+                        <AnimatePresence mode="wait">
+                            {activeSample && (
+                                <motion.div
+                                    key={activeSample.id}
+                                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="rounded-2xl border border-primary/30 bg-[#121214]/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl relative"
+                                    role="region"
+                                    aria-label={`Scripture preview for ${activeSample.ref}`}
+                                >
+                                    {/* Popover Header */}
+                                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
+                                                <BookOpen size={16} aria-hidden="true" />
+                                            </div>
+                                            <div>
+                                                <span className="font-mono text-xs font-black uppercase tracking-widest text-primary">
+                                                    {activeSample.ref}
+                                                </span>
+                                                <span className="ml-2 bg-white/10 px-1.5 py-0.5 rounded text-[10px] font-black uppercase text-white/70">
+                                                    {activeSample.version}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                const fullText = activeSample.verses.map(v => `${v.num}. ${v.text}`).join(' ');
+                                                navigator.clipboard?.writeText(`${activeSample.ref} (${activeSample.version}) - ${fullText}`);
+                                                setCopiedRef(activeSample.id);
+                                                setTimeout(() => setCopiedRef(null), 2000);
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/80 hover:text-white flex items-center gap-1.5 transition-all active:scale-95 touch-manipulation min-h-[36px]"
+                                            title="Copy scripture to clipboard"
+                                            aria-label={`Copy ${activeSample.ref} text`}
+                                        >
+                                            {copiedRef === activeSample.id ? (
+                                                <>
+                                                    <Check size={13} className="text-emerald-400" />
+                                                    <span className="text-emerald-400">Copied</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy size={13} />
+                                                    <span>Copy Verse</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {/* Scripture Text Body */}
+                                    <div className="font-serif italic text-white/95 text-base sm:text-lg leading-relaxed space-y-2">
+                                        <p>
+                                            {activeSample.verses.map((v) => (
+                                                <span key={v.num} className="mr-1.5">
+                                                    <sup className="text-xs font-bold font-sans text-primary mr-1 not-italic">
+                                                        {v.num}
+                                                    </sup>
+                                                    {v.text}
+                                                </span>
+                                            ))}
+                                        </p>
+
+                                        {activeSample.omittedNotice && (
+                                            <div className="flex items-center justify-center my-3 select-none not-italic font-sans">
+                                                <div className="h-px bg-white/10 flex-1" />
+                                                <span className="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3">
+                                                    ••• {activeSample.omittedNotice} •••
+                                                </span>
+                                                <div className="h-px bg-white/10 flex-1" />
+                                            </div>
+                                        )}
+
+                                        {activeSample.versesAfter && (
+                                            <p>
+                                                {activeSample.versesAfter.map((v) => (
+                                                    <span key={v.num} className="mr-1.5">
+                                                        <sup className="text-xs font-bold font-sans text-primary mr-1 not-italic">
+                                                            {v.num}
+                                                        </sup>
+                                                        {v.text}
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Context Caption & Direct Navigation Action */}
+                                    <div className="mt-4 pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-white/50">
+                                        <span>{activeSample.contextDescription}</span>
+                                        <a
+                                            href="/app"
+                                            className="text-primary hover:underline font-bold inline-flex items-center gap-1 shrink-0"
+                                        >
+                                            <span>Open in full Bible Reader</span>
+                                            <ChevronRight size={14} />
+                                        </a>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </section>
+
             {/* Scenario-Driven Interactive Showcase */}
             <section id="scenarios" className="py-20 md:py-28 relative border-t border-white/5" aria-labelledby="scenarios-heading">
                 <div className="max-w-7xl mx-auto px-6">
@@ -375,7 +645,7 @@ export const LandingPage: React.FC = () => {
                     <div
                         role="tablist"
                         aria-label="Parchments Feature Scenarios"
-                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10"
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-10"
                     >
                         {SCENARIO_ITEMS.map((item) => {
                             const isActive = item.id === activeScenarioId;

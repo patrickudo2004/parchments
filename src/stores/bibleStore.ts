@@ -16,6 +16,18 @@ interface BibleFocus {
     segments?: VerseSegment[];
 }
 
+export interface SearchHistoryItem {
+    id: string;
+    query: string;
+    timestamp: number;
+    mode: 'text' | 'reference' | 'strongs';
+    totalCount: number;
+    versionId: string;
+    wholeWord: boolean;
+    testament: 'all' | 'ot' | 'nt';
+    bookFilter: string | null;
+}
+
 interface BibleStore {
     // Versions
     mainVersion: string;
@@ -44,6 +56,7 @@ interface BibleStore {
     searchParsedRef: BibleReference | null;
     searchStrongsEntry: StrongsEntry | null;
     searchHighlightTerms: string[];
+    searchHistory: SearchHistoryItem[];
 
     // Actions
     setMainVersion: (version: string) => void;
@@ -60,6 +73,9 @@ interface BibleStore {
     setSearchWholeWord: (wholeWord: boolean) => void;
     setSearchViewMode: (mode: 'list' | 'books') => void;
     executeSearch: (overrideQuery?: string) => Promise<void>;
+    addSearchHistory: (item: Omit<SearchHistoryItem, 'id' | 'timestamp'>) => void;
+    removeSearchHistoryItem: (id: string) => void;
+    clearSearchHistory: () => void;
 }
 
 let lastEffectSearchId = 0;
@@ -88,6 +104,7 @@ export const useBibleStore = create<BibleStore>()(
             searchParsedRef: null,
             searchStrongsEntry: null,
             searchHighlightTerms: [],
+            searchHistory: [],
             verseHoverPreviews: true,
 
             setMainVersion: (version) => {
@@ -217,13 +234,75 @@ export const useBibleStore = create<BibleStore>()(
                         searchHighlightTerms: response.highlightTerms,
                         isSearching: false
                     });
+
+                    // Record completed search in search history (cap: 30)
+                    const normalizedMode: 'text' | 'reference' | 'strongs' =
+                        response.mode === 'keyword' || response.mode === 'phrase'
+                            ? 'text'
+                            : response.mode === 'reference'
+                              ? 'reference'
+                              : response.mode === 'strongs'
+                                ? 'strongs'
+                                : 'text';
+
+                    if (response.mode !== 'empty' && activeQuery.trim().length >= 2) {
+                        get().addSearchHistory({
+                            query: activeQuery.trim(),
+                            mode: normalizedMode,
+                            totalCount: response.totalCount,
+                            versionId: mainVersion,
+                            wholeWord: searchWholeWord,
+                            testament: searchTestamentFilter,
+                            bookFilter: searchBookFilter
+                        });
+                    }
                 } catch (error) {
                     console.error('Search failed:', error);
                     if (searchId === lastEffectSearchId) {
                         set({ isSearching: false });
                     }
                 }
-            }
+            },
+
+            addSearchHistory: (item) => {
+                const query = item.query.trim();
+                if (!query || query.length < 2) return;
+                set((state) => {
+                    const filtered = state.searchHistory.filter((h) => {
+                        const sameFilters =
+                            h.wholeWord === item.wholeWord &&
+                            h.testament === item.testament &&
+                            h.bookFilter === item.bookFilter &&
+                            h.versionId === item.versionId;
+                        if (!sameFilters) return true;
+                        if (h.query.toLowerCase() === query.toLowerCase()) return false;
+                        // Replace prefix if user was typing this query within 5 seconds
+                        const isTypingContinuation =
+                            query.toLowerCase().startsWith(h.query.toLowerCase()) &&
+                            Date.now() - h.timestamp < 5000;
+                        return !isTypingContinuation;
+                    });
+
+                    const newItem: SearchHistoryItem = {
+                        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                        timestamp: Date.now(),
+                        ...item,
+                        query
+                    };
+
+                    // Cap history at exactly 30 entries
+                    return {
+                        searchHistory: [newItem, ...filtered].slice(0, 30)
+                    };
+                });
+            },
+
+            removeSearchHistoryItem: (id) =>
+                set((state) => ({
+                    searchHistory: state.searchHistory.filter((h) => h.id !== id)
+                })),
+
+            clearSearchHistory: () => set({ searchHistory: [] })
         }),
         {
             name: 'parchments-bible-v2',
@@ -233,7 +312,8 @@ export const useBibleStore = create<BibleStore>()(
                 bibleFocus: state.bibleFocus,
                 interlinearEnabled: state.interlinearEnabled,
                 verseHoverPreviews: state.verseHoverPreviews,
-                searchViewMode: state.searchViewMode
+                searchViewMode: state.searchViewMode,
+                searchHistory: state.searchHistory
             })
         }
     )

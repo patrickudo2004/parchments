@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useTransition } from 'react';
-import { useBibleStore } from '@/stores/bibleStore';
+import { useBibleStore, type SearchHistoryItem } from '@/stores/bibleStore';
 import type { BibleVerse } from '@/types/database';
 import {
     Search,
@@ -15,7 +15,9 @@ import {
     List,
     Layers,
     ChevronsUpDown,
-    ChevronsDownUp
+    ChevronsDownUp,
+    Trash2,
+    History
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUIStore } from '@/stores/uiStore';
@@ -65,7 +67,10 @@ export const BibleSearchOverlay: React.FC<BibleSearchOverlayProps> = ({ onSelect
         setSearchWholeWord,
         setSearchViewMode,
         executeSearch,
-        setBibleFocus
+        setBibleFocus,
+        searchHistory,
+        removeSearchHistoryItem,
+        clearSearchHistory
     } = useBibleStore();
     const { showToast } = useUIStore();
 
@@ -75,6 +80,38 @@ export const BibleSearchOverlay: React.FC<BibleSearchOverlayProps> = ({ onSelect
     const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
     const [fullyExpandedBooks, setFullyExpandedBooks] = useState<Set<string>>(new Set());
     const [isPendingExpand, startExpandTransition] = useTransition();
+
+    const handleApplyHistory = (item: SearchHistoryItem) => {
+        setLocalQuery(item.query);
+        setSearchQuery(item.query);
+        setSearchWholeWord(item.wholeWord);
+        setSearchTestamentFilter(item.testament);
+        setSearchBookFilter(item.bookFilter);
+        executeSearch(item.query);
+    };
+
+    const handleRemoveHistory = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        removeSearchHistoryItem(id);
+        showToast('Removed search from history', 'info');
+    };
+
+    const handleClearAllHistory = () => {
+        clearSearchHistory();
+        showToast('Search history cleared', 'success');
+    };
+
+    const formatHistoryTime = (timestamp: number) => {
+        const diff = Date.now() - timestamp;
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days === 1) return 'Yesterday';
+        return `${days}d ago`;
+    };
     const resultsContainerRef = useRef<HTMLDivElement>(null);
 
     // Group canonically-sorted searchResults by Book in O(N) while preserving exact canonical order
@@ -223,7 +260,7 @@ export const BibleSearchOverlay: React.FC<BibleSearchOverlayProps> = ({ onSelect
     });
 
     const visibleResults = searchResults.slice(0, visibleCount);
-    const hasActiveQuery = localQuery.trim().length > 0;
+    const hasActiveQuery = (localQuery || searchQuery).trim().length > 0;
     const hasActiveFilters = searchWholeWord || searchTestamentFilter !== 'all' || !!searchBookFilter;
     const canExpandAllInOneStep = searchResults.length - visibleCount <= SAFE_LIST_EXPAND_STEP;
 
@@ -826,6 +863,136 @@ export const BibleSearchOverlay: React.FC<BibleSearchOverlayProps> = ({ onSelect
                                 Reset Search Filters
                             </button>
                         )}
+                    </div>
+                ) : searchHistory && searchHistory.length > 0 ? (
+                    <div className="h-full flex flex-col p-4 sm:p-5" data-testid="bible-search-history-container">
+                        {/* History Header */}
+                        <div className="flex items-center justify-between pb-3 mb-3 border-b border-light-border dark:border-dark-border shrink-0">
+                            <div className="flex items-center gap-2">
+                                <History size={16} className="text-primary" aria-hidden="true" />
+                                <span className="text-xs font-black uppercase tracking-wider text-light-text-primary dark:text-dark-text-primary">
+                                    Recent Searches
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/10 text-primary">
+                                    {searchHistory.length}
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleClearAllHistory}
+                                data-testid="clear-search-history-btn"
+                                className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-light-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer touch-manipulation active:scale-95"
+                                title="Clear all recent search history"
+                                aria-label="Clear search history"
+                            >
+                                <Trash2 size={13} aria-hidden="true" />
+                                <span>Clear History</span>
+                            </button>
+                        </div>
+
+                        {/* History Items List */}
+                        <div
+                            className="flex-1 overflow-y-auto space-y-1.5 pr-1"
+                            role="list"
+                            aria-label="Recent search history"
+                        >
+                            {searchHistory.map((item) => (
+                                <div
+                                    key={item.id}
+                                    role="listitem"
+                                    onClick={() => handleApplyHistory(item)}
+                                    data-testid="search-history-item"
+                                    className="group flex items-center justify-between p-2.5 rounded-xl border border-light-border/60 dark:border-dark-border/60 bg-light-surface dark:bg-dark-surface hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all active:scale-[0.99] touch-manipulation min-h-[46px]"
+                                >
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div className="p-1.5 rounded-lg bg-light-background dark:bg-dark-background text-primary shrink-0 group-hover:scale-105 transition-transform">
+                                            {item.mode === 'reference' ? (
+                                                <Book size={15} aria-hidden="true" />
+                                            ) : item.mode === 'strongs' ? (
+                                                <Hash size={15} aria-hidden="true" />
+                                            ) : (
+                                                <Search size={15} aria-hidden="true" />
+                                            )}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-semibold text-sm text-light-text-primary dark:text-dark-text-primary truncate">
+                                                    {item.query}
+                                                </span>
+                                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-light-border dark:bg-dark-border text-light-text-secondary uppercase">
+                                                    {item.versionId}
+                                                </span>
+                                                {item.wholeWord && (
+                                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                                        Exact
+                                                    </span>
+                                                )}
+                                                {item.testament !== 'all' && (
+                                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                                                        {item.testament.toUpperCase()}
+                                                    </span>
+                                                )}
+                                                {item.bookFilter && (
+                                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                        {item.bookFilter}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-light-text-disabled">
+                                                <span>
+                                                    {item.mode === 'reference'
+                                                        ? 'Direct Reference'
+                                                        : item.mode === 'strongs'
+                                                          ? "Strong's Lexicon"
+                                                          : `${item.totalCount} matches`}
+                                                </span>
+                                                <span>•</span>
+                                                <span>{formatHistoryTime(item.timestamp)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={(e) => handleRemoveHistory(e, item.id)}
+                                        data-testid="remove-history-item-btn"
+                                        className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-red-500 hover:bg-red-500/10 opacity-70 group-hover:opacity-100 transition-all ml-2 shrink-0 touch-manipulation cursor-pointer"
+                                        title="Remove from history"
+                                        aria-label={`Remove ${item.query} from history`}
+                                    >
+                                        <X size={14} aria-hidden="true" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Collapsible suggested quick queries at bottom */}
+                        <div className="mt-4 pt-3 border-t border-light-border/60 dark:border-dark-border/60 shrink-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-light-text-disabled mb-2">
+                                Suggested Topics
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                                {[
+                                    { label: 'priest', query: 'priest' },
+                                    { label: 'melchizedek priest', query: 'melchizedek priest' },
+                                    { label: 'Genesis 14:18', query: 'Genesis 14:18' },
+                                    { label: 'H3548 (Kohen)', query: 'H3548' },
+                                    { label: 'G26 (Agape)', query: 'G26' }
+                                ].map((pill) => (
+                                    <button
+                                        key={pill.query}
+                                        type="button"
+                                        onClick={() => runQuickQuery(pill.query)}
+                                        className="min-h-[28px] px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-light-background dark:bg-dark-background text-light-text-secondary border border-light-border dark:border-dark-border hover:border-primary hover:text-primary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                    >
+                                        {pill.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center">

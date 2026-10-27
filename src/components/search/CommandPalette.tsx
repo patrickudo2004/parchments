@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Folder, Sparkles, Zap, Loader2, BookOpen, Languages, Book } from 'lucide-react';
+import { Search, FileText, Folder, Sparkles, Zap, Loader2, BookOpen, Languages, Book, Clock } from 'lucide-react';
 import { useNoteStore, type LocalItem } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
@@ -76,6 +76,33 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; in
             const { cleanQuery, forcedBibleScope } = normalizeBibleQueryInput(rawQuery);
 
             if (!cleanQuery) {
+                if (forcedBibleScope) {
+                    const history = useBibleStore.getState().searchHistory;
+                    if (history && history.length > 0) {
+                        const historyResults: SearchResult[] = history.slice(0, 8).map((h) => ({
+                            id: `history-${h.id}`,
+                            type: 'scripture',
+                            category: 'scripture',
+                            title: h.query,
+                            subtitle: `Recent Search • ${h.totalCount} matches (${h.versionId.toUpperCase()}${h.wholeWord ? ' • Exact' : ''}${h.testament !== 'all' ? ` • ${h.testament.toUpperCase()}` : ''}${h.bookFilter ? ` • ${h.bookFilter}` : ''})`,
+                            icon: <Clock className="text-primary" size={16} />,
+                            handler: () => {
+                                const store = useBibleStore.getState();
+                                store.setSearchQuery(h.query);
+                                store.setSearchWholeWord(h.wholeWord);
+                                store.setSearchTestamentFilter(h.testament);
+                                store.setSearchBookFilter(h.bookFilter);
+                                openRightSidebar('bible');
+                                store.setSearchOpen(true);
+                                store.executeSearch(h.query);
+                                onClose();
+                            }
+                        }));
+                        setResults(historyResults);
+                        setIsSearching(false);
+                        return;
+                    }
+                }
                 setResults([]);
                 setIsSearching(false);
                 return;

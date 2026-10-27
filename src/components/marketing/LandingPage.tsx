@@ -60,15 +60,15 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
         scenarioTitle: 'Scenario 2: Tracing Biblical Theology Across the Canon',
         device: 'Desktop Workstation (1440px)',
         image: '/screenshots/scenarios/scenario11_desktop_group_by_book.png',
-        headline: 'Group by Book: 846 Scripture Occurrences at a Glance',
-        caption: 'Searching the word "priest" across all 846 occurrences. The canonical view groups hits into 36 books with Old Testament (689 verses) and New Testament (157 verses) visual density maps.',
-        altText: 'Parchments Bible Search modal displaying 846 canonical occurrences of the word priest categorized into 28 Old Testament and 8 New Testament books with chapter spans and expansion bars.',
-        story: 'Trace theological themes from Genesis 14:18 through Revelation 20:6 without key truncation or missing books. The pre-sorted canonical search engine calculates Old Testament and New Testament density ratios in milliseconds, allowing you to expand individual books or click Expand All to survey evidence across the entire canon.',
+        headline: 'Group by Book: Canonical Concordance & Density at a Glance',
+        caption: 'Explore any theological theme across the whole Bible. The canonical view groups matches into 36 books with Old and New Testament visual density maps (shown here surveying 846 occurrences of "priest").',
+        altText: 'Parchments Bible Search modal demonstrating canonical grouping for the word "priest" across 36 Old and New Testament books with chapter spans and expansion bars.',
+        story: 'Trace theological themes from Genesis through Revelation without key truncation or missing books. The pre-sorted canonical search engine calculates Old Testament and New Testament density ratios in milliseconds, allowing you to expand individual books or click Expand All to survey evidence across the entire canon.',
         highlights: [
-            'All 846 matches indexed with zero truncation from Genesis to Revelation',
+            'Zero truncation: instant full-canon retrieval whether a term appears 5 times or 5,000 times',
             'Segmented List vs By Book view switcher with solid opaque headers',
             'Visual density bars illustrating scriptural concentration per book',
-            'Whole-word precision filter (478 strict matches for priest)',
+            'Whole-word precision filter (e.g. 478 strict matches for priest)',
             'Multi-book simultaneous expansion with 1-click Expand/Collapse All'
         ]
     },

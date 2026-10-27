@@ -1206,6 +1206,66 @@ async function run() {
             `Handed off ${handoffCheck.totalCount} results (${handoffCheck.firstRef} first)`
         );
 
+        // 10.8 Search History & Parameters (History tracking, 1-click replay, and Clear History)
+        // Clear input to reveal Recent Searches container
+        await page.evaluate(() => {
+            const input = document.querySelector('[data-testid="bible-search-input"]');
+            if (input) {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            const bible = (window).useBibleStore.getState();
+            bible.setSearchQuery('');
+            bible.executeSearch('');
+        });
+        await new Promise(r => setTimeout(r, 400));
+
+        const historyStateCheck = await page.evaluate(() => {
+            const historyContainer = document.querySelector('[data-testid="bible-search-history-container"]');
+            const historyItems = Array.from(document.querySelectorAll('[data-testid="search-history-item"]'));
+            const bible = (window).useBibleStore.getState();
+            const queries = bible.searchHistory.map(h => h.query);
+            return {
+                hasContainer: !!historyContainer,
+                itemCount: historyItems.length,
+                storeCount: bible.searchHistory.length,
+                hasPriest: queries.includes('priest'),
+                hasMelchizedek: queries.includes('melchizedek priest') || queries.includes('Genesis 14:18') || queries.includes('H3548')
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            'Search History records past search queries, parameters & results up to 30 items with instant display on empty input',
+            historyStateCheck.hasContainer && historyStateCheck.itemCount > 0 && historyStateCheck.hasPriest,
+            `History items: ${historyStateCheck.itemCount}, Store count: ${historyStateCheck.storeCount}`
+        );
+
+        // Click Clear History button and verify list resets cleanly
+        await page.click('[data-testid="clear-search-history-btn"]');
+        await new Promise(r => setTimeout(r, 300));
+
+        const clearHistoryCheck = await page.evaluate(() => {
+            const historyContainer = document.querySelector('[data-testid="bible-search-history-container"]');
+            const bible = (window).useBibleStore.getState();
+            return {
+                historyCleared: bible.searchHistory.length === 0,
+                containerUnmounted: !historyContainer
+            };
+        });
+        recordResult(
+            'Scenario 10',
+            'Clearing Search History empties stored history and returns cleanly to default study suggestions',
+            clearHistoryCheck.historyCleared && clearHistoryCheck.containerUnmounted
+        );
+
+        // Re-execute 'priest' search via keyboard so Scenario 11 continues with 846 results
+        await page.focus('[data-testid="bible-search-input"]');
+        await page.keyboard.type('priest', { delay: 25 });
+        await page.waitForFunction(() => {
+            const bible = (window).useBibleStore.getState();
+            return !bible.isSearching && bible.searchQuery === 'priest' && bible.searchTotalCount === 846;
+        }, { timeout: 10000 });
+
         // ==============================================================
         // SCENARIO 11: Expand All & Group by Book Across Desktop, Tablet & Mobile Touch
         // ==============================================================
@@ -1534,7 +1594,7 @@ async function run() {
         });
         recordResult(
             'Scenario 12',
-            'Switching to Canonical Word Study tab displays 846 matches scenario with real E2E visual capture',
+            'Switching to Canonical Word Study tab displays canonical concordance scenario with real E2E visual capture',
             tabSwitchCheck.activeTabId === 'tab-search' && tabSwitchCheck.isSearchHeadline,
             `Active: ${tabSwitchCheck.activeTabId}, Headline: "${tabSwitchCheck.panelHeadline}"`
         );

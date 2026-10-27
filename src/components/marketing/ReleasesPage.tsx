@@ -15,9 +15,32 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.2.15",
+        date: "October 27, 2026",
+        isLatest: true,
+        description: "In-app 30-item search history with parameter preservation and 1-click replay, generalized canonical concordance density visualization, live interactive scripture popover playground, sequential interlinear syntax alignment across Hebrew and Greek, full Faith sermon manuscript in Pulpit Mode, and automated single-source-of-truth version synchronization across Web, Desktop, and Mobile.",
+        features: [
+            "In-App 30-Item Search History: Tracks up to 30 recent search queries with filter parameters (Exact Whole-Word, Testament, Book filter, and hit counts), featuring 1-click replay, relative timestamps, single-item removal, and clean 1-click history wipe.",
+            "Interactive Live Scripture Popover Playground: Interactive simulator on the landing page allowing visitors to test live hover/click decrypted scripture popovers with verse copying and direct in-app reading navigation.",
+            "Sequential Interlinear Syntax Alignment: Complete re-alignment of all 31,049 verses across all 66 canonical books to natural syntactic English word order with Strong's morphological references and Hebrew RTL layout.",
+            "Full Pulpit Mode Sermon Manuscript: Full-length 'Unshakable Faith: Stepping Beyond the Boat' sermon note with silent preaching countdown, wall clock, Sunday Deck chips, delivery cues, and full-screen stage scripture modal.",
+            "Automated Multi-Platform Version Synchronization: Built-in CI/CD prebuild orchestration synchronizing version identifiers across package.json, tauri.conf.json, Cargo.toml, version.ts, and Android Gradle manifests."
+        ],
+        improvements: [
+            "Generalized Canonical Concordance Copy: Universal headline 'Group by Book: Canonical Concordance and Density at a Glance' with clear density maps across 36 books.",
+            "Touch Target Ergonomics: Exceeds WCAG 2.1 Level AA requirements with >= 46px touch targets across tabs, buttons, and mobile navigation sheets.",
+            "Zero Horizontal Scroll: Fully responsive layouts across 375px mobile, 768px tablet, and 1440px desktop displays."
+        ],
+        fixes: [
+            "Fixed version desynchronization causing updater nag toasts and stale download links.",
+            "Corrected Strong's concordance sorting order in Genesis 1:1 and John 1:1 interlinear views.",
+            "Eliminated empty 'Untitled' stage prompter visual capture in scenario walkthrough."
+        ]
+    },
+    {
         version: "v0.2.2 (Beta)",
         date: "October 9, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Storage foundation launch, non-destructive note migration assistant, clean distraction-free startup with default closed sidebars, MenuBar clearance polish, and multi-platform OS release synchronization.",
         features: [
             "Interactive Storage Foundation Welcome Canvas: Clear side-by-side selection between Local Computer Folder (.md markdown on your hard drive) and Browser Database (private offline IndexedDB).",

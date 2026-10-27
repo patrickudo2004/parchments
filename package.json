@@ -1,11 +1,12 @@
 {
   "name": "parchments",
   "private": true,
-  "version": "0.2.14",
+  "version": "0.2.15",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "catalog": "node scripts/generate-catalog.js",
+    "prebuild": "node scripts/sync-version.cjs",
     "dev": "vite",
     "tauri": "tauri",
     "build": "tsc -b && vite build",

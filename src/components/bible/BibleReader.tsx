@@ -56,7 +56,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [isAddParallelOpen, setIsAddParallelOpen] = useState(false);
 
-    const activeVersions = [mainVersion, ...parallelVersions];
+    const activeVersions = React.useMemo(() => [mainVersion, ...parallelVersions], [mainVersion, parallelVersions.join(',')]);
+    const activeVersionsKey = `${mainVersion}:${parallelVersions.join(',')}`;
 
     const installedVersions = useLiveQuery(async () => {
         const all = await db.bibleVersions.toArray();
@@ -75,7 +76,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
         );
         const { decryptVerses } = await import('@/lib/bible/bibleCryptoService');
         return await decryptVerses(results.flat());
-    }, [activeVersions, book, chapter]) || [];
+    }, [activeVersionsKey, book, chapter]) || [];
 
     // Group verses by verse number
     const groupedVerses = React.useMemo(() => {

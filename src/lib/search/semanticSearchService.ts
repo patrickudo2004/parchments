@@ -64,7 +64,47 @@ function cleanHtml(html: string): string {
     return tempDiv.textContent || tempDiv.innerText || '';
 }
 
+let scheduleTimer: any = null;
+let pendingNoteToIndex: { noteId: string; title: string; content: string } | null = null;
+
 export const SemanticSearchService = {
+    /**
+     * Non-blocking, deferred background indexing for notes.
+     * Only schedules indexing when the app is idle, debounced by 10s,
+     * and only if the AI model is already loaded. This prevents UI freezes
+     * during active typing.
+     */
+    scheduleIndexNote: (noteId: string, title: string, content: string): void => {
+        // Skip if model has not been initialized yet — do not force a 23MB download or WASM boot on basic typing
+        if (!extractorInstance && !extractorPromise) {
+            return;
+        }
+
+        pendingNoteToIndex = { noteId, title, content };
+
+        if (scheduleTimer) {
+            clearTimeout(scheduleTimer);
+        }
+
+        scheduleTimer = setTimeout(() => {
+            scheduleTimer = null;
+            if (!pendingNoteToIndex) return;
+            const toIndex = pendingNoteToIndex;
+            pendingNoteToIndex = null;
+
+            const run = () => {
+                SemanticSearchService.indexNote(toIndex.noteId, toIndex.title, toIndex.content).catch(err => {
+                    console.warn('[SemanticSearch] Deferred indexing failed:', err);
+                });
+            };
+
+            if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                (window as any).requestIdleCallback(run, { timeout: 5000 });
+            } else {
+                setTimeout(run, 0);
+            }
+        }, 10000); // 10 seconds of complete idle time after user finishes typing
+    },
     /**
      * Generates a vector embedding for note text and updates the vectors index table.
      */

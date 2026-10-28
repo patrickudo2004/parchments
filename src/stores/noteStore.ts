@@ -1238,6 +1238,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         try {
             const rawFiles = await fileSystem.readDirectoryRecursive(localDirectoryHandle);
+            const prevLocalFiles = get().localFiles;
+            const prevFileMap = new Map<string, string>(); // key: parentId::name -> id
+            if (!forceUpdate && prevLocalFiles.length > 0) {
+                for (const p of prevLocalFiles) {
+                    prevFileMap.set(`${p.parentId || ''}::${p.name}`, p.id);
+                }
+            }
 
             // 1. Map to LocalItem structure while parsing canonical UUIDs
             const mappedFiles: LocalItem[] = [];
@@ -1251,6 +1258,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         parentId: f.parentId
                     });
                 } else if (f.kind === 'file' && (MarkdownService.isHtmlFile(f.name) || MarkdownService.isMarkdownFile(f.name) || f.name.toLowerCase().endsWith('.txt'))) {
+                    // Check if already known from prior scan (avoids reading entire file from disk on 10s background poll)
+                    const fileKey = `${f.parentId || ''}::${f.name}`;
+                    const knownId = prevFileMap.get(fileKey);
+                    if (knownId && !forceUpdate) {
+                        mappedFiles.push({
+                            id: knownId,
+                            name: f.name,
+                            kind: f.kind,
+                            handle: f.handle,
+                            parentId: f.parentId
+                        });
+                        continue;
+                    }
+
                     try {
                         const fileHandle = f.handle as FileSystemFileHandle;
                         const rawContent = await fileSystem.readFile(fileHandle) as string;
@@ -1381,8 +1402,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // 2. STABLE SORTING using helper
             const newFiles = get().sortLocalItems(mappedFiles);
 
-            // 3. CHANGE DETECTION (Diffing) — capture prevLocalFiles BEFORE updating state
-            const prevLocalFiles = get().localFiles;
+            // 3. CHANGE DETECTION (Diffing) — compare with prevLocalFiles captured at start
             const hasChanged = forceUpdate || prevLocalFiles.length !== newFiles.length ||
                 newFiles.some((f, i) =>
                     f.id !== prevLocalFiles[i]?.id ||
@@ -1886,9 +1906,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
 
         // Trigger background semantic search vector indexing
-        SemanticSearchService.indexNote(currentNote.id, finalTitle, portableContent).catch(err => {
-            console.error('[NoteStore] Background semantic indexing failed:', err);
-        });
+        SemanticSearchService.scheduleIndexNote(currentNote.id, finalTitle, portableContent);
     },
     saveLocalAsset: async (file: File) => {
         const { localDirectoryHandle, isLocalMode } = get();

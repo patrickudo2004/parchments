@@ -66,10 +66,12 @@ export const useSpaceSync = () => {
         }, 1500);
     };
 
-    useEffect(() => {
-        if (!currentNote || !isLocalMode || !currentFileHandle) return;
+    const currentNoteId = currentNote?.id || null;
 
-        const fileId = currentNote.id;
+    useEffect(() => {
+        if (!currentNoteId || !isLocalMode || !currentFileHandle) return;
+
+        const fileId = currentNoteId;
         console.log(`[Space Sync] Starting observer for active note: ${fileId}`);
 
         const noteDoc = YjsService.getDoc(fileId);
@@ -92,5 +94,5 @@ export const useSpaceSync = () => {
                 delete writeTimeouts.current[fileId];
             }
         };
-    }, [currentNote, isLocalMode, currentFileHandle]);
+    }, [currentNoteId, isLocalMode, currentFileHandle]);
 };

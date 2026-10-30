@@ -15,9 +15,31 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.2.17",
+        date: "October 30, 2026",
+        isLatest: true,
+        description: "100% offline inline voice dictation powered by on-device Whisper WebAssembly/WebGPU, deterministic audio note recording resilience, corrupt media guards, and root-level editor crash protection.",
+        features: [
+            "100% Offline Inline Dictation: Replaced Chromium cloud Web Speech API with on-device Web Audio PCM streaming directly to Whisper AI in WebAssembly/WebGPU, enabling seamless offline voice dictation without network requests or 'service unreachable' errors.",
+            "Voice Activity Detection (VAD): Integrated real-time RMS energy analysis (0.008 threshold) to filter ambient silence and prevent hallucinated transcriptions.",
+            "Deterministic Audio Note Recording: Replaced asynchronous timer races with an explicit Promise that awaits MediaRecorder onstop completion, ensuring all audio chunks are fully encoded before note creation.",
+            "Corrupt 0-Byte Audio Guard: Automatically detects and alerts on zero-byte or malformed audio recordings, preventing blank or unplayable files from being saved.",
+            "Editor Error Boundary Protection: Isolated the rich text editor within a dedicated error boundary to prevent media or codec failures from ever causing a blank screen, complete with a 1-click recovery button.",
+            "Local Voice Note Sequencing: Synchronized disk folder indexing prior to opening new voice notes, ensuring audio players reliably locate sibling audio files in Local Folder mode."
+        ],
+        improvements: [
+            "Optimistic Microphone Pulse: Immediate visual feedback on the editor toolbar microphone button while background audio streams initialize.",
+            "Resilient Voice Note Player: Graceful fallback UI with an instant 'Copy Transcript' action whenever audio decoding encounters system codec issues."
+        ],
+        fixes: [
+            "Fixed 'Speech service offline or unreachable' error when dictating without an active internet connection or in desktop WebView2.",
+            "Fixed application freeze and white-screen crash when stopping audio note recordings."
+        ]
+    },
+    {
         version: "v0.2.16",
         date: "October 28, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Critical performance and stability update eliminating progressive application freezes: non-blocking deferred AI semantic indexing, stabilized BibleReader live query (preventing perpetual verse decryption loops), optimized local folder background polling, and refined collaborative sync observers.",
         features: [
             "Non-Blocking Deferred AI Semantic Indexing: Vector embeddings are now deferred to idle periods (via requestIdleCallback) with 10s debounce and only when semantic search has been accessed, completely eliminating main-thread lockups during active note typing.",

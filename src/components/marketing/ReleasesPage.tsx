@@ -15,9 +15,30 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
-        version: "v0.2.17",
+        version: "v0.2.18",
         date: "October 30, 2026",
         isLatest: true,
+        description: "Desktop cross-platform audio & speech remediation: bundled all 4 ONNX Runtime WASM binaries (JSEP & WASM SIMD threaded) directly into the app bundle, expanded desktop Content Security Policy to authorize blob media playback, mapped native file audio MIME types, and integrated macOS microphone hardware entitlements.",
+        features: [
+            "Local ONNX Runtime WASM Bundling: Bundled all 4 essential WebAssembly binaries (`ort-wasm-simd-threaded.jsep.wasm`, `ort-wasm-simd-threaded.wasm`, `.mjs`) directly into `/dist/ort/`, eliminating 404 HTML fallback compile errors during desktop offline AI inference.",
+            "Desktop CSP Media Playback Authorization: Added explicit `media-src 'self' blob: data: asset: tauri: http: https:;` to desktop Content Security Policy, allowing WebView2 audio players to load and play recorded audio blob streams without CSP rejection.",
+            "Automatic Native Audio MIME Mapping: `FileSystemService` now infers and attaches accurate audio MIME types (`audio/webm`, `audio/mp4`, `audio/wav`, `audio/ogg`) when reading audio notes in Tauri desktop mode.",
+            "macOS Hardware Microphone Entitlements: Added `Info.plist` with `NSMicrophoneUsageDescription` and `Entitlements.plist` with `com.apple.security.device.audio-input` for macOS desktop builds.",
+            "Seamless Dual-Engine Speech Fallback: Both inline dictation and audio notes leverage cloud speech when online for sub-millisecond response, automatically and silently falling back to on-device Whisper when offline or when cloud services fail."
+        ],
+        improvements: [
+            "Clean ISO Timestamps: Local voice notes use clean, cross-platform ISO timestamps safe from invalid filesystem characters.",
+            "Zero Rollup Memory Pressure: Build pipeline copies large WASM assets post-bundle without memory spikes or virtual allocation failures."
+        ],
+        fixes: [
+            "Fixed audio notes and player failing to record or play back on desktop builds.",
+            "Fixed ONNX runtime WebAssembly compilation crash in desktop Web Workers."
+        ]
+    },
+    {
+        version: "v0.2.17",
+        date: "October 30, 2026",
+        isLatest: false,
         description: "100% offline inline voice dictation powered by on-device Whisper WebAssembly/WebGPU, deterministic audio note recording resilience, corrupt media guards, and root-level editor crash protection.",
         features: [
             "100% Offline Inline Dictation: Replaced Chromium cloud Web Speech API with on-device Web Audio PCM streaming directly to Whisper AI in WebAssembly/WebGPU, enabling seamless offline voice dictation without network requests or 'service unreachable' errors.",

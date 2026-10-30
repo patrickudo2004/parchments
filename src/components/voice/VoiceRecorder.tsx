@@ -264,8 +264,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             setStatus('recording');
 
             // Determine transcription mode:
-            // Desktop webviews (WebView2) and offline environments always use on-device Whisper.
-            const canUseCloudSpeech = hasBrowserSpeechApi && !isDesktop && (typeof navigator !== 'undefined' && navigator.onLine);
+            // Use browser speech API when online; seamlessly fall back to on-device Whisper if offline or network drops.
+            const canUseCloudSpeech = hasBrowserSpeechApi && (typeof navigator !== 'undefined' && navigator.onLine);
             if (canUseCloudSpeech) {
                 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                 try {

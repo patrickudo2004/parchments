@@ -33,6 +33,23 @@ const IGNORED_FS_ENTRIES = new Set([
     'desktop.ini',
 ]);
 
+function getMimeTypeFromName(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'webm': return 'audio/webm';
+        case 'mp4': case 'm4a': return 'audio/mp4';
+        case 'ogg': return 'audio/ogg';
+        case 'wav': return 'audio/wav';
+        case 'mp3': return 'audio/mpeg';
+        case 'aac': return 'audio/aac';
+        case 'png': return 'image/png';
+        case 'jpg': case 'jpeg': return 'image/jpeg';
+        case 'webp': return 'image/webp';
+        case 'gif': return 'image/gif';
+        default: return 'application/octet-stream';
+    }
+}
+
 function shouldIgnoreEntry(name: string): boolean {
     if (!name) return true;
     if (name.startsWith('.')) return true;
@@ -317,7 +334,8 @@ export class FileSystemService {
         if (checkIsTauri() && handle.path) {
             const { readFile } = await import('@tauri-apps/plugin-fs');
             const data = await readFile(handle.path);
-            return binary ? new Blob([data]) : new TextDecoder().decode(data);
+            const mime = getMimeTypeFromName(handle.name || handle.path);
+            return binary ? new Blob([data], { type: mime }) : new TextDecoder().decode(data);
         }
 
         if (isCapacitor && handle.path) {
@@ -334,7 +352,8 @@ export class FileSystemService {
                     byteNumbers[i] = byteCharacters.charCodeAt(i);
                 }
                 const byteArray = new Uint8Array(byteNumbers);
-                return new Blob([byteArray]);
+                const mime = getMimeTypeFromName(handle.name || handle.path);
+                return new Blob([byteArray], { type: mime });
             }
             return res.data as string;
         }

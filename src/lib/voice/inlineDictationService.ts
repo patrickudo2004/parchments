@@ -10,6 +10,7 @@ class InlineDictationService {
     private mediaStream: MediaStream | null = null;
     private audioContext: AudioContext | null = null;
     private scriptProcessor: ScriptProcessorNode | null = null;
+    private recognition: any = null;
     private pcmChunks: Float32Array[] = [];
     private pcmSampleCount: number = 0;
     private isProcessingChunk: boolean = false;
@@ -98,6 +99,41 @@ class InlineDictationService {
             scriptProcessor.connect(muteGain);
             muteGain.connect(audioContext.destination);
 
+            // Optional cloud speech fast-path when online with automatic fallback to Whisper
+            const hasBrowserSpeech = typeof window !== 'undefined' &&
+                Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) &&
+                Boolean(navigator?.onLine);
+
+            if (hasBrowserSpeech) {
+                const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                try {
+                    const rec = new SpeechRec();
+                    rec.continuous = true;
+                    rec.interimResults = false;
+                    rec.lang = 'en-US';
+                    rec.onresult = (ev: any) => {
+                        if (!this.isDictating || !this.activeEditor || this.activeEditor.isDestroyed) return;
+                        for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+                            if (ev.results[i].isFinal) {
+                                const text = ev.results[i][0].transcript.trim();
+                                if (text) {
+                                    this.activeEditor.commands.insertContent(`${text} `);
+                                }
+                            }
+                        }
+                    };
+                    rec.onerror = (ev: any) => {
+                        console.info('[InlineDictation] Cloud speech unavailable, seamlessly falling back to on-device Whisper:', ev.error);
+                        try { rec.stop(); } catch {}
+                        this.recognition = null;
+                    };
+                    rec.start();
+                    this.recognition = rec;
+                } catch (e) {
+                    console.info('[InlineDictation] Cloud speech start failed, using on-device Whisper:', e);
+                }
+            }
+
             this.notify(true);
             return true;
         } catch (err: any) {
@@ -113,6 +149,8 @@ class InlineDictationService {
 
     private async processCurrentPcmSlice(inputRate: number): Promise<void> {
         if (this.pcmChunks.length === 0 || this.isProcessingChunk) return;
+        // Avoid duplicate insertion if cloud speech recognition is currently active and delivering results
+        if (this.recognition) return;
         if (streamingTranscriber.isTranscribing()) return;
 
         this.isProcessingChunk = true;
@@ -156,6 +194,10 @@ class InlineDictationService {
 
     private cleanup(): void {
         this.isDictating = false;
+        if (this.recognition) {
+            try { this.recognition.stop(); } catch {}
+            this.recognition = null;
+        }
         if (this.scriptProcessor) {
             this.scriptProcessor.disconnect();
             this.scriptProcessor = null;

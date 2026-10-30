@@ -22,8 +22,13 @@ async function initTransformers(_localRuntime = false) {
     // Load ONNX Runtime WASM from the local app bundle (/ort/) instead of cdn.jsdelivr.net.
     // The CDN script import is blocked by desktop CSP and unavailable offline.
     if (env.backends?.onnx?.wasm) {
-        env.backends.onnx.wasm.wasmPaths = new URL('/ort/', self.location.href).href;
-        console.info('[Worker] Using local bundled ONNX Runtime from', env.backends.onnx.wasm.wasmPaths);
+        const origin = (typeof self !== 'undefined' && self.location?.origin && !self.location.origin.startsWith('blob:') && self.location.origin !== 'null')
+            ? self.location.origin
+            : '';
+        const wasmDir = origin ? `${origin}/ort/` : '/ort/';
+        env.backends.onnx.wasm.wasmPaths = wasmDir;
+        env.backends.onnx.wasm.proxy = false;
+        console.info('[Worker] Using local bundled ONNX Runtime from', wasmDir);
     }
     console.info('[Worker] AI Engine initialized. Offline caching enabled.');
 }

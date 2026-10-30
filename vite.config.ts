@@ -5,14 +5,27 @@ import fs from 'fs'
 
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
-// Tauri CLI sets TAURI_ENV_PLATFORM while running beforeBuildCommand / beforeDevCommand
-const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM)
+const ORT_SOURCE_DIRS = [
+  path.resolve(__dirname, 'node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist'),
+  path.resolve(__dirname, 'node_modules/@huggingface/transformers/dist'),
+]
+const ALL_ORT_FILES = [
+  'ort-wasm-simd-threaded.jsep.mjs',
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.mjs',
+  'ort-wasm-simd-threaded.wasm',
+]
 
-const ORT_DIST_DIR = path.resolve(__dirname, 'node_modules/@huggingface/transformers/dist')
-const ORT_FILES = ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm']
+function findOrtFile(fileName: string): string | null {
+  for (const dir of ORT_SOURCE_DIRS) {
+    const candidate = path.join(dir, fileName)
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}
 
 /**
- * Serves / bundles the ONNX Runtime WASM files locally under /ort/.
+ * Serves and copies ONNX Runtime WASM & JSEP files to /ort/.
  * Transformers.js defaults to loading these from cdn.jsdelivr.net, which is blocked by the
  * desktop CSP (script-src 'self') and unavailable offline — breaking on-device Whisper in Tauri.
  */
@@ -22,22 +35,24 @@ function localOrtRuntime(): Plugin {
     configureServer(server) {
       server.middlewares.use('/ort/', (req, res, next) => {
         const fileName = (req.url || '').split('?')[0].replace(/^\//, '')
-        if (!ORT_FILES.includes(fileName)) return next()
-        const filePath = path.join(ORT_DIST_DIR, fileName)
-        if (!fs.existsSync(filePath)) return next()
+        if (!ALL_ORT_FILES.includes(fileName)) return next()
+        const filePath = findOrtFile(fileName)
+        if (!filePath) return next()
         res.setHeader('Content-Type', fileName.endsWith('.wasm') ? 'application/wasm' : 'text/javascript')
         fs.createReadStream(filePath).pipe(res)
       })
     },
-    generateBundle() {
-      if (!isTauriBuild) return
-      for (const fileName of ORT_FILES) {
-        const filePath = path.join(ORT_DIST_DIR, fileName)
-        if (!fs.existsSync(filePath)) {
-          this.warn(`[local-ort] Missing ${filePath}; on-device Whisper will fall back to CDN.`)
-          continue
+    closeBundle() {
+      const outDir = path.resolve(__dirname, 'dist', 'ort')
+      if (!fs.existsSync(outDir)) {
+        fs.mkdirSync(outDir, { recursive: true })
+      }
+      for (const fileName of ALL_ORT_FILES) {
+        const src = findOrtFile(fileName)
+        const dest = path.join(outDir, fileName)
+        if (src && !fs.existsSync(dest)) {
+          fs.copyFileSync(src, dest)
         }
-        this.emitFile({ type: 'asset', fileName: `ort/${fileName}`, source: fs.readFileSync(filePath) })
       }
     },
   }

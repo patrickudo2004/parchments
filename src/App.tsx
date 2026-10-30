@@ -53,7 +53,7 @@ const App: React.FC = () => {
 
     return (
         <>
-            <Analytics />
+            {!isNativeApp && typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') && <Analytics />}
             <Routes>
             <Route path="/" element={
                 isNativeApp ? <Navigate to="/app" replace /> : <LandingPage />

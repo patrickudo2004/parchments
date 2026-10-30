@@ -25,7 +25,6 @@ export const EmptyState: React.FC = () => {
         createNote,
         createVoiceNote,
         createFolder,
-        isLocalMode,
         hasStudyspace,
         openLocalFolder,
         selectStorageFoundation,
@@ -299,11 +298,8 @@ export const EmptyState: React.FC = () => {
                 <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <VoiceRecorder
                         onSave={async (blob, duration, transcript) => {
-                            if (isLocalMode) {
-                                await useNoteStore.getState().createLocalVoiceNote(blob, null, transcript);
-                            } else {
-                                await createVoiceNote(null, blob, duration, transcript);
-                            }
+                            const target = useNoteStore.getState().selectedFolderId || null;
+                            await createVoiceNote(target, blob, duration, transcript);
                             setShowVoiceRecorder(false);
                         }}
                         onCancel={() => setShowVoiceRecorder(false)}

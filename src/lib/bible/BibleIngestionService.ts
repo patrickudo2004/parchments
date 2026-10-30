@@ -23,7 +23,7 @@ export class BibleIngestionService {
             }
 
             // 2. Fallback: remote URL if local asset is unavailable
-            if (!data) {
+            if (!data && (typeof navigator === 'undefined' || navigator.onLine)) {
                 const response = await fetch(KJV_URL);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch KJV: ${response.statusText}`);

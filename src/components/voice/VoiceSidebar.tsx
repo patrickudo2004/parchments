@@ -1,14 +1,37 @@
 import React from 'react';
 import { useUIStore } from '@/stores/uiStore';
-import { useNoteStore } from '@/stores/noteStore';
+import { useNoteStore, normalizeFsPath } from '@/stores/noteStore';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
-import { Mic, History, Info, Play, Clock } from 'lucide-react';
+import { Mic, History, Info, Play, Clock, Folder } from 'lucide-react';
 
 export const VoiceSidebar: React.FC = () => {
-    const { createVoiceNote, hasStudyspace, openLocalFolder, notes, setCurrentNote } = useNoteStore();
+    const {
+        createVoiceNote,
+        hasStudyspace,
+        openLocalFolder,
+        notes,
+        setCurrentNote,
+        selectedFolderId,
+        currentNote,
+        localFiles,
+        folders,
+        isLocalMode
+    } = useNoteStore();
     const { showToast } = useUIStore();
 
     const voiceNotes = notes.filter(n => n.type === 'voice');
+
+    const activeFolderId = selectedFolderId || currentNote?.folderId || null;
+    const activeFolderName = React.useMemo(() => {
+        if (!activeFolderId) return isLocalMode ? 'Root Studyspace' : 'Workspace Root';
+        if (isLocalMode) {
+            const norm = normalizeFsPath(activeFolderId);
+            const f = localFiles.find(item => (item.id === activeFolderId || normalizeFsPath(item.id) === norm) && item.kind === 'directory');
+            return f ? f.name : activeFolderId.split(/[\/\\]/).pop() || 'Selected Folder';
+        }
+        const f = folders.find(folder => folder.id === activeFolderId);
+        return f ? f.name : 'Selected Folder';
+    }, [activeFolderId, isLocalMode, localFiles, folders]);
 
     const formatDuration = (seconds?: number) => {
         if (!seconds) return '0:00';
@@ -61,11 +84,20 @@ export const VoiceSidebar: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Target Folder Badge */}
+                        <div className="flex items-center justify-between px-2.5 py-1.5 bg-light-surface dark:bg-dark-surface rounded-xl border border-light-border dark:border-dark-border text-[10px]">
+                            <span className="text-light-text-secondary dark:text-dark-text-secondary opacity-75 font-medium">Target Folder:</span>
+                            <span className="font-bold text-primary truncate max-w-[150px] flex items-center gap-1">
+                                <Folder size={11} className="shrink-0" />
+                                {activeFolderName}
+                            </span>
+                        </div>
+
                         {/* Responsive Voice Recorder */}
                         <VoiceRecorder
                             onSave={async (blob, duration, transcript) => {
-                                await createVoiceNote(null, blob, duration, transcript);
-                                showToast('Voice note created!', 'success');
+                                await createVoiceNote(activeFolderId, blob, duration, transcript);
+                                showToast(`Voice note saved in ${activeFolderName}!`, 'success');
                             }}
                             onCancel={() => {
                                 showToast('Recording discarded', 'info');

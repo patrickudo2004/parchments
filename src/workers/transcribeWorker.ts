@@ -15,22 +15,25 @@ async function initTransformers(_localRuntime = false) {
     pipeline = transformers.pipeline;
     env = transformers.env;
 
-    // Skip local checks to avoid FS errors in browser/webview
-    env.allowLocalModels = false;
+    const origin = (typeof self !== 'undefined' && self.location?.origin && !self.location.origin.startsWith('blob:') && self.location.origin !== 'null')
+        ? self.location.origin
+        : '';
+
+    // Enable local model loading from pre-bundled /models/ directory
+    env.allowLocalModels = true;
+    env.allowRemoteModels = true;
+    env.localModelPath = origin ? `${origin}/models/` : '/models/';
     env.useBrowserCache = true;
 
     // Load ONNX Runtime WASM from the local app bundle (/ort/) instead of cdn.jsdelivr.net.
     // The CDN script import is blocked by desktop CSP and unavailable offline.
     if (env.backends?.onnx?.wasm) {
-        const origin = (typeof self !== 'undefined' && self.location?.origin && !self.location.origin.startsWith('blob:') && self.location.origin !== 'null')
-            ? self.location.origin
-            : '';
         const wasmDir = origin ? `${origin}/ort/` : '/ort/';
         env.backends.onnx.wasm.wasmPaths = wasmDir;
         env.backends.onnx.wasm.proxy = false;
         console.info('[Worker] Using local bundled ONNX Runtime from', wasmDir);
     }
-    console.info('[Worker] AI Engine initialized. Offline caching enabled.');
+    console.info('[Worker] AI Engine initialized. Pre-bundled offline models enabled.');
 }
 
 class TranscribeWorker {
@@ -52,11 +55,25 @@ class TranscribeWorker {
                 });
             } catch (gpuErr) {
                 console.warn('[Worker] WebGPU unavailable, falling back to WASM q8:', gpuErr);
-                this.instance = await pipeline('automatic-speech-recognition', model, {
-                    device: 'wasm',
-                    dtype: 'q8',
-                    progress_callback,
-                });
+                try {
+                    this.instance = await pipeline('automatic-speech-recognition', model, {
+                        device: 'wasm',
+                        dtype: 'q8',
+                        progress_callback,
+                    });
+                } catch (wasmErr) {
+                    if (model !== 'onnx-community/whisper-tiny.en') {
+                        console.warn('[Worker] High-accuracy model unavailable offline, falling back to bundled whisper-tiny.en:', wasmErr);
+                        this.model = 'onnx-community/whisper-tiny.en';
+                        this.instance = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+                            device: 'wasm',
+                            dtype: 'q8',
+                            progress_callback,
+                        });
+                    } else {
+                        throw wasmErr;
+                    }
+                }
             }
         }
         return this.instance;

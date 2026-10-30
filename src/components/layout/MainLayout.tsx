@@ -17,7 +17,8 @@ import { ShortcutModal } from './ShortcutModal';
 import { UserGuideModal } from '@/components/help/UserGuideModal';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import {
-    Search as SearchIcon
+    Search as SearchIcon,
+    Minimize2
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { ActivityBar } from './ActivityBar';
@@ -260,7 +261,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 openLooseFile();
             }
 
-            if (e.key === 'F11') {
+            if (e.key === 'F11' || (e.key === 'Escape' && isFocusMode)) {
                 e.preventDefault();
                 toggleFocusMode();
             }
@@ -282,6 +283,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <VersionLockModal />
                 {!isMobile && !isLectioModeActive && !pulpitMode && <TopBar />}
                 {!isFocusMode && !isMobile && !isLectioModeActive && !pulpitMode && <MenuBar />}
+                {isFocusMode && (
+                    <button
+                        onClick={toggleFocusMode}
+                        className="fixed top-4 right-4 z-[999] px-3 py-1.5 rounded-full bg-light-surface/90 dark:bg-dark-surface/90 hover:bg-light-surface dark:hover:bg-dark-surface border border-light-border dark:border-dark-border text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary hover:text-primary transition-all shadow-lg backdrop-blur-md flex items-center gap-1.5 group cursor-pointer active:scale-95"
+                        title="Exit Focus Mode (Esc or F11)"
+                    >
+                        <Minimize2 size={13} className="group-hover:scale-110 transition-transform text-primary" />
+                        <span>Exit Focus Mode</span>
+                        <span className="text-[10px] opacity-60 ml-1 font-mono hidden sm:inline">Esc</span>
+                    </button>
+                )}
 
                 <div className={`flex-1 flex overflow-hidden relative ${isMobile && rightSidebarOpen && rightSidebarContent === 'bible' ? 'flex-col' : 'flex-row'}`}>
                     {/* ... rest of the component ... */}

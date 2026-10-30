@@ -22,10 +22,12 @@ import {
     HardDrive,
     X,
     ArrowRight,
-    RotateCcw
+    RotateCcw,
+    FolderInput
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PromptModal } from '@/components/ui/PromptModal';
+import { MoveNoteModal } from '@/components/notes/MoveNoteModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useNoteStore, UNTITLED_NOTE } from '@/stores/noteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -316,6 +318,16 @@ export const FilesSidebar: React.FC = () => {
         onConfirm: () => { },
     });
 
+    const [moveConfig, setMoveConfig] = useState<{
+        isOpen: boolean;
+        noteId: string;
+        noteTitle: string;
+    }>({
+        isOpen: false,
+        noteId: '',
+        noteTitle: '',
+    });
+
     // Periodic File System Refresh for Desktop mode (watch for external changes)
     React.useEffect(() => {
         if (!isLocalMode || !localDirectoryHandle) return;
@@ -409,7 +421,8 @@ export const FilesSidebar: React.FC = () => {
         if (!hasStudyspace && !isMobile) {
             toggleNoFolderModal(true);
         } else {
-            setRecordingFolderId(folderId);
+            const target = folderId ?? selectedFolderId ?? currentNote?.folderId ?? null;
+            setRecordingFolderId(target);
             setShowRecorder(true);
         }
     };
@@ -500,7 +513,12 @@ export const FilesSidebar: React.FC = () => {
                         <div className="w-5 h-5 flex items-center justify-center shrink-0">
                             {hasChildren && (
                                 <div
-                                    onClick={(e) => toggleFolder(e, item.id)}
+                                    onClick={(e) => {
+                                        toggleFolder(e, item.id);
+                                        if (!isExpanded) {
+                                            setSelectedFolderId(item.id);
+                                        }
+                                    }}
                                     className="flex items-center justify-center w-5 h-5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-sidebar dark:hover:bg-dark-sidebar rounded transition-colors"
                                 >
                                     {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -565,6 +583,22 @@ export const FilesSidebar: React.FC = () => {
                                     title="Share Note"
                                 >
                                     <Share2 size={12} />
+                                </button>
+                            )}
+                            {!hasChildren && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMoveConfig({
+                                            isOpen: true,
+                                            noteId: item.id,
+                                            noteTitle: item.name || item.title || 'Note',
+                                        });
+                                    }}
+                                    className="p-1 min-w-[22px] min-h-[22px] flex items-center justify-center rounded text-light-text-disabled hover:text-primary transition-all"
+                                    title="Move to Folder"
+                                >
+                                    <FolderInput size={12} />
                                 </button>
                             )}
                             <button
@@ -910,6 +944,20 @@ export const FilesSidebar: React.FC = () => {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
+                                                            setMoveConfig({
+                                                                isOpen: true,
+                                                                noteId: note.id,
+                                                                noteTitle: note.title || note.name || 'Note',
+                                                            });
+                                                        }}
+                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        title="Move to Folder"
+                                                    >
+                                                        <FolderInput size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             handleRenameClick(e, note);
                                                         }}
                                                         className="p-1 text-light-text-disabled hover:text-primary transition-colors"
@@ -1198,6 +1246,13 @@ export const FilesSidebar: React.FC = () => {
                     setShareNoteId(null);
                 }}
                 noteId={shareNoteId}
+            />
+
+            <MoveNoteModal
+                isOpen={moveConfig.isOpen}
+                onClose={() => setMoveConfig({ isOpen: false, noteId: '', noteTitle: '' })}
+                noteId={moveConfig.noteId}
+                noteTitle={moveConfig.noteTitle}
             />
         </div>
     );

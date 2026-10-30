@@ -34,6 +34,11 @@ function isSupportedLocalNoteFile(name: string): boolean {
         isAudioFileName(name)
     );
 }
+
+export function normalizeFsPath(p: string | null | undefined): string | null {
+    if (!p) return null;
+    return p.replace(/\\/g, '/').replace(/\/+$/, '');
+}
 import { SemanticSearchService } from '@/lib/search/semanticSearchService';
 import { MarkdownService } from '@/lib/markdown/MarkdownService';
 import { useUIStore } from '@/stores/uiStore';
@@ -248,6 +253,7 @@ interface NoteStore {
     deleteFolder: (id: string) => Promise<void>;
     renameNote: (id: string, newName: string) => Promise<void>;
     renameFolder: (id: string, newName: string) => Promise<void>;
+    moveNote: (noteId: string, destinationFolderId: string | null) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
     updateCurrentNoteMetadata: (metadata: Record<string, any>) => void;
     setNotes: (notes: Note[]) => void;
@@ -455,7 +461,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createNote: async (folderId, title, forceId) => {
-        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
+        const { isLocalMode, createLocalNote, activeWorkspaceId, selectedFolderId, currentNote } = get();
+        const effectiveFolderId = folderId !== undefined && folderId !== null 
+            ? folderId 
+            : (selectedFolderId || currentNote?.folderId || null);
 
         if (isLocalMode) {
             if (!get().localDirectoryHandle) {
@@ -466,14 +475,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 throw new Error('Local folder is not connected');
             }
             const name = title || UNTITLED_NOTE;
-            await createLocalNote(name, folderId, '', forceId);
-            const currentNote = get().currentNote;
-            console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${folderId}`);
-            get().broadcastFolderChange(folderId);
-            return currentNote as Note;
+            await createLocalNote(name, effectiveFolderId, '', forceId);
+            const activeNote = get().currentNote;
+            console.log(`[CREATE NOTE LOCAL] Broadcasting folder change for: ${effectiveFolderId}`);
+            get().broadcastFolderChange(effectiveFolderId);
+            return activeNote as Note;
         }
 
-        const targetFolderId = folderId || activeWorkspaceId;
+        const targetFolderId = effectiveFolderId || activeWorkspaceId;
 
         const note = await dbHelpers.createNote({
             title: title || UNTITLED_NOTE,
@@ -489,7 +498,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createNoteFromTemplate: async (folderId, templateId) => {
-        const { isLocalMode, createLocalNote, activeWorkspaceId } = get();
+        const { isLocalMode, createLocalNote, activeWorkspaceId, selectedFolderId, currentNote } = get();
+        const effectiveFolderId = folderId !== undefined && folderId !== null 
+            ? folderId 
+            : (selectedFolderId || currentNote?.folderId || null);
         const template = STUDY_TEMPLATES[templateId as keyof typeof STUDY_TEMPLATES];
         if (!template) throw new Error('Template not found');
 
@@ -504,11 +516,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
                 throw new Error('Local folder is not connected');
             }
-            await createLocalNote(title, folderId, template.content);
+            await createLocalNote(title, effectiveFolderId, template.content);
             return (get().currentNote || {}) as Note;
         }
 
-        const targetFolderId = folderId || activeWorkspaceId;
+        const targetFolderId = effectiveFolderId || activeWorkspaceId;
 
         const note = await dbHelpers.createNote({
             title,
@@ -524,7 +536,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     createVoiceNote: async (folderId, audioBlob, duration, transcript) => {
-        const { isLocalMode, createLocalVoiceNote, activeWorkspaceId } = get();
+        const { isLocalMode, createLocalVoiceNote, activeWorkspaceId, selectedFolderId, currentNote } = get();
+        const effectiveFolderId = folderId !== undefined && folderId !== null 
+            ? folderId 
+            : (selectedFolderId || currentNote?.folderId || null);
+
         if (isLocalMode) {
             if (!get().localDirectoryHandle) {
                 await get().reconnectLocalFolder();
@@ -533,11 +549,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
                 throw new Error('Local folder is not connected');
             }
-            await createLocalVoiceNote(audioBlob, folderId, transcript);
+            await createLocalVoiceNote(audioBlob, effectiveFolderId, transcript);
             return (get().currentNote || {}) as Note;
         }
 
-        const targetFolderId = folderId || activeWorkspaceId;
+        const targetFolderId = effectiveFolderId || activeWorkspaceId;
 
         const initialHtml = transcript
             ? `<p>${transcript}</p>`
@@ -675,6 +691,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
                     await fileSystem.deleteEntry(parentHandle, item.name);
 
+                    // If note has companion audio (voice note), delete it as well
+                    try {
+                        const content = await fileSystem.readFile(item.handle as FileSystemFileHandle) as string;
+                        const audioLinkMatch = typeof content === 'string' ? content.match(/<!--\s*audio-link:\s*(.*?)\s*-->/) : null;
+                        if (audioLinkMatch && audioLinkMatch[1]) {
+                            await fileSystem.deleteEntry(parentHandle, audioLinkMatch[1]);
+                        }
+                    } catch (audioErr) {
+                        console.warn('[deleteNote] Note audio cleanup notice:', audioErr);
+                    }
+
                     if (currentNote?.id === id) {
                         set({ currentNote: null, currentFileHandle: null });
                     }
@@ -699,7 +726,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     deleteFolder: async (id) => {
-        const { isLocalMode, localDirectoryHandle, localFiles, folders } = get();
+        const { isLocalMode, localDirectoryHandle, localFiles, folders, currentNote } = get();
 
         if (isLocalMode) {
             if (!localDirectoryHandle) return;
@@ -713,8 +740,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     }
 
                     await fileSystem.deleteEntry(parentHandle, item.name);
-                    if (get().selectedFolderId === id) {
+                    const normId = normalizeFsPath(id);
+                    if (get().selectedFolderId === id || (normId && normalizeFsPath(get().selectedFolderId)?.startsWith(normId))) {
                         set({ selectedFolderId: null });
+                    }
+                    if (currentNote?.folderId === id || (normId && normalizeFsPath(currentNote?.folderId)?.startsWith(normId))) {
+                        set({ currentNote: null, currentFileHandle: null });
                     }
                     await get().refreshLocalFiles(true);
 
@@ -815,6 +846,102 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 folders: folders.map(f => f.id === id ? { ...f, name: newName, updatedAt: Date.now() } : f)
             });
         }
+    },
+
+    moveNote: async (noteId: string, destinationFolderId: string | null) => {
+        const { isLocalMode, notes, currentNote, localFiles, localDirectoryHandle, refreshLocalFiles, openLocalFile } = get();
+
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
+            const fileItem = localFiles.find(f => f.id === noteId && f.kind === 'file');
+            if (!fileItem) return;
+
+            // Determine source parent handle
+            let srcParentHandle = localDirectoryHandle;
+            if (fileItem.parentId) {
+                const normParent = normalizeFsPath(fileItem.parentId);
+                const parentItem = localFiles.find(f => (f.id === fileItem.parentId || normalizeFsPath(f.id) === normParent) && f.kind === 'directory');
+                if (parentItem && parentItem.handle.kind === 'directory') {
+                    srcParentHandle = parentItem.handle as FileSystemDirectoryHandle;
+                }
+            }
+
+            // Determine destination parent handle
+            let destParentHandle = localDirectoryHandle;
+            if (destinationFolderId) {
+                const normDest = normalizeFsPath(destinationFolderId);
+                const destItem = localFiles.find(f => (f.id === destinationFolderId || normalizeFsPath(f.id) === normDest) && f.kind === 'directory');
+                if (destItem && destItem.handle.kind === 'directory') {
+                    destParentHandle = destItem.handle as FileSystemDirectoryHandle;
+                }
+            }
+
+            // Read source file content
+            const content = await fileSystem.readFile(fileItem.handle as FileSystemFileHandle) as string;
+
+            // Check if there's a companion audio file (for voice notes)
+            const audioLinkMatch = typeof content === 'string' ? content.match(/<!--\s*audio-link:\s*(.*?)\s*-->/) : null;
+            let audioBlob: Blob | null = null;
+            let audioFileName: string | null = null;
+            if (audioLinkMatch && audioLinkMatch[1]) {
+                audioFileName = audioLinkMatch[1];
+                const siblingAudio = localFiles.find(f =>
+                    f.parentId === fileItem.parentId &&
+                    f.name === audioFileName &&
+                    f.kind === 'file'
+                );
+                if (siblingAudio) {
+                    try {
+                        audioBlob = await fileSystem.readFile(siblingAudio.handle as FileSystemFileHandle, true) as Blob;
+                    } catch (e) {
+                        console.warn('[moveNote] Failed to read companion audio:', e);
+                    }
+                }
+            }
+
+            // Create in destination
+            const newName = await fileSystem.getUniqueFileName(destParentHandle, fileItem.name);
+            const newFileHandle = await fileSystem.createFile(destParentHandle, newName, content);
+
+            // Copy audio companion if present
+            if (audioBlob && audioFileName) {
+                const uniqueAudioName = await fileSystem.getUniqueFileName(destParentHandle, audioFileName);
+                await fileSystem.createFile(destParentHandle, uniqueAudioName, audioBlob);
+                try {
+                    await fileSystem.deleteEntry(srcParentHandle, audioFileName);
+                } catch (e) {
+                    console.warn('[moveNote] Failed to remove source audio companion:', e);
+                }
+            }
+
+            // Delete from source
+            await fileSystem.deleteEntry(srcParentHandle, fileItem.name);
+
+            // Refresh file tree
+            await refreshLocalFiles(true);
+
+            // Re-open if active note was moved
+            if (currentNote?.id === noteId) {
+                await openLocalFile({
+                    id: fileItem.id,
+                    name: newName,
+                    kind: 'file',
+                    handle: newFileHandle,
+                    parentId: destinationFolderId
+                });
+            }
+            useUIStore.getState().showToast('Note moved successfully', 'success');
+            return;
+        }
+
+        // Browser IndexedDB mode
+        await db.notes.update(noteId, { folderId: destinationFolderId, updatedAt: Date.now() });
+        const updatedNotes = notes.map(n => n.id === noteId ? { ...n, folderId: destinationFolderId, updatedAt: Date.now() } : n);
+        set({
+            notes: updatedNotes,
+            currentNote: currentNote?.id === noteId ? { ...currentNote, folderId: destinationFolderId } : currentNote
+        });
+        useUIStore.getState().showToast('Note moved successfully', 'success');
     },
 
     setCurrentNote: (note) => {
@@ -1564,7 +1691,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 id: item.id,
                 title: item.name.replace(/\.(html|htm|txt|md|markdown|mdown|mkdn|webm|mp4|m4a|mp3|ogg|wav)$/i, ''),
                 content: content,
-                folderId: null,
+                folderId: item.parentId ?? null,
                 tags: [],
                 type: noteType,
                 audioBlob: audioBlob,
@@ -1573,7 +1700,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 updatedAt: Date.now(),
                 ...(Object.keys(parsedFrontmatter).length > 0 ? { metadata: parsedFrontmatter } : {}),
             };
-            set({ currentNote: tempNote, currentFileHandle: targetHandle });
+            set({ 
+                currentNote: tempNote, 
+                currentFileHandle: targetHandle,
+                selectedFolderId: item.parentId ?? null 
+            });
         } catch (error) {
             console.error('Failed to read file:', error);
         }
@@ -1587,7 +1718,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Determine parent directory
             let parentHandle = localDirectoryHandle;
             if (targetFolderId) {
-                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                const normTarget = normalizeFsPath(targetFolderId);
+                const folderItem = localFiles.find(f => (f.id === targetFolderId || normalizeFsPath(f.id) === normTarget) && f.kind === 'directory');
                 if (folderItem && folderItem.handle.kind === 'directory') {
                     parentHandle = folderItem.handle as FileSystemDirectoryHandle;
                 }
@@ -1649,7 +1781,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Determine parent directory
             let parentHandle = localDirectoryHandle;
             if (targetFolderId) {
-                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                const normTarget = normalizeFsPath(targetFolderId);
+                const folderItem = localFiles.find(f => (f.id === targetFolderId || normalizeFsPath(f.id) === normTarget) && f.kind === 'directory');
                 if (folderItem && folderItem.handle.kind === 'directory') {
                     parentHandle = folderItem.handle as FileSystemDirectoryHandle;
                 }
@@ -1671,7 +1804,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Determine parent directory
             let parentHandle = localDirectoryHandle;
             if (targetFolderId) {
-                const folderItem = localFiles.find(f => f.id === targetFolderId && f.kind === 'directory');
+                const normTarget = normalizeFsPath(targetFolderId);
+                const folderItem = localFiles.find(f => (f.id === targetFolderId || normalizeFsPath(f.id) === normTarget) && f.kind === 'directory');
                 if (folderItem && folderItem.handle.kind === 'directory') {
                     parentHandle = folderItem.handle as FileSystemDirectoryHandle;
                 }

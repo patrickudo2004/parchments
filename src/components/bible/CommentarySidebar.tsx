@@ -13,7 +13,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2,
-    Quote
+    Quote,
+    WifiOff
 } from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible/BibleData';
 
@@ -200,6 +201,18 @@ export const CommentarySidebar: React.FC<{ isIndependent?: boolean }> = ({ isInd
                                 </div>
                             </div>
                         ))}
+                    </div>
+                ) : (typeof navigator !== 'undefined' && !navigator.onLine) ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3 border border-amber-500/20">
+                            <WifiOff size={20} />
+                        </div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-light-text-primary dark:text-dark-text-primary mb-1">
+                            Offline Mode
+                        </h3>
+                        <p className="text-[11px] text-light-text-secondary dark:text-dark-text-secondary max-w-[220px]">
+                            Connect to the internet to cache commentary for {book} {chapter}. Once cached, it remains permanently available offline.
+                        </p>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">

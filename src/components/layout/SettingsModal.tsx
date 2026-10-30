@@ -1391,17 +1391,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         });
                                                     })()}
 
-                                                    <div key="off-whisper-tiny" className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group opacity-50 text-light-text-primary dark:text-dark-text-primary">
+                                                    <div key="off-whisper-tiny" className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded">
-                                                                <Database size={14} />
+                                                            <div className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded">
+                                                                <CheckCircle2 size={14} />
                                                             </div>
                                                             <div>
-                                                                <p className="text-sm font-medium">Whisper AI (Tiny)</p>
-                                                                <p className="text-[10px] text-light-text-disabled uppercase font-bold tracking-tight">System • 39.2 MB</p>
+                                                                <p className="text-sm font-medium">Whisper AI (Tiny Speech Model)</p>
+                                                                <p className="text-[10px] text-light-text-secondary uppercase font-bold tracking-tight">Pre-bundled • 43.3 MB • Zero Download</p>
                                                             </div>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-light-text-disabled uppercase tracking-widest">Required</span>
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 uppercase tracking-wider">Pre-bundled</span>
+                                                    </div>
+
+                                                    <div key="off-minilm-semantic" className="flex items-center justify-between p-3 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors group text-light-text-primary dark:text-dark-text-primary">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded">
+                                                                <CheckCircle2 size={14} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium">MiniLM Neural Semantic Search</p>
+                                                                <p className="text-[10px] text-light-text-secondary uppercase font-bold tracking-tight">Pre-bundled • 23.8 MB • Zero Download</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 uppercase tracking-wider">Pre-bundled</span>
                                                     </div>
                                                 </div>
                                             </section>

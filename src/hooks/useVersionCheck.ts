@@ -62,6 +62,13 @@ function resolveDownloadUrl(releaseData: any): string {
 }
 
 export const fetchVersionInfo = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        try {
+            const localResponse = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (localResponse.ok) return await localResponse.json();
+        } catch {}
+        return null;
+    }
     // 1. Primary Source: Live GitHub Releases list.
     // NOTE: `/releases/latest` silently skips pre-releases, so a beta/pre-release tag was never
     // detected as an update. We list recent published releases and pick the highest semver instead.

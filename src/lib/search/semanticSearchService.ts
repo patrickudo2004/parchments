@@ -15,12 +15,24 @@ export async function getExtractor(progressCallback?: (data: any) => void): Prom
             console.info('[SemanticSearch] Initializing AI Embedding engine...');
             const transformers = await import('@huggingface/transformers');
             
-            // Configure browser-safe environments
-            transformers.env.allowLocalModels = false;
+            const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+
+            // Enable local model loading from pre-bundled /models/ directory
+            transformers.env.allowLocalModels = true;
+            transformers.env.allowRemoteModels = true;
+            transformers.env.localModelPath = origin ? `${origin}/models/` : '/models/';
             transformers.env.useBrowserCache = true;
 
-            extractorInstance = await transformers.pipeline('feature-extraction', 'onnx-community/all-MiniLM-L6-v2', {
-                device: 'wasm', // Safe default for browser/hybrid runtimes
+            // Configure local ONNX WASM runtime path
+            if (transformers.env.backends?.onnx?.wasm) {
+                const wasmDir = origin ? `${origin}/ort/` : '/ort/';
+                transformers.env.backends.onnx.wasm.wasmPaths = wasmDir;
+                transformers.env.backends.onnx.wasm.proxy = false;
+            }
+
+            extractorInstance = await transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                device: 'wasm',
+                dtype: 'q8',
                 progress_callback: (data: any) => {
                     if (progressCallback && data.status === 'progress') {
                         progressCallback(data);

@@ -29,6 +29,7 @@ class BibleDownloadService {
             }
 
             // Fallback to remote catalog if local fails
+            if (typeof navigator !== 'undefined' && !navigator.onLine) return [];
             console.warn('[BibleDownload] Local catalog not found, trying remote...');
             const response = await fetch(CATALOG_URL);
             if (!response.ok) throw new Error('Failed to fetch remote catalog');

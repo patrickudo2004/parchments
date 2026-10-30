@@ -94,53 +94,63 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         };
     }, []);
 
-    // Canvas audio visualizer rendering
+    // Canvas audio visualizer rendering & acoustic resonance energy calculation
     const renderVisualizer = () => {
-        if (!canvasRef.current || !analyserRef.current) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!analyserRef.current || !isRecordingRef.current) return;
 
         const bufferLength = analyserRef.current.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         analyserRef.current.getByteFrequencyData(dataArray);
 
-        const width = canvas.width;
-        const height = canvas.height;
-
-        ctx.clearRect(0, 0, width, height);
-
-        const numBars = 24;
-        const barSpacing = 3;
-        const totalSpacing = barSpacing * (numBars - 1);
-        const barWidth = Math.max(2, (width - totalSpacing) / numBars);
-
         let sumEnergy = 0;
-        for (let i = 0; i < numBars; i++) {
-            const dataIndex = Math.floor((i / numBars) * (bufferLength / 2));
-            const rawValue = dataArray[dataIndex] || 0;
-            sumEnergy += rawValue;
-            const normalized = rawValue / 255;
-            const barHeight = Math.max(3, normalized * (height - 4));
-
-            const x = i * (barWidth + barSpacing);
-            const y = (height - barHeight) / 2;
-
-            ctx.fillStyle = isRecordingRef.current ? '#C5A059' : '#A8A8A8';
-            ctx.beginPath();
-            ctx.roundRect(x, y, barWidth, barHeight, 2);
-            ctx.fill();
+        for (let i = 0; i < bufferLength; i++) {
+            sumEnergy += dataArray[i];
         }
-
-        const avgEnergy = sumEnergy / numBars;
-        const normalizedVol = Math.min(1, Math.max(0, (avgEnergy - 10) / 65));
+        const avgEnergy = sumEnergy / bufferLength;
+        const normalizedVol = Math.min(1, Math.max(0, (avgEnergy - 8) / 60));
         setAudioLevel(normalizedVol);
+
+        if (canvasRef.current) {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                const width = canvas.width;
+                const height = canvas.height;
+                ctx.clearRect(0, 0, width, height);
+
+                const numBars = 24;
+                const barSpacing = 3;
+                const totalSpacing = barSpacing * (numBars - 1);
+                const barWidth = Math.max(2, (width - totalSpacing) / numBars);
+
+                for (let i = 0; i < numBars; i++) {
+                    const dataIndex = Math.floor((i / numBars) * (bufferLength / 2));
+                    const rawValue = dataArray[dataIndex] || 0;
+                    const normalized = rawValue / 255;
+                    const barHeight = Math.max(3, normalized * (height - 4));
+
+                    const x = i * (barWidth + barSpacing);
+                    const y = (height - barHeight) / 2;
+
+                    ctx.fillStyle = '#C5A059';
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, barWidth, barHeight, 2);
+                    ctx.fill();
+                }
+            }
+        }
 
         if (isRecordingRef.current) {
             animationFrameRef.current = requestAnimationFrame(renderVisualizer);
         }
     };
+
+    // Watch status transitions to ensure visualizer loop is immediately running
+    useEffect(() => {
+        if (status === 'recording' && analyserRef.current && !animationFrameRef.current) {
+            renderVisualizer();
+        }
+    }, [status]);
 
     // Live on-device Whisper transcription loop for incoming PCM audio
     const processPcmSlice = async (inputRate: number) => {
@@ -548,16 +558,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             </div>
 
             {/* Real-time Audio Visualizer Canvas */}
-            {(status === 'recording' || status === 'paused') && (
-                <div className="w-full h-7 mb-2.5 flex items-center justify-center px-1">
-                    <canvas
-                        ref={canvasRef}
-                        width={220}
-                        height={28}
-                        className="w-full h-full max-w-[220px]"
-                    />
-                </div>
-            )}
+            <div className={`w-full h-7 mb-2.5 flex items-center justify-center px-1 transition-opacity duration-150 ${(status === 'recording' || status === 'paused') ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <canvas
+                    ref={canvasRef}
+                    width={220}
+                    height={28}
+                    className="w-full h-full max-w-[220px]"
+                />
+            </div>
 
             {/* Live Streaming Transcript View */}
             {(transcript || interimTranscript) ? (

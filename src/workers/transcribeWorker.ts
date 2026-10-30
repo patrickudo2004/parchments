@@ -31,7 +31,9 @@ async function initTransformers(_localRuntime = false, allowRemote = false) {
         const wasmDir = origin ? `${origin}/ort/` : '/ort/';
         env.backends.onnx.wasm.wasmPaths = wasmDir;
         env.backends.onnx.wasm.proxy = false;
-        console.info('[Worker] Using local bundled ONNX Runtime from', wasmDir);
+        // Run single-threaded inside dedicated worker to prevent nested worker thread pool deadlocks
+        env.backends.onnx.wasm.numThreads = 1;
+        console.info('[Worker] Using local bundled ONNX Runtime from', wasmDir, 'with numThreads = 1');
     }
     console.info('[Worker] AI Engine initialized. Pre-bundled offline models enabled.');
 }
@@ -77,6 +79,21 @@ class TranscribeWorker {
     }
 }
 
+function getGenerationOptions(modelName: string): any {
+    const isEnglishOnly = modelName.endsWith('.en');
+    const options: any = {
+        chunk_length_s: 30,
+        stride_length_s: 5,
+        return_timestamps: false,
+    };
+    // English-only Whisper models throw if language or task is supplied
+    if (!isEnglishOnly) {
+        options.language = 'en';
+        options.task = 'transcribe';
+    }
+    return options;
+}
+
 self.addEventListener('message', async (event) => {
     const data = event.data;
     if (!data) return;
@@ -91,6 +108,7 @@ self.addEventListener('message', async (event) => {
             self.postMessage({ type: 'ready', model });
         } catch (e: any) {
             console.warn('[Worker] Prewarm failed:', e);
+            self.postMessage({ type: 'ready', model, warning: e?.message });
         }
         return;
     }
@@ -99,13 +117,7 @@ self.addEventListener('message', async (event) => {
     if (type === 'transcribe_chunk') {
         try {
             const transcriber = await TranscribeWorker.getInstance(model, undefined, !!localRuntime, !!highAccuracy);
-            const output = await transcriber(audioData, {
-                chunk_length_s: 30,
-                stride_length_s: 5,
-                language: 'en',
-                task: 'transcribe',
-                return_timestamps: false,
-            });
+            const output = await transcriber(audioData, getGenerationOptions(model));
 
             const text = Array.isArray(output) ? output[0].text : (output as any).text;
             self.postMessage({
@@ -135,13 +147,7 @@ self.addEventListener('message', async (event) => {
         self.postMessage({ status: 'transcribing', message: 'Transcribing with AI acceleration...' });
 
         const input = audioBlob || audioData;
-        const output = await transcriber(input, {
-            chunk_length_s: 30,
-            stride_length_s: 5,
-            language: 'en',
-            task: 'transcribe',
-            return_timestamps: false,
-        });
+        const output = await transcriber(input, getGenerationOptions(model));
 
         const text = Array.isArray(output) ? output[0].text : (output as any).text;
         self.postMessage({
@@ -159,13 +165,7 @@ self.addEventListener('message', async (event) => {
                 progress_callback: (progressData: any) => self.postMessage({ status: 'downloading', ...progressData }),
             });
             const input = audioBlob || audioData;
-            const result = await transcriber(input, {
-                chunk_length_s: 30,
-                stride_length_s: 5,
-                language: 'en',
-                task: 'transcribe',
-                return_timestamps: false,
-            });
+            const result = await transcriber(input, getGenerationOptions(fallbackModel));
             const text = Array.isArray(result) ? result[0].text : (result as any).text;
             self.postMessage({ status: 'complete', text: (text || '').trim() });
             return;

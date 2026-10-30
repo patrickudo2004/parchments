@@ -1594,6 +1594,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             let targetHandle = fileHandle;
             let parsedFrontmatter: Record<string, any> = {};
 
+            let rawFileContent = '';
+
             if (isAudio) {
                 audioBlob = await fileSystem.readFile(fileHandle, true) as Blob;
                 noteType = 'voice';
@@ -1610,6 +1612,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     );
                     if (transcriptFile) {
                         const rawContent = await fileSystem.readFile(transcriptFile.handle as FileSystemFileHandle) as string;
+                        rawFileContent = rawContent;
                         const htmlContent = MarkdownService.isMarkdownFile(transcriptFile.name)
                             ? MarkdownService.markdownToHtml(rawContent).html
                             : rawContent;
@@ -1623,6 +1626,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 }
             } else {
                 const rawContent = await fileSystem.readFile(fileHandle) as string;
+                rawFileContent = rawContent;
                 let editorContent = rawContent;
                 if (MarkdownService.isMarkdownFile(item.name)) {
                     const parsed = MarkdownService.markdownToHtml(rawContent);
@@ -1639,42 +1643,56 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     });
                 }
                 content = await get().hydrateAssets(editorContent);
+            }
 
-                // Check for linked audio metadata: <!-- audio-link: filename.webm -->
-                const audioLinkMatch = content.match(/<!--\s*audio-link:\s*(.*?)\s*-->/);
-                if (audioLinkMatch && audioLinkMatch[1]) {
-                    const audioFileName = audioLinkMatch[1];
-                    // Look for this file in the same directory (siblings)
-                    const { localFiles } = get();
-                    const siblingAudio = localFiles.find(f =>
-                        f.parentId === item.parentId &&
-                        f.name === audioFileName &&
-                        f.kind === 'file'
-                    );
+            // Check for linked audio metadata in BOTH raw file content and hydrated HTML: <!-- audio-link: filename.webm -->
+            const searchSource = `${rawFileContent}\n${content}`;
+            const audioLinkMatch = searchSource.match(/<!--\s*audio-link:\s*(.*?)\s*-->/);
+            const frontmatterAudio = parsedFrontmatter?.audio || parsedFrontmatter?.audioFile;
+            const targetAudioName = (audioLinkMatch && audioLinkMatch[1]) ? audioLinkMatch[1].trim() : (frontmatterAudio ? String(frontmatterAudio).trim() : null);
 
-                    if (siblingAudio) {
-                        try {
-                            audioBlob = await fileSystem.readFile(siblingAudio.handle as FileSystemFileHandle, true) as Blob;
-                            noteType = 'voice';
-                        } catch (e) {
-                            console.error('Failed to read linked audio file:', e);
-                        }
+            if (targetAudioName) {
+                // Look for this file in the same directory (siblings)
+                const { localFiles } = get();
+                const siblingAudio = localFiles.find(f =>
+                    f.parentId === item.parentId &&
+                    f.name.toLowerCase() === targetAudioName.toLowerCase() &&
+                    f.kind === 'file'
+                );
+
+                if (siblingAudio) {
+                    try {
+                        audioBlob = await fileSystem.readFile(siblingAudio.handle as FileSystemFileHandle, true) as Blob;
+                        noteType = 'voice';
+                    } catch (e) {
+                        console.error('Failed to read linked audio file:', e);
                     }
                 }
             }
 
-            // Look for metadata in content: <!-- parchments-meta: json -->
-            const metaMatch = content.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
+            // Look for metadata in raw file content and content: <!-- parchments-meta: json -->
+            const metaMatch = searchSource.match(/<!--\s*parchments-meta:\s*(.*?)\s*-->/);
             let createdAt = Date.now();
             let transcript: string | undefined;
-
             let duration: number | undefined;
+
+            if (parsedFrontmatter?.duration && typeof parsedFrontmatter.duration === 'number') {
+                duration = parsedFrontmatter.duration;
+            }
+            if (parsedFrontmatter?.transcript) {
+                transcript = String(parsedFrontmatter.transcript);
+            }
+            if (parsedFrontmatter?.type === 'voice') {
+                noteType = 'voice';
+            }
+
             if (metaMatch && metaMatch[1]) {
                 try {
                     const meta = JSON.parse(metaMatch[1]);
                     if (meta.createdAt) createdAt = meta.createdAt;
-                    if (meta.transcript) transcript = meta.transcript;
-                    if (meta.duration && typeof meta.duration === 'number') duration = meta.duration;
+                    if (meta.transcript && !transcript) transcript = meta.transcript;
+                    if (meta.duration && typeof meta.duration === 'number' && (!duration || duration <= 0)) duration = meta.duration;
+                    if (meta.type === 'voice') noteType = 'voice';
                 } catch (e) {
                     console.warn('[NoteStore] Failed to parse metadata:', e);
                 }
@@ -1834,8 +1852,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // Save the transcript as an HTML note with hidden audio link metadata and creation date
             const fileId = crypto.randomUUID();
             const createdAt = Date.now();
-            // Store transcript in BOTH metadata (for clean parsing) AND content (for fallback display)
-            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "duration": ${duration || 0}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
+            // Store transcript and audio metadata in BOTH frontmatter and comments for universal compatibility
+            const content = `---\ntype: voice\nduration: ${duration || 0}\naudio: ${audioName}\n---\n<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "duration": ${duration || 0}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh local files BEFORE opening note so siblingAudio is in localFiles

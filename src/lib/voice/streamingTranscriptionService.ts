@@ -101,7 +101,7 @@ class StreamingTranscriptionManager {
             this.activeResolve = resolve;
             this.activeReject = reject;
 
-            // Timeout after 15 seconds to prevent hung state
+            // Timeout after 45 seconds to prevent hung state on cold CPU WASM graph compilation
             this.jobTimeout = setTimeout(() => {
                 if (this.activeJobId === jobId) {
                     console.warn('[StreamingTranscriber] Chunk transcription timed out');
@@ -111,7 +111,7 @@ class StreamingTranscriptionManager {
                     this.activeJobId = null;
                     resolve('');
                 }
-            }, 15000);
+            }, 45000);
 
             try {
                 const worker = this.getWorker();

@@ -6,14 +6,19 @@ import fs from 'fs'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const ORT_SOURCE_DIRS = [
+  path.resolve(__dirname, 'public/ort'),
   path.resolve(__dirname, 'node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist'),
   path.resolve(__dirname, 'node_modules/@huggingface/transformers/dist'),
+  path.resolve(__dirname, 'node_modules/onnxruntime-web/dist'),
 ]
 const ALL_ORT_FILES = [
   'ort-wasm-simd-threaded.jsep.mjs',
   'ort-wasm-simd-threaded.jsep.wasm',
   'ort-wasm-simd-threaded.mjs',
   'ort-wasm-simd-threaded.wasm',
+  'ort-wasm-simd.wasm',
+  'ort-wasm-threaded.wasm',
+  'ort-wasm.wasm',
 ]
 
 function findOrtFile(fileName: string): string | null {

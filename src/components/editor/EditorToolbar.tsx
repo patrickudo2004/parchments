@@ -248,7 +248,14 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                         />
                     )}
                     <button
-                        onClick={() => inlineDictation.toggle(editor)}
+                        data-testid="inline-dictate-btn"
+                        aria-label={isDictating ? "Stop Voice Dictation" : "Voice Dictate at Cursor"}
+                        onClick={() => {
+                            const ed = editor || useUIStore.getState().activeEditor;
+                            if (ed) {
+                                inlineDictation.toggle(ed);
+                            }
+                        }}
                         onMouseDown={(e) => {
                             if (!isMobile) e.preventDefault();
                         }}

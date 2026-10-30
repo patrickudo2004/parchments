@@ -1699,6 +1699,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
+            // Refresh local files BEFORE opening note so siblingAudio is in localFiles
+            await get().refreshLocalFiles(true);
+
             // Automatically open the new transcript note
             const { openLocalFile } = get();
             await openLocalFile({
@@ -1713,8 +1716,6 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             if (activeEd) {
                 activeEd.commands.setContent(`<h1>Voice Transcript</h1><p>${transcript || 'Transcribing audio...'}</p>`);
             }
-
-            await get().refreshLocalFiles(true);
 
             // BROADCAST: Notify collaborators of the new voice note
             if (targetFolderId) {

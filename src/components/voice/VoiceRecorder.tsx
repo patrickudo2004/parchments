@@ -263,10 +263,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             isRecordingRef.current = true;
             setStatus('recording');
 
-            // Determine transcription mode.
-            // Desktop webviews (WebView2 / WKWebView) expose SpeechRecognition but it either has no
-            // cloud backend ('network' error) or competes with Whisper, so desktop always uses on-device Whisper.
-            if (hasBrowserSpeechApi) {
+            // Determine transcription mode:
+            // Desktop webviews (WebView2) and offline environments always use on-device Whisper.
+            const canUseCloudSpeech = hasBrowserSpeechApi && !isDesktop && (typeof navigator !== 'undefined' && navigator.onLine);
+            if (canUseCloudSpeech) {
                 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                 try {
                     const recognition = new SpeechRecognition();
@@ -396,37 +396,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         }
     };
 
-    const stopRecording = () => {
-        isRecordingRef.current = false;
-        if (mediaRecorderRef.current && (status === 'recording' || status === 'paused')) {
-            try {
-                mediaRecorderRef.current.stop();
-            } catch {}
-            setStatus('review');
+    const stopRecordingAsync = (): Promise<Blob> => {
+        return new Promise((resolve) => {
+            isRecordingRef.current = false;
 
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
                 animationFrameRef.current = null;
-            }
-
-            if (scriptProcessorRef.current) {
-                scriptProcessorRef.current.disconnect();
-                scriptProcessorRef.current = null;
-            }
-
-            // Flush trailing speech (< one slice) so the last sentence isn't lost
-            if (audioContextRef.current && pcmSampleCountRef.current > 0) {
-                processPcmSlice(audioContextRef.current.sampleRate);
-            }
-
-            if (audioContextRef.current) {
-                audioContextRef.current.close().catch(() => {});
-                audioContextRef.current = null;
-            }
-
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                setStream(null);
             }
 
             if (timerRef.current) {
@@ -434,31 +410,84 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                 timerRef.current = null;
             }
 
+            if (scriptProcessorRef.current) {
+                scriptProcessorRef.current.disconnect();
+                scriptProcessorRef.current = null;
+            }
+
             if (recognitionRef.current) {
                 try {
                     recognitionRef.current.stop();
                 } catch {}
+                recognitionRef.current = null;
             }
-        }
+
+            // Flush trailing speech slice if any
+            if (audioContextRef.current && pcmSampleCountRef.current > 0) {
+                try {
+                    processPcmSlice(audioContextRef.current.sampleRate);
+                } catch {}
+            }
+
+            const recorder = mediaRecorderRef.current;
+            const mimeType = selectedMimeRef.current?.mimeType || 'audio/webm';
+
+            const finish = () => {
+                if (audioContextRef.current) {
+                    audioContextRef.current.close().catch(() => {});
+                    audioContextRef.current = null;
+                }
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    setStream(null);
+                }
+                const blob = new Blob(chunksRef.current, { type: mimeType });
+                resolve(blob);
+            };
+
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.onstop = () => {
+                    finish();
+                };
+                try {
+                    recorder.stop();
+                } catch {
+                    finish();
+                }
+            } else {
+                finish();
+            }
+        });
     };
 
-    const handleSave = () => {
-        if (status === 'recording' || status === 'paused') {
-            stopRecording();
+    const stopRecording = () => {
+        stopRecordingAsync().then(() => {
+            setStatus('review');
+        });
+    };
+
+    const handleSave = async () => {
+        const blob = await stopRecordingAsync();
+        setStatus('review');
+
+        if (!blob || blob.size === 0) {
+            setAlertMessage('No audio was captured. Please check your microphone and try recording again.');
+            setIsAlertOpen(true);
+            return;
         }
 
-        setTimeout(() => {
-            const mimeType = selectedMimeRef.current?.mimeType || 'audio/webm';
-            const blob = new Blob(chunksRef.current, { type: mimeType });
-            onSave(blob, duration, transcriptRef.current);
+        onSave(blob, duration, transcriptRef.current);
 
-            setStatus('idle');
-            setDuration(0);
-            setTranscript('');
-            setInterimTranscript('');
-            transcriptRef.current = '';
-            chunksRef.current = [];
-        }, 150);
+        setStatus('idle');
+        setDuration(0);
+        setTranscript('');
+        setInterimTranscript('');
+        transcriptRef.current = '';
+        chunksRef.current = [];
+        pcmChunksRef.current = [];
+        pcmSampleCountRef.current = 0;
+        startTimeRef.current = 0;
+        pausedTimeRef.current = 0;
     };
 
     const handleCancel = () => {

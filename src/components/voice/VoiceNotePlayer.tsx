@@ -26,6 +26,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(initialDuration || 0);
     const [src, setSrc] = useState<string>('');
+    const [audioError, setAudioError] = useState<string | null>(null);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -42,11 +43,20 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
 
     useEffect(() => {
         let url = '';
-        if (audioBlob) {
-            url = URL.createObjectURL(audioBlob);
-            setSrc(url);
+        setAudioError(null);
+        if (audioBlob && audioBlob.size > 0) {
+            try {
+                url = URL.createObjectURL(audioBlob);
+                setSrc(url);
+            } catch (err) {
+                console.warn('[VoiceNotePlayer] Failed to create object URL:', err);
+                setAudioError('Unable to load audio data.');
+            }
         } else if (audioUrl) {
             setSrc(audioUrl);
+        } else {
+            setSrc('');
+            setAudioError('No audio recording found.');
         }
 
         return () => {
@@ -58,10 +68,27 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
         if (!audioRef.current) return;
         if (isPlaying) {
             audioRef.current.pause();
+            setIsPlaying(false);
         } else {
-            audioRef.current.play();
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        setIsPlaying(true);
+                    })
+                    .catch((err) => {
+                        console.warn('[VoiceNotePlayer] Playback rejected:', err);
+                        setIsPlaying(false);
+                        setAudioError('Playback failed. Audio format may be unsupported on this device.');
+                    });
+            }
         }
-        setIsPlaying(!isPlaying);
+    };
+
+    const handleAudioError = () => {
+        console.warn('[VoiceNotePlayer] Audio element encountered an error');
+        setIsPlaying(false);
+        setAudioError('Audio file could not be decoded or played.');
     };
 
     const handleTimeUpdate = () => {
@@ -145,7 +172,26 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
         }
     };
 
-    if (!src) return <div className="p-4 text-sm text-gray-500 italic">No audio source available.</div>;
+    if (!src || audioError) {
+        return (
+            <div className="w-full p-4 bg-light-background/40 dark:bg-dark-background/20 backdrop-blur-sm border border-light-border dark:border-dark-border/20 rounded-2xl flex items-center justify-between gap-3 text-xs text-light-text-secondary dark:text-dark-text-secondary">
+                <div className="flex items-center gap-2">
+                    <Volume2 size={16} className="text-amber-500 shrink-0" />
+                    <span>{audioError || 'No audio source available.'}</span>
+                </div>
+                {existingTranscript && (
+                    <button
+                        type="button"
+                        onClick={handleCopyTranscript}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-primary hover:underline cursor-pointer"
+                    >
+                        {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                        <span>{copied ? 'Copied' : 'Copy Transcript'}</span>
+                    </button>
+                )}
+            </div>
+        );
+    }
 
     const effectiveDuration = Number.isFinite(duration) && duration > 0 ? duration : (initialDuration || 0);
 
@@ -158,6 +204,7 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onEnded={handleEnded}
+                    onError={handleAudioError}
                     className="hidden"
                 />
 

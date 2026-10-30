@@ -9,7 +9,7 @@ if (typeof self !== 'undefined') {
 let pipeline: any = null;
 let env: any = null;
 
-async function initTransformers(localRuntime = false) {
+async function initTransformers(_localRuntime = false) {
     if (pipeline) return;
     const transformers = await import('@huggingface/transformers');
     pipeline = transformers.pipeline;
@@ -19,11 +19,11 @@ async function initTransformers(localRuntime = false) {
     env.allowLocalModels = false;
     env.useBrowserCache = true;
 
-    // Desktop (Tauri): load ONNX Runtime WASM from the app bundle (/ort/) instead of cdn.jsdelivr.net.
-    // The CDN script import is blocked by the desktop CSP and unavailable offline.
-    if (localRuntime && env.backends?.onnx?.wasm) {
+    // Load ONNX Runtime WASM from the local app bundle (/ort/) instead of cdn.jsdelivr.net.
+    // The CDN script import is blocked by desktop CSP and unavailable offline.
+    if (env.backends?.onnx?.wasm) {
         env.backends.onnx.wasm.wasmPaths = new URL('/ort/', self.location.href).href;
-        console.info('[Worker] Using bundled ONNX Runtime from', env.backends.onnx.wasm.wasmPaths);
+        console.info('[Worker] Using local bundled ONNX Runtime from', env.backends.onnx.wasm.wasmPaths);
     }
     console.info('[Worker] AI Engine initialized. Offline caching enabled.');
 }

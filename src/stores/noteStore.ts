@@ -278,7 +278,7 @@ interface NoteStore {
     setLocalMode: (enabled: boolean) => void;
     createLocalNote: (fileName: string, targetFolderId: string | null, content?: string, forceId?: string) => Promise<void>;
     createLocalFolder: (folderName: string, targetFolderId: string | null) => Promise<void>;
-    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, transcript: string) => Promise<void>;
+    createLocalVoiceNote: (audioBlob: Blob, targetFolderId: string | null, duration: number, transcript: string) => Promise<void>;
     saveLocalAsset: (file: File) => Promise<{ url: any; fileName: string; } | null>;
     hydrateAssets: (content: string) => Promise<string>;
     dehydrateAssets: (content: string) => string;
@@ -549,7 +549,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 useUIStore.getState().showToast('Reconnect your local folder first, or switch to Browser Database.', 'info');
                 throw new Error('Local folder is not connected');
             }
-            await createLocalVoiceNote(audioBlob, effectiveFolderId, transcript);
+            await createLocalVoiceNote(audioBlob, effectiveFolderId, duration, transcript);
             return (get().currentNote || {}) as Note;
         }
 
@@ -1668,11 +1668,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             let createdAt = Date.now();
             let transcript: string | undefined;
 
+            let duration: number | undefined;
             if (metaMatch && metaMatch[1]) {
                 try {
                     const meta = JSON.parse(metaMatch[1]);
                     if (meta.createdAt) createdAt = meta.createdAt;
                     if (meta.transcript) transcript = meta.transcript;
+                    if (meta.duration && typeof meta.duration === 'number') duration = meta.duration;
                 } catch (e) {
                     console.warn('[NoteStore] Failed to parse metadata:', e);
                 }
@@ -1695,6 +1697,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                 tags: [],
                 type: noteType,
                 audioBlob: audioBlob,
+                duration: duration,
                 transcript: transcript, // Add parsed transcript
                 createdAt: createdAt,
                 updatedAt: Date.now(),
@@ -1796,7 +1799,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
     },
 
-    createLocalVoiceNote: async (audioBlob: Blob, targetFolderId: string | null, transcript: string) => {
+    createLocalVoiceNote: async (audioBlob: Blob, targetFolderId: string | null, duration: number, transcript: string) => {
         const { localDirectoryHandle, localFiles } = get();
         if (!localDirectoryHandle) return;
 
@@ -1832,7 +1835,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             const fileId = crypto.randomUUID();
             const createdAt = Date.now();
             // Store transcript in BOTH metadata (for clean parsing) AND content (for fallback display)
-            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
+            const content = `<!-- audio-link: ${audioName} -->\n<!-- parchments-meta: {"id": "${fileId}", "createdAt": ${createdAt}, "duration": ${duration || 0}, "transcript": ${JSON.stringify(transcript || '')}} -->\n\n# Voice Transcript\n\n${transcript || 'Transcribing audio...'}`;
             const noteHandle = await fileSystem.createFile(parentHandle, noteName, content);
 
             // Refresh local files BEFORE opening note so siblingAudio is in localFiles

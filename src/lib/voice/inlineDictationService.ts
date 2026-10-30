@@ -2,15 +2,16 @@ import { Editor } from '@tiptap/react';
 import { streamingTranscriber, downsampleTo16k } from '@/lib/voice/streamingTranscriptionService';
 
 type DictationStatusListener = (isDictating: boolean, error?: string) => void;
+type AudioLevelListener = (level: number) => void;
 
 class InlineDictationService {
     private isDictating: boolean = false;
     private listeners: Set<DictationStatusListener> = new Set();
+    private audioLevelListeners: Set<AudioLevelListener> = new Set();
     private activeEditor: Editor | null = null;
     private mediaStream: MediaStream | null = null;
     private audioContext: AudioContext | null = null;
     private scriptProcessor: ScriptProcessorNode | null = null;
-    private recognition: any = null;
     private pcmChunks: Float32Array[] = [];
     private pcmSampleCount: number = 0;
     private isProcessingChunk: boolean = false;
@@ -27,9 +28,21 @@ class InlineDictationService {
         return () => this.listeners.delete(listener);
     }
 
+    public subscribeAudioLevel(listener: AudioLevelListener): () => void {
+        this.audioLevelListeners.add(listener);
+        return () => this.audioLevelListeners.delete(listener);
+    }
+
     private notify(isDictating: boolean, error?: string): void {
         this.isDictating = isDictating;
         this.listeners.forEach(cb => cb(isDictating, error));
+        if (!isDictating) {
+            this.notifyAudioLevel(0);
+        }
+    }
+
+    private notifyAudioLevel(level: number): void {
+        this.audioLevelListeners.forEach(cb => cb(level));
     }
 
     public async start(editor: Editor): Promise<boolean> {
@@ -77,14 +90,23 @@ class InlineDictationService {
             this.pcmSampleCount = 0;
             this.isProcessingChunk = false;
 
-            // 2.5 second audio slice cadence for natural phrasing
-            const sliceSampleThreshold = Math.round(audioContext.sampleRate * 2.5);
+            // 2.2 second audio slice cadence for natural, fluid phrase insertion
+            const sliceSampleThreshold = Math.round(audioContext.sampleRate * 2.2);
 
             scriptProcessor.onaudioprocess = (e) => {
                 if (!this.isDictating) return;
                 const channelData = e.inputBuffer.getChannelData(0);
                 this.pcmChunks.push(new Float32Array(channelData));
                 this.pcmSampleCount += channelData.length;
+
+                // Real-time acoustic energy level for responsive mic pulsing
+                let sumSquares = 0;
+                for (let i = 0; i < channelData.length; i += 8) {
+                    sumSquares += channelData[i] * channelData[i];
+                }
+                const rms = Math.sqrt(sumSquares / (channelData.length / 8));
+                const level = Math.min(1, Math.max(0, (rms - 0.005) * 6));
+                this.notifyAudioLevel(level);
 
                 if (this.pcmSampleCount >= sliceSampleThreshold && !this.isProcessingChunk) {
                     this.processCurrentPcmSlice(audioContext.sampleRate);
@@ -98,41 +120,6 @@ class InlineDictationService {
             muteGain.gain.setValueAtTime(0, audioContext.currentTime);
             scriptProcessor.connect(muteGain);
             muteGain.connect(audioContext.destination);
-
-            // Optional cloud speech fast-path when online with automatic fallback to Whisper
-            const hasBrowserSpeech = typeof window !== 'undefined' &&
-                Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) &&
-                Boolean(navigator?.onLine);
-
-            if (hasBrowserSpeech) {
-                const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                try {
-                    const rec = new SpeechRec();
-                    rec.continuous = true;
-                    rec.interimResults = false;
-                    rec.lang = 'en-US';
-                    rec.onresult = (ev: any) => {
-                        if (!this.isDictating || !this.activeEditor || this.activeEditor.isDestroyed) return;
-                        for (let i = ev.resultIndex; i < ev.results.length; ++i) {
-                            if (ev.results[i].isFinal) {
-                                const text = ev.results[i][0].transcript.trim();
-                                if (text) {
-                                    this.activeEditor.commands.insertContent(`${text} `);
-                                }
-                            }
-                        }
-                    };
-                    rec.onerror = (ev: any) => {
-                        console.info('[InlineDictation] Cloud speech unavailable, seamlessly falling back to on-device Whisper:', ev.error);
-                        try { rec.stop(); } catch {}
-                        this.recognition = null;
-                    };
-                    rec.start();
-                    this.recognition = rec;
-                } catch (e) {
-                    console.info('[InlineDictation] Cloud speech start failed, using on-device Whisper:', e);
-                }
-            }
 
             this.notify(true);
             return true;
@@ -149,8 +136,6 @@ class InlineDictationService {
 
     private async processCurrentPcmSlice(inputRate: number): Promise<void> {
         if (this.pcmChunks.length === 0 || this.isProcessingChunk) return;
-        // Avoid duplicate insertion if cloud speech recognition is currently active and delivering results
-        if (this.recognition) return;
         if (streamingTranscriber.isTranscribing()) return;
 
         this.isProcessingChunk = true;
@@ -194,10 +179,6 @@ class InlineDictationService {
 
     private cleanup(): void {
         this.isDictating = false;
-        if (this.recognition) {
-            try { this.recognition.stop(); } catch {}
-            this.recognition = null;
-        }
         if (this.scriptProcessor) {
             this.scriptProcessor.disconnect();
             this.scriptProcessor = null;
@@ -214,6 +195,7 @@ class InlineDictationService {
         this.pcmSampleCount = 0;
         this.isProcessingChunk = false;
         this.activeEditor = null;
+        this.notifyAudioLevel(0);
     }
 
     public async stop(): Promise<void> {

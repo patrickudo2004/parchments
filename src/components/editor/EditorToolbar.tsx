@@ -45,13 +45,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDictating, setIsDictating] = useState(false);
+    const [dictateLevel, setDictateLevel] = useState(0);
 
     React.useEffect(() => {
         const unsub = inlineDictation.subscribe((dictating, err) => {
             setIsDictating(dictating);
             if (err) showToast(err, 'error');
         });
-        return () => unsub();
+        const unsubLevel = inlineDictation.subscribeAudioLevel((level) => {
+            setDictateLevel(level);
+        });
+        return () => {
+            unsub();
+            unsubLevel();
+        };
     }, [showToast]);
 
     React.useEffect(() => {
@@ -230,20 +237,30 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 </div>
 
                 {/* Inline Voice Dictation (Word-style transcription at cursor) */}
-                <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
+                <div className="relative flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
+                    {isDictating && (
+                        <div
+                            className="absolute inset-0 rounded-lg bg-red-500/20 pointer-events-none transition-transform duration-75"
+                            style={{
+                                transform: `scale(${1.1 + dictateLevel * 0.4})`,
+                                opacity: Math.max(0.3, dictateLevel * 0.85)
+                            }}
+                        />
+                    )}
                     <button
                         onClick={() => inlineDictation.toggle(editor)}
                         onMouseDown={(e) => {
                             if (!isMobile) e.preventDefault();
                         }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-xs font-black uppercase tracking-wider shrink-0 min-h-[36px] shadow-sm active:scale-95 ${
+                        style={isDictating ? { transform: `scale(${1 + dictateLevel * 0.12})` } : undefined}
+                        className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-75 text-xs font-black uppercase tracking-wider shrink-0 min-h-[36px] shadow-sm active:scale-95 ${
                             isDictating
-                                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/30'
                                 : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background hover:text-primary'
                         }`}
                         title={isDictating ? 'Stop Voice Dictation (Ctrl+Shift+R)' : 'Voice Dictate at Cursor (Ctrl+Shift+R)'}
                     >
-                        <Mic size={16} className={isDictating ? 'animate-bounce' : ''} />
+                        <Mic size={16} className={isDictating ? 'text-white' : ''} />
                         <span className="hidden md:inline">{isDictating ? 'Listening...' : 'Dictate'}</span>
                     </button>
                 </div>

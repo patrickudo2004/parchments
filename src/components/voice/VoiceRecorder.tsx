@@ -13,6 +13,7 @@ interface VoiceRecorderProps {
 export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, isModal = false }) => {
     const [status, setStatus] = useState<'idle' | 'recording' | 'paused' | 'review'>('idle');
     const [duration, setDuration] = useState(0);
+    const [audioLevel, setAudioLevel] = useState(0);
     const [transcript, setTranscript] = useState('');
     const [interimTranscript, setInterimTranscript] = useState('');
     const [stream, setStream] = useState<MediaStream | null>(null);
@@ -57,9 +58,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
     const isDesktop = typeof window !== 'undefined' &&
         Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
 
-    // Web Speech API check (universal browser / webview support)
-    const hasBrowserSpeechApi = typeof window !== 'undefined' &&
-        Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
     // Pre-warm on-device Whisper model on mount
     useEffect(() => {
@@ -118,9 +116,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         const totalSpacing = barSpacing * (numBars - 1);
         const barWidth = Math.max(2, (width - totalSpacing) / numBars);
 
+        let sumEnergy = 0;
         for (let i = 0; i < numBars; i++) {
             const dataIndex = Math.floor((i / numBars) * (bufferLength / 2));
             const rawValue = dataArray[dataIndex] || 0;
+            sumEnergy += rawValue;
             const normalized = rawValue / 255;
             const barHeight = Math.max(3, normalized * (height - 4));
 
@@ -133,6 +133,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             ctx.fill();
         }
 
+        const avgEnergy = sumEnergy / numBars;
+        const normalizedVol = Math.min(1, Math.max(0, (avgEnergy - 10) / 65));
+        setAudioLevel(normalizedVol);
+
         if (isRecordingRef.current) {
             animationFrameRef.current = requestAnimationFrame(renderVisualizer);
         }
@@ -140,8 +144,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
 
     // Live on-device Whisper transcription loop for incoming PCM audio
     const processPcmSlice = async (inputRate: number) => {
-        // Prevent concurrent dual-engine collision if browser cloud speech API is active
-        if (engineTypeRef.current !== 'local-whisper') return;
         if (pcmChunksRef.current.length === 0 || streamingTranscriber.isTranscribing()) return;
 
         const chunks = pcmChunksRef.current;
@@ -263,71 +265,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             isRecordingRef.current = true;
             setStatus('recording');
 
-            // Determine transcription mode:
-            // Use browser speech API when online; seamlessly fall back to on-device Whisper if offline or network drops.
-            const canUseCloudSpeech = hasBrowserSpeechApi && (typeof navigator !== 'undefined' && navigator.onLine);
-            if (canUseCloudSpeech) {
-                const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                try {
-                    const recognition = new SpeechRecognition();
-                    recognition.continuous = true;
-                    recognition.interimResults = true;
-                    recognition.lang = 'en-US';
-
-                    recognition.onresult = (event: any) => {
-                        let interim = '';
-                        let newFinal = '';
-
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                newFinal += event.results[i][0].transcript;
-                            } else {
-                                interim += event.results[i][0].transcript;
-                            }
-                        }
-
-                        if (newFinal) {
-                            const trimmed = newFinal.trim();
-                            transcriptRef.current = transcriptRef.current
-                                ? `${transcriptRef.current.trim()} ${trimmed}`
-                                : trimmed;
-                            setTranscript(transcriptRef.current);
-                        }
-                        setInterimTranscript(interim);
-                    };
-
-                    recognition.onend = () => {
-                        if (isRecordingRef.current && engineTypeRef.current === 'cloud-web') {
-                            try {
-                                recognition.start();
-                            } catch {
-                                setTimeout(() => {
-                                    if (isRecordingRef.current && engineTypeRef.current === 'cloud-web') {
-                                        try { recognition.start(); } catch {}
-                                    }
-                                }, 300);
-                            }
-                        }
-                    };
-
-                    recognition.onerror = (event: any) => {
-                        // If browser recognition fails with network or not-allowed, fall back to local Whisper
-                        if (event.error === 'network' || event.error === 'service-not-allowed') {
-                            console.info('[VoiceRecorder] Web speech cloud unavailable. Switching to on-device Whisper engine.');
-                            setEngineType('local-whisper');
-                            try { recognition.stop(); } catch {}
-                        }
-                    };
-
-                    recognition.start();
-                    recognitionRef.current = recognition;
-                    setEngineType('cloud-web');
-                } catch {
-                    setEngineType('local-whisper');
-                }
-            } else {
-                setEngineType('local-whisper');
-            }
+            // Guarantee 100% offline, on-device Whisper transcription (zero network dependency)
+            setEngineType('local-whisper');
+            engineTypeRef.current = 'local-whisper';
 
             renderVisualizer();
 
@@ -481,6 +421,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         setStatus('idle');
         setDuration(0);
         setTranscript('');
+        setAudioLevel(0);
         setInterimTranscript('');
         transcriptRef.current = '';
         chunksRef.current = [];
@@ -527,30 +468,62 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
 
             {/* Status & Central Mic Display */}
             <div className="flex flex-col items-center justify-center mb-2.5">
-                <div
-                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
-                        status === 'recording'
-                            ? 'bg-red-500/10 text-red-500 ring-4 ring-red-500/20'
-                            : status === 'paused'
-                                ? 'bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/20'
-                                : status === 'idle'
-                                    ? 'bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer active:scale-95'
-                                    : 'bg-emerald-500/10 text-emerald-500'
-                    }`}
-                    onClick={status === 'idle' ? startRecording : undefined}
-                >
-                    {status === 'recording' ? (
-                        <div className="relative flex items-center justify-center">
-                            <span className="absolute w-3 h-3 rounded-full bg-red-500 animate-ping opacity-75" />
-                            <Mic size={24} className="relative z-10 shrink-0" />
-                        </div>
-                    ) : status === 'paused' ? (
-                        <Pause size={24} className="shrink-0" />
-                    ) : status === 'review' ? (
-                        <CheckCircle size={24} className="shrink-0" />
-                    ) : (
-                        <Mic size={24} className="shrink-0" />
+                <div className="relative flex items-center justify-center mb-2">
+                    {status === 'recording' && (
+                        <>
+                            {/* Voice-reactive acoustic halo ring */}
+                            <div
+                                className="absolute rounded-full bg-red-500/20 pointer-events-none transition-transform duration-75 ease-out"
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    transform: `scale(${1.25 + audioLevel * 0.5})`,
+                                    opacity: Math.max(0.25, audioLevel * 0.85),
+                                }}
+                            />
+                            <div
+                                className="absolute rounded-full border border-red-500/40 pointer-events-none transition-transform duration-75 ease-out"
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    transform: `scale(${1.08 + audioLevel * 0.28})`,
+                                }}
+                            />
+                        </>
                     )}
+                    <button
+                        type="button"
+                        onClick={status === 'idle' ? startRecording : undefined}
+                        style={status === 'recording' ? { transform: `scale(${1 + audioLevel * 0.12})` } : undefined}
+                        className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all duration-75 ${
+                            status === 'recording'
+                                ? 'bg-red-500/10 text-red-500 ring-4 ring-red-500/20 shadow-lg shadow-red-500/20'
+                                : status === 'paused'
+                                    ? 'bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/20'
+                                    : status === 'idle'
+                                        ? 'bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer active:scale-95'
+                                        : 'bg-emerald-500/10 text-emerald-500'
+                        }`}
+                        aria-label={
+                            status === 'recording' ? 'Recording in progress' :
+                            status === 'paused' ? 'Recording paused' :
+                            status === 'review' ? 'Recording completed' :
+                            'Start voice recording'
+                        }
+                    >
+                        {status === 'recording' ? (
+                            <div className="relative flex items-center justify-center">
+                                <span className="absolute w-4 h-4 rounded-full bg-red-500 animate-ping opacity-60" />
+                                <Mic size={24} className="relative z-10 shrink-0 text-red-500" />
+                            </div>
+                        ) : status === 'paused' ? (
+                            <Pause size={24} className="shrink-0" />
+                        ) : status === 'review' ? (
+                            <CheckCircle size={24} className="shrink-0" />
+                        ) : (
+                            <Mic size={24} className="shrink-0" />
+                        )}
+                    </button>
                 </div>
 
                 {/* Status Badge */}

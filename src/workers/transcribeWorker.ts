@@ -9,7 +9,7 @@ if (typeof self !== 'undefined') {
 let pipeline: any = null;
 let env: any = null;
 
-async function initTransformers(_localRuntime = false) {
+async function initTransformers(_localRuntime = false, allowRemote = false) {
     if (pipeline) return;
     const transformers = await import('@huggingface/transformers');
     pipeline = transformers.pipeline;
@@ -21,12 +21,12 @@ async function initTransformers(_localRuntime = false) {
 
     // Enable local model loading from pre-bundled /models/ directory
     env.allowLocalModels = true;
-    env.allowRemoteModels = true;
+    // Strictly disable remote fetches unless explicitly requested for optional non-bundled models
+    env.allowRemoteModels = allowRemote;
     env.localModelPath = origin ? `${origin}/models/` : '/models/';
     env.useBrowserCache = true;
 
     // Load ONNX Runtime WASM from the local app bundle (/ort/) instead of cdn.jsdelivr.net.
-    // The CDN script import is blocked by desktop CSP and unavailable offline.
     if (env.backends?.onnx?.wasm) {
         const wasmDir = origin ? `${origin}/ort/` : '/ort/';
         env.backends.onnx.wasm.wasmPaths = wasmDir;
@@ -40,39 +40,36 @@ class TranscribeWorker {
     static instance: any = null;
     static model: string | null = null;
 
-    static async getInstance(model: string, progress_callback?: (progress: any) => void, localRuntime = false) {
-        await initTransformers(localRuntime);
+    static async getInstance(model: string, progress_callback?: (progress: any) => void, localRuntime = false, highAccuracy = false) {
+        await initTransformers(localRuntime, highAccuracy);
         if (this.instance && this.model !== model) {
             this.instance = null;
         }
 
         if (!this.instance) {
             this.model = model;
-            try {
+            // The default pre-bundled engine is whisper-tiny.en (q8 quantized).
+            // Directly initialize with device: 'wasm' and dtype: 'q8' to guarantee instant, 100% offline loading.
+            if (model === 'onnx-community/whisper-tiny.en') {
                 this.instance = await pipeline('automatic-speech-recognition', model, {
-                    device: 'webgpu',
+                    device: 'wasm',
+                    dtype: 'q8',
                     progress_callback,
                 });
-            } catch (gpuErr) {
-                console.warn('[Worker] WebGPU unavailable, falling back to WASM q8:', gpuErr);
+            } else {
+                // High accuracy (base) model if requested and online
                 try {
+                    this.instance = await pipeline('automatic-speech-recognition', model, {
+                        device: 'webgpu',
+                        progress_callback,
+                    });
+                } catch (gpuErr) {
+                    console.warn('[Worker] WebGPU unavailable for base model, falling back to WASM q8:', gpuErr);
                     this.instance = await pipeline('automatic-speech-recognition', model, {
                         device: 'wasm',
                         dtype: 'q8',
                         progress_callback,
                     });
-                } catch (wasmErr) {
-                    if (model !== 'onnx-community/whisper-tiny.en') {
-                        console.warn('[Worker] High-accuracy model unavailable offline, falling back to bundled whisper-tiny.en:', wasmErr);
-                        this.model = 'onnx-community/whisper-tiny.en';
-                        this.instance = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
-                            device: 'wasm',
-                            dtype: 'q8',
-                            progress_callback,
-                        });
-                    } else {
-                        throw wasmErr;
-                    }
                 }
             }
         }
@@ -90,7 +87,7 @@ self.addEventListener('message', async (event) => {
     // 1. Prewarm model in background
     if (type === 'prewarm') {
         try {
-            await TranscribeWorker.getInstance(model, undefined, !!localRuntime);
+            await TranscribeWorker.getInstance(model, undefined, !!localRuntime, !!highAccuracy);
             self.postMessage({ type: 'ready', model });
         } catch (e: any) {
             console.warn('[Worker] Prewarm failed:', e);
@@ -101,7 +98,7 @@ self.addEventListener('message', async (event) => {
     // 2. Real-time Chunk Transcription (16kHz Float32Array from microphone stream)
     if (type === 'transcribe_chunk') {
         try {
-            const transcriber = await TranscribeWorker.getInstance(model, undefined, !!localRuntime);
+            const transcriber = await TranscribeWorker.getInstance(model, undefined, !!localRuntime, !!highAccuracy);
             const output = await transcriber(audioData, {
                 chunk_length_s: 30,
                 stride_length_s: 5,
@@ -128,12 +125,12 @@ self.addEventListener('message', async (event) => {
 
     // 3. Batch transcription for post-recording (compatible with transcriptionService.ts)
     try {
-        await initTransformers(!!localRuntime);
+        await initTransformers(!!localRuntime, !!highAccuracy);
         self.postMessage({ status: 'loading', message: `Initializing ${highAccuracy ? 'High Accuracy' : 'Turbo'} AI...` });
 
         const transcriber = await TranscribeWorker.getInstance(model, (progressData: any) => {
             self.postMessage({ status: 'downloading', ...progressData });
-        }, !!localRuntime);
+        }, !!localRuntime, !!highAccuracy);
 
         self.postMessage({ status: 'transcribing', message: 'Transcribing with AI acceleration...' });
 
@@ -141,7 +138,9 @@ self.addEventListener('message', async (event) => {
         const output = await transcriber(input, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            dtype: 'fp16',
+            language: 'en',
+            task: 'transcribe',
+            return_timestamps: false,
         });
 
         const text = Array.isArray(output) ? output[0].text : (output as any).text;
@@ -150,31 +149,31 @@ self.addEventListener('message', async (event) => {
             text: (text || '').trim(),
         });
     } catch (error: any) {
-        const isDeviceError = error.message?.includes('webgpu') || error.message?.includes('fp16') || error.message?.includes('dtype');
-
-        if (isDeviceError) {
-            console.warn('[Worker] WebGPU/fp16 not supported, falling back to CPU/WASM.');
-            self.postMessage({ status: 'loading', message: 'Optimizing for your device (standard engine)...' });
-            try {
-                await initTransformers(!!localRuntime);
-                const transcriber = await pipeline('automatic-speech-recognition', model, {
-                    device: 'wasm',
-                    dtype: 'q8',
-                    progress_callback: (progressData: any) => self.postMessage({ status: 'downloading', ...progressData }),
-                });
-                const input = audioBlob || audioData;
-                const result = await transcriber(input);
-                const text = Array.isArray(result) ? result[0].text : (result as any).text;
-                self.postMessage({ status: 'complete', text: (text || '').trim() });
-                return;
-            } catch (fallbackError: any) {
-                error = fallbackError;
-            }
+        console.warn('[Worker] Transcription attempt failed, retrying with bundled WASM q8 engine:', error);
+        try {
+            await initTransformers(!!localRuntime, false);
+            const fallbackModel = 'onnx-community/whisper-tiny.en';
+            const transcriber = await pipeline('automatic-speech-recognition', fallbackModel, {
+                device: 'wasm',
+                dtype: 'q8',
+                progress_callback: (progressData: any) => self.postMessage({ status: 'downloading', ...progressData }),
+            });
+            const input = audioBlob || audioData;
+            const result = await transcriber(input, {
+                chunk_length_s: 30,
+                stride_length_s: 5,
+                language: 'en',
+                task: 'transcribe',
+                return_timestamps: false,
+            });
+            const text = Array.isArray(result) ? result[0].text : (result as any).text;
+            self.postMessage({ status: 'complete', text: (text || '').trim() });
+            return;
+        } catch (fallbackError: any) {
+            self.postMessage({
+                status: 'error',
+                error: fallbackError?.message || error?.message || 'Transcription failed',
+            });
         }
-
-        self.postMessage({
-            status: 'error',
-            error: error.message,
-        });
     }
 });

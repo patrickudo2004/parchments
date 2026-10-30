@@ -52,6 +52,20 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
                 console.warn('[VoiceNotePlayer] Failed to create object URL:', err);
                 setAudioError('Unable to load audio data.');
             }
+
+            // High-precision audio duration decoding via Web Audio API (resolves Chromium WebM Infinity duration bug)
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                audioBlob.arrayBuffer().then(buf => ctx.decodeAudioData(buf)).then(decoded => {
+                    if (decoded && Number.isFinite(decoded.duration) && decoded.duration > 0) {
+                        setDuration(decoded.duration);
+                    }
+                    ctx.close().catch(() => {});
+                }).catch(() => {
+                    ctx.close().catch(() => {});
+                });
+            }
         } else if (audioUrl) {
             setSrc(audioUrl);
         } else {
@@ -94,11 +108,14 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
     const handleTimeUpdate = () => {
         if (audioRef.current && Number.isFinite(audioRef.current.currentTime)) {
             setCurrentTime(audioRef.current.currentTime);
+            if (audioRef.current.duration && Number.isFinite(audioRef.current.duration) && audioRef.current.duration !== Infinity && (!duration || duration <= 0)) {
+                setDuration(audioRef.current.duration);
+            }
         }
     };
 
     const handleLoadedMetadata = () => {
-        if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+        if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0 && audioRef.current.duration !== Infinity) {
             setDuration(audioRef.current.duration);
         }
     };
@@ -225,9 +242,11 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
                         <input
                             type="range"
                             min="0"
-                            max={effectiveDuration || 0}
+                            max={effectiveDuration > 0 ? effectiveDuration : 100}
+                            step="0.1"
                             value={currentTime}
                             onChange={handleSeek}
+                            disabled={effectiveDuration <= 0}
                             className="w-full h-1 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-primary group-hover:h-1.5 transition-all"
                         />
                     </div>

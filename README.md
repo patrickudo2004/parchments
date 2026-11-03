@@ -5,6 +5,24 @@
 [![License](https://img.shields.io/github/license/patrickudo2004/parchments)](LICENSE)
 [![Total Downloads](https://img.shields.io/github/downloads/patrickudo2004/parchments/total?style=for-the-badge&color=primary)](https://github.com/patrickudo2004/parchments/releases)
 
+<p>
+  <a href="https://www.producthunt.com/products/parchments?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-parchments" target="_blank" rel="noopener noreferrer">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1274521&theme=dark&t=1793749276346" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1274521&theme=light&t=1793749276346" />
+      <img alt="Parchments - Parchments – An offline-first, Bible study workspace | Product Hunt" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1274521&theme=light&t=1793749276346" height="44" />
+    </picture>
+  </a>
+  &nbsp;
+  <a href="https://smoltop.com/projects/parchments?utm_source=badge" target="_blank" rel="noopener noreferrer">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://smoltop.com/smoltop/images/badges/featured-on-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://smoltop.com/smoltop/images/badges/featured-on-light.svg" />
+      <img src="https://smoltop.com/smoltop/images/badges/featured-on-light.svg" alt="Featured on Smol Top" height="44" />
+    </picture>
+  </a>
+</p>
+
 Parchments is a premium, offline-first Bible study and sermon composition workspace. Built for theologians, pastors, and scriptural researchers, it combines a high-performance rich text editor with deep Bible intelligence and structural editing tools.
 
 ---

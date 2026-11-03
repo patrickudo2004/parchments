@@ -434,6 +434,40 @@ export const LandingPage: React.FC = () => {
                                     <ExternalLink size={12} aria-hidden="true" />
                                 </a>
                             </div>
+
+                            {/* Featured Launch & Community Directory Badges */}
+                            <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
+                                <a
+                                    href="https://www.producthunt.com/products/parchments?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-parchments"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center min-h-[44px] rounded-xl transition-transform hover:scale-105 active:scale-95"
+                                >
+                                    <img
+                                        src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1274521&theme=dark&t=1793749276346"
+                                        alt="Parchments - Parchments – An offline-first, Bible study workspace | Product Hunt"
+                                        width={204}
+                                        height={44}
+                                        style={{ height: '44px', width: 'auto' }}
+                                        loading="lazy"
+                                    />
+                                </a>
+                                <a
+                                    href="https://smoltop.com/projects/parchments?utm_source=badge"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center min-h-[44px] rounded-xl transition-transform hover:scale-105 active:scale-95"
+                                >
+                                    <img
+                                        src="https://smoltop.com/smoltop/images/badges/featured-on-dark.svg"
+                                        alt="Featured on Smol Top"
+                                        width={150}
+                                        height={44}
+                                        style={{ height: '44px', width: 'auto' }}
+                                        loading="lazy"
+                                    />
+                                </a>
+                            </div>
                         </div>
                     </motion.div>
                 </div>

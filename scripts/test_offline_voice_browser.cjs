@@ -65,7 +65,7 @@ function startServer(port = 4179) {
 }
 
 async function run() {
-    const port = 4179;
+    const port = Number(process.env.PORT) || 4179;
     const server = await startServer(port);
     const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
@@ -123,6 +123,30 @@ async function run() {
             configurable: true
         });
         window.dispatchEvent(new Event('offline'));
+
+        // Optional hook for feeding controlled streaming chunks during theological normalization tests
+        const origPostMessage = Worker.prototype.postMessage;
+        Worker.prototype.postMessage = function (msg, transfer) {
+            if (
+                msg &&
+                msg.type === 'transcribe_chunk' &&
+                Array.isArray(window.__mockWhisperQueue) &&
+                window.__mockWhisperQueue.length > 0
+            ) {
+                const nextText = window.__mockWhisperQueue.shift();
+                setTimeout(() => {
+                    if (typeof this.onmessage === 'function') {
+                        this.onmessage(
+                            new MessageEvent('message', {
+                                data: { type: 'chunk_result', id: msg.id, text: nextText }
+                            })
+                        );
+                    }
+                }, 25);
+                return;
+            }
+            return origPostMessage.apply(this, arguments);
+        };
     });
 
     page.on('console', msg => {
@@ -137,15 +161,6 @@ async function run() {
         await page.goto(`http://127.0.0.1:${port}/app`, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForSelector('#root', { timeout: 10000 });
         console.log('   ✓ App root loaded and mounted offline.');
-
-        // Initialize browser storage foundation and workspace
-        await page.evaluate(async () => {
-            localStorage.setItem('parchments-storage-foundation', 'browser');
-            if (window.useNoteStore) {
-                await window.useNoteStore.getState().selectStorageFoundation('browser');
-            }
-        });
-        await new Promise(r => setTimeout(r, 600));
 
         // Find worker filename
         const workerFiles = fs.readdirSync(path.join(distDir, 'assets')).filter(f => f.startsWith('transcribeWorker-') && f.endsWith('.js'));
@@ -167,6 +182,7 @@ async function run() {
                 worker.onmessage = (e) => {
                     if (e.data.type === 'ready') {
                         isPrewarmed = true;
+                        console.log('[Worker] Phase 1 ready received:', JSON.stringify(e.data));
                         // Now immediately send a live audio chunk to test persistent inference
                         const sampleRate = 16000;
                         const duration = 2.0;
@@ -209,6 +225,15 @@ async function run() {
         }
         console.log(`   ✓ On-device model initialized offline.`);
         console.log(`   ✓ Live chunk transcribed offline: "${phase1And2Result.text}"`);
+
+        // Initialize browser storage foundation and workspace for store & UI phases
+        await page.evaluate(async () => {
+            localStorage.setItem('parchments-storage-foundation', 'browser');
+            if (window.useNoteStore) {
+                await window.useNoteStore.getState().selectStorageFoundation('browser');
+            }
+        });
+        await new Promise(r => setTimeout(r, 600));
 
         // Phase 3: Verify NoteStore Voice Note Creation with Duration & Transcript
         console.log('\n--- Phase 3: Store Voice Note Ingestion & Duration Extraction ---');
@@ -353,7 +378,10 @@ async function run() {
             throw new Error('VoiceRecorder did not enter recording status!');
         }
 
-        // Wait another 1.5 seconds
+        // Wait another 1.5 seconds and queue a chunk result so trailing flush completes cleanly
+        await page.evaluate(() => {
+            window.__mockWhisperQueue = ['Live recorded sermon note'];
+        });
         await new Promise(r => setTimeout(r, 1500));
 
         // Click "Stop" button in recorder modal
@@ -410,8 +438,21 @@ async function run() {
             throw new Error('VoiceNotePlayer was not rendered with enabled seeker slider!');
         }
 
-        // Phase 7: Inline Dictation at Cursor
-        console.log('\n--- Phase 7: Inline Dictation at Cursor ---');
+        // Phase 7: Inline Dictation at Cursor + Theological Normalization & Overlap Deduplication
+        console.log('\n--- Phase 7: Inline Dictation at Cursor & Theological Normalization ---');
+        await page.evaluate(async () => {
+            await window.useNoteStore.getState().createNote(null);
+            window.__mockWhisperQueue = [
+                'In the beginning',
+                'in the beginning was the Word in the order of milk is a deck',
+                'we study pro appreciation and have a cook',
+                'read John chapter 3 verse 16 and First Corinthians chapter 13 verse 4 to 8'
+            ];
+            const pm = document.querySelector('.ProseMirror');
+            if (pm) pm.focus();
+        });
+        await new Promise(r => setTimeout(r, 400));
+
         // Click Dictate button in editor toolbar
         const clickedDictate = await page.evaluate(() => {
             const btn = document.querySelector('button[data-testid="inline-dictate-btn"]') ||
@@ -448,6 +489,10 @@ async function run() {
             throw new Error('Inline dictation did not activate when button clicked!');
         }
 
+        // Wait for all 4 streaming chunks to be processed by InlineDictationService
+        await page.waitForFunction(() => window.__mockWhisperQueue && window.__mockWhisperQueue.length === 0, { timeout: 15000 });
+        await new Promise(r => setTimeout(r, 400));
+
         // Click Dictate button to stop
         await page.evaluate(() => {
             const btn = document.querySelector('button[data-testid="inline-dictate-btn"]') ||
@@ -455,10 +500,73 @@ async function run() {
                         document.querySelector('button[aria-label*="dictat" i]');
             if (btn) btn.click();
         });
+        await new Promise(r => setTimeout(r, 300));
         console.log('   ✓ Stopped Dictation cleanly.');
 
-        // Phase 8: Final Network Air-Gap Audit
-        console.log('\n--- Phase 8: Final Network Air-Gap Audit ---');
+        const dictatedEditorText = await page.evaluate(() => {
+            const pm = document.querySelector('.ProseMirror');
+            return pm ? pm.innerText.trim() : '';
+        });
+        console.log(`   ✓ Dictated Note Editor Output: "${dictatedEditorText}"`);
+
+        const expectedNormalized = 'In the beginning was the Word in the order of Melchizedek we study propitiation and Habakkuk read John 3:16 and 1 Corinthians 13:4-8';
+        if (dictatedEditorText !== expectedNormalized) {
+            throw new Error(`Dictation theological normalization or overlap deduplication mismatch!\nExpected: "${expectedNormalized}"\nReceived: "${dictatedEditorText}"`);
+        }
+        console.log('   ✓ Verified Inline Dictation theological terms (Melchizedek, propitiation, Habakkuk), Scripture citations (John 3:16, 1 Corinthians 13:4-8), and overlap deduplication!');
+
+        // Phase 8: Voice Note Streaming Theological Normalization & Overlap Deduplication
+        console.log('\n--- Phase 8: Voice Note Streaming Theological Normalization & Overlap Deduplication ---');
+        await page.evaluate(() => {
+            window.useUIStore.getState().openLeftSidebar('files');
+            window.__mockWhisperQueue = [
+                'In the beginning',
+                'in the beginning was the Word in the order of milk is a deck',
+                'we study pro appreciation and have a cook',
+                'read John chapter 3 verse 16 and First Corinthians chapter 13 verse 4 to 8'
+            ];
+        });
+        await new Promise(r => setTimeout(r, 400));
+
+        await page.evaluate(() => {
+            const btn = document.querySelector('button[title*="Voice Note"]');
+            if (btn) btn.click();
+        });
+        await page.waitForFunction(() => !!document.querySelector('div[role="dialog"]'), { timeout: 5000 });
+
+        await page.evaluate(() => {
+            const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Start Recording'));
+            if (btn) btn.click();
+        });
+
+        await page.waitForFunction(() => window.__mockWhisperQueue && window.__mockWhisperQueue.length === 0, { timeout: 18000 });
+        await new Promise(r => setTimeout(r, 400));
+
+        await page.evaluate(() => {
+            const dialog = document.querySelector('div[role="dialog"]');
+            const btn = Array.from(dialog?.querySelectorAll('button') || []).find(b => b.textContent.includes('Stop'));
+            if (btn) btn.click();
+        });
+        await new Promise(r => setTimeout(r, 400));
+
+        await page.evaluate(() => {
+            const dialog = document.querySelector('div[role="dialog"]');
+            const btn = Array.from(dialog?.querySelectorAll('button') || []).find(b => b.textContent.includes('Save Note') || b.textContent.includes('Save'));
+            if (btn) btn.click();
+        });
+        await new Promise(r => setTimeout(r, 800));
+
+        const voiceStreamingTranscript = await page.evaluate(() => {
+            return window.useNoteStore.getState().currentNote?.transcript || '';
+        });
+        console.log(`   ✓ Voice Note Streaming Transcript: "${voiceStreamingTranscript}"`);
+        if (voiceStreamingTranscript !== expectedNormalized) {
+            throw new Error(`Voice note streaming normalization mismatch!\nExpected: "${expectedNormalized}"\nReceived: "${voiceStreamingTranscript}"`);
+        }
+        console.log('   ✓ Verified VoiceRecorder streaming theological normalization and overlap deduplication!');
+
+        // Phase 9: Final Network Air-Gap Audit
+        console.log('\n--- Phase 9: Final Network Air-Gap Audit ---');
         console.log(`   Total Local Requests: ${localRequests.length}`);
         console.log(`   Total External Requests: ${externalRequests.length}`);
 
@@ -469,8 +577,8 @@ async function run() {
         }
 
         console.log('\n================================================================');
-        console.log('   ALL 6 OFFLINE PHASES PASSED WITH 100% AIR-GAP INTEGRITY   ');
-        console.log('   ZERO EXTERNAL NETWORK REQUESTS WERE MADE.                  ');
+        console.log('   ALL OFFLINE SPEECH & THEOLOGICAL NORMALIZATION PHASES PASSED  ');
+        console.log('   100% AIR-GAP INTEGRITY — ZERO EXTERNAL NETWORK REQUESTS.      ');
         console.log('================================================================\n');
 
     } finally {

@@ -353,7 +353,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
             if (dbNote && localFile) {
                 try {
-                    let fsContent = dehydrateAssets(dbNote.content);
+                    const dehydratedHtml = dehydrateAssets(dbNote.content);
+                    let fsContent = dehydratedHtml;
+                    if (MarkdownService.isMarkdownFile(localFile.name)) {
+                        fsContent = MarkdownService.htmlToMarkdown(dehydratedHtml, dbNote.metadata);
+                    }
                     await fileSystem.writeFile(localFile.handle as FileSystemFileHandle, fsContent);
                     console.log(`[Workspace Lock Flusher] 💾 Flushed buffered note: ${localFile.name}`);
                 } catch (e) {
@@ -629,9 +633,11 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     autoTranscribeVoiceNote: async (noteId: string, audioBlob: Blob) => {
         try {
             const { transcribeAudioWithWhisper } = await import('@/lib/voice/transcriptionService');
+            const { TheologicalSpeechProcessor } = await import('@/lib/voice/theologicalSpeechProcessor');
             useUIStore.getState().showToast('Transcribing audio in background...', 'info');
-            const transcript = await transcribeAudioWithWhisper(audioBlob, { highAccuracy: false });
-            if (transcript) {
+            const rawTranscript = await transcribeAudioWithWhisper(audioBlob, { highAccuracy: false });
+            if (rawTranscript) {
+                const transcript = TheologicalSpeechProcessor.processTranscript(rawTranscript);
                 await get().updateNoteTranscript(noteId, transcript);
                 useUIStore.getState().showToast('Voice note transcribed!', 'success');
             }
@@ -1757,7 +1763,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             let initialContent = content;
             if (MarkdownService.isMarkdownFile(name)) {
                 if (content && content.includes('<')) {
-                    initialContent = MarkdownService.htmlToMarkdown(content);
+                    const dehydratedHtml = get().dehydrateAssets(content);
+                    initialContent = MarkdownService.htmlToMarkdown(dehydratedHtml);
                 }
                 if (!initialContent.trimStart().startsWith('---')) {
                     const cleanTitle = name.replace(/\.(md|markdown|mdown|mkdn)$/i, '');
@@ -1766,6 +1773,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                         date: new Date().toISOString().split('T')[0]
                     };
                     initialContent = MarkdownService.serializeFrontmatter(defaultFm) + initialContent;
+                }
+            } else if (MarkdownService.isHtmlFile(name)) {
+                if (content && content.includes('<')) {
+                    initialContent = get().dehydrateAssets(content);
                 }
             }
 
@@ -1897,11 +1908,22 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             try {
                 const localTarget = localFiles.find(f => f.id === targetNoteId && f.kind === 'file');
                 if (isLocalMode && localTarget?.handle) {
-                    let diskContent = content;
+                    const dehydratedHtml = dehydrateAssets(content);
+                    let diskContent = dehydratedHtml;
                     if (MarkdownService.isMarkdownFile(localTarget.name)) {
-                        diskContent = MarkdownService.htmlToMarkdown(content);
+                        let existingFrontmatter: Record<string, any> | undefined;
+                        try {
+                            const existingRaw = await fileSystem.readFile(localTarget.handle as FileSystemFileHandle) as string;
+                            const parsed = MarkdownService.parseFrontmatter(existingRaw);
+                            if (Object.keys(parsed.frontmatter).length > 0) {
+                                existingFrontmatter = parsed.frontmatter;
+                            }
+                        } catch {
+                            // Ignore if file read fails
+                        }
+                        diskContent = MarkdownService.htmlToMarkdown(dehydratedHtml, existingFrontmatter);
                     }
-                    await fileSystem.writeFile(localTarget.handle as FileSystemFileHandle, dehydrateAssets(diskContent));
+                    await fileSystem.writeFile(localTarget.handle as FileSystemFileHandle, diskContent);
                 }
 
                 const targetDbNote = await db.notes.get(targetNoteId);
@@ -1973,13 +1995,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             // File System Mode
             try {
                 let activeHandle = currentFileHandle;
-                let diskContent = portableContent;
+                const dehydratedHtml = get().dehydrateAssets(portableContent);
+
+                let diskContent = dehydratedHtml;
                 if (MarkdownService.isMarkdownFile(activeHandle.name)) {
-                    diskContent = MarkdownService.htmlToMarkdown(portableContent, currentNote.metadata);
+                    diskContent = MarkdownService.htmlToMarkdown(dehydratedHtml, currentNote.metadata);
                 }
 
-                const fsContent = get().dehydrateAssets(diskContent);
-                await fileSystem.writeFile(activeHandle, fsContent);
+                await fileSystem.writeFile(activeHandle, diskContent);
 
                 // If the note title changed from the physical filename, rename the file on disk too
                 const currentBaseName = activeHandle.name.replace(/\.(md|markdown|mdown|mkdn|html|htm|txt)$/i, '');
@@ -2106,22 +2129,28 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
         for (const img of images) {
             const src = img.getAttribute('src');
-            if (src && !src.startsWith('http') && !src.startsWith('blob:') && !src.startsWith('asset:')) {
+            let assetName = img.getAttribute('data-asset-name');
+
+            // If data-asset-name is not set, extract from relative path or filename
+            if (!assetName && src) {
+                if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                    assetName = src.split('/').pop()?.split(/[?#]/)[0] || null;
+                }
+            }
+
+            if (assetName) {
                 try {
                     // Try to find the file in .assets/images/
                     const assetsHandle = await fileSystem.createDirectory(localDirectoryHandle, '.assets');
                     const imagesHandle = await fileSystem.createDirectory(assetsHandle, 'images');
 
-                    // The src might be "filename.png" or ".assets/images/filename.png"
-                    const fileName = src.split('/').pop()!;
-                    const fileHandle = await fileSystem.getFileHandle(imagesHandle, fileName);
+                    const fileHandle = await fileSystem.getFileHandle(imagesHandle, assetName);
                     const blob = await fileSystem.readFile(fileHandle as FileSystemFileHandle, true);
                     const blobUrl = URL.createObjectURL(blob as Blob);
                     img.setAttribute('src', blobUrl);
-                    // Store the mapping so we can dehydrate later if needed, 
-                    // or just rely on the fact that blobs are recognizable.
+                    img.setAttribute('data-asset-name', assetName);
                 } catch (e) {
-                    console.warn('[NoteStore] Failed to hydrate image:', src, e);
+                    console.warn('[NoteStore] Failed to hydrate image:', src, assetName, e);
                 }
             }
         }
@@ -2133,10 +2162,17 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         const images = Array.from(doc.querySelectorAll('img'));
 
         for (const img of images) {
-            const assetName = img.getAttribute('data-asset-name');
+            let assetName = img.getAttribute('data-asset-name');
+            const src = img.getAttribute('src') || '';
+
+            if (!assetName && src.includes('.assets/images/')) {
+                assetName = src.split('.assets/images/').pop()?.split(/[?#]/)[0] || null;
+            }
+
             if (assetName) {
                 // Replace the blob URL with the relative path for portability
                 img.setAttribute('src', `.assets/images/${assetName}`);
+                img.setAttribute('data-asset-name', assetName);
             }
         }
         return doc.body.innerHTML;

@@ -85,6 +85,8 @@ function getGenerationOptions(modelName: string): any {
         chunk_length_s: 30,
         stride_length_s: 5,
         return_timestamps: false,
+        temperature: 0.0,
+        repetition_penalty: 1.15,
     };
     // English-only Whisper models throw if language or task is supplied
     if (!isEnglishOnly) {
@@ -99,7 +101,7 @@ self.addEventListener('message', async (event) => {
     if (!data) return;
 
     const { type, id, audioBlob, audioData, highAccuracy, localRuntime } = data;
-    const model = highAccuracy ? 'onnx-community/whisper-base' : 'onnx-community/whisper-tiny.en';
+    const model = highAccuracy ? 'onnx-community/whisper-base.en' : 'onnx-community/whisper-tiny.en';
 
     // 1. Prewarm model in background
     if (type === 'prewarm') {

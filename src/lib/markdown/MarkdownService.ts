@@ -78,17 +78,22 @@ export class MarkdownService {
                 }
             });
 
-            // Rule 5: Images — use data-asset-name to produce clean relative Markdown paths
+            // Rule 5: Images — use data-asset-name or relative path to produce clean relative Markdown paths
             td.addRule('imageAsset', {
                 filter: (node) => node.nodeName === 'IMG',
                 replacement: (_content, node) => {
                     const el = node as HTMLElement;
                     const assetName = el.getAttribute('data-asset-name');
                     const alt = el.getAttribute('alt') || 'image';
-                    // Keep the same relative path as used by hydrateAssets
-                    const src = assetName
-                        ? `.assets/images/${assetName}`
-                        : (el.getAttribute('src') || '');
+                    let src = el.getAttribute('src') || '';
+                    if (assetName) {
+                        src = `.assets/images/${assetName}`;
+                    } else if (src.includes('.assets/images/')) {
+                        const fileName = src.split('.assets/images/').pop()?.split(/[?#]/)[0];
+                        if (fileName) {
+                            src = `.assets/images/${fileName}`;
+                        }
+                    }
                     return `\n\n![${alt}](${src})\n\n`;
                 }
             });

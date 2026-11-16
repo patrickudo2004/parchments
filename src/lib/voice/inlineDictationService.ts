@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/react';
 import { streamingTranscriber, downsampleTo16k } from '@/lib/voice/streamingTranscriptionService';
+import { TheologicalSpeechProcessor } from '@/lib/voice/theologicalSpeechProcessor';
 
 type DictationStatusListener = (isDictating: boolean, error?: string) => void;
 type AudioLevelListener = (level: number) => void;
@@ -15,6 +16,7 @@ class InlineDictationService {
     private pcmChunks: Float32Array[] = [];
     private pcmSampleCount: number = 0;
     private isProcessingChunk: boolean = false;
+    private lastTranscribedText: string = '';
 
     public isSupported(): boolean {
         return typeof window !== 'undefined' &&
@@ -89,6 +91,7 @@ class InlineDictationService {
             this.pcmChunks = [];
             this.pcmSampleCount = 0;
             this.isProcessingChunk = false;
+            this.lastTranscribedText = '';
 
             // 2.2 second audio slice cadence for natural, fluid phrase insertion
             const sliceSampleThreshold = Math.round(audioContext.sampleRate * 2.2);
@@ -165,10 +168,13 @@ class InlineDictationService {
 
         try {
             const pcm16k = downsampleTo16k(merged, inputRate);
-            const text = await streamingTranscriber.transcribeChunk(pcm16k);
-            if (text && text.trim().length > 0 && this.activeEditor && !this.activeEditor.isDestroyed) {
-                const cleaned = text.trim();
-                this.activeEditor.commands.insertContent(`${cleaned} `);
+            const rawText = await streamingTranscriber.transcribeChunk(pcm16k);
+            if (rawText && rawText.trim().length > 0 && this.activeEditor && !this.activeEditor.isDestroyed) {
+                const processed = TheologicalSpeechProcessor.processTranscript(rawText, this.lastTranscribedText);
+                if (processed.trim().length > 0) {
+                    this.lastTranscribedText = `${this.lastTranscribedText} ${processed}`.slice(-200);
+                    this.activeEditor.commands.insertContent(`${processed.trim()} `);
+                }
             }
         } catch (e) {
             console.warn('[InlineDictation] On-device transcription slice error:', e);
@@ -194,6 +200,7 @@ class InlineDictationService {
         this.pcmChunks = [];
         this.pcmSampleCount = 0;
         this.isProcessingChunk = false;
+        this.lastTranscribedText = '';
         this.activeEditor = null;
         this.notifyAudioLevel(0);
     }

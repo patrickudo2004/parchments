@@ -163,6 +163,14 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                             // @ts-ignore - for custom attribute support in Tiptap chain
                             'data-asset-name': fileName
                         }).run();
+                    } else {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                                editor.chain().focus().setImage({ src: reader.result }).run();
+                            }
+                        };
+                        reader.readAsDataURL(file);
                     }
                 }
             } catch (error) {

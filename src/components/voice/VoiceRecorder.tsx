@@ -3,6 +3,7 @@ import { Mic, Square, Trash2, Pause, Play, CheckCircle, X as CloseIcon, Sparkles
 import { AlertModal } from '@/components/ui/AlertModal';
 import { getSupportedAudioMimeType, type AudioMimeInfo } from '@/lib/voice/audioMime';
 import { streamingTranscriber, downsampleTo16k } from '@/lib/voice/streamingTranscriptionService';
+import { TheologicalSpeechProcessor } from '@/lib/voice/theologicalSpeechProcessor';
 
 interface VoiceRecorderProps {
     onSave: (audioBlob: Blob, duration: number, transcript: string) => void;
@@ -182,12 +183,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
         try {
             const partial = await streamingTranscriber.transcribeChunk(pcm16k);
             if (partial && partial.trim().length > 0) {
-                const cleanPartial = partial.trim();
-                transcriptRef.current = transcriptRef.current
-                    ? `${transcriptRef.current} ${cleanPartial}`
-                    : cleanPartial;
-                setTranscript(transcriptRef.current);
-                setInterimTranscript('');
+                const cleanPartial = TheologicalSpeechProcessor.processTranscript(partial, transcriptRef.current);
+                if (cleanPartial.trim().length > 0) {
+                    transcriptRef.current = transcriptRef.current
+                        ? `${transcriptRef.current} ${cleanPartial.trim()}`
+                        : cleanPartial.trim();
+                    setTranscript(transcriptRef.current);
+                    setInterimTranscript('');
+                }
             }
         } catch (e) {
             console.warn('[VoiceRecorder] Streaming Whisper chunk error:', e);

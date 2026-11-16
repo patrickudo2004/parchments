@@ -331,6 +331,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         ...this.parent?.(),
                         'data-asset-name': {
                             default: null,
+                            parseHTML: element => element.getAttribute('data-asset-name'),
+                            renderHTML: attributes => {
+                                if (!attributes['data-asset-name']) return {};
+                                return { 'data-asset-name': attributes['data-asset-name'] };
+                            },
                         },
                         width: {
                             default: '100%',
@@ -377,6 +382,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                         'data-asset-name': fileName
                                     })
                                 ));
+                            } else {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    if (typeof reader.result === 'string') {
+                                        view.dispatch(view.state.tr.replaceSelectionWith(
+                                            view.state.schema.nodes.image.create({
+                                                src: reader.result
+                                            })
+                                        ));
+                                    }
+                                };
+                                reader.readAsDataURL(file);
                             }
                         }
                     });
@@ -405,6 +422,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                     const transaction = view.state.tr.insert(coordinates.pos, node);
                                     view.dispatch(transaction);
                                 }
+                            } else {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    if (typeof reader.result === 'string') {
+                                        const { schema } = view.state;
+                                        const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                                        if (coordinates) {
+                                            const node = schema.nodes.image.create({
+                                                src: reader.result
+                                            });
+                                            const transaction = view.state.tr.insert(coordinates.pos, node);
+                                            view.dispatch(transaction);
+                                        }
+                                    }
+                                };
+                                reader.readAsDataURL(file);
                             }
                         });
                         return true;

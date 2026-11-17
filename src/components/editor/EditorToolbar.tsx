@@ -212,7 +212,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
     return (
         <div className={`border-b border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface flex flex-col shrink-0 sticky top-0 z-20 transition-all duration-300 w-full max-w-full ${isMobile ? (showAdvanced ? 'h-24' : 'h-12') : 'min-h-[48px] h-auto'}`}>
             {/* Primary Row */}
-            <div className={`w-full flex items-center px-3 gap-1 ${isMobile ? 'h-12 overflow-x-auto no-scrollbar' : 'min-h-[48px] py-1 flex-wrap'}`}>
+            {/* Primary Row — Horizontal scroll strip with pinned Mobile Advanced Toggle */}
+            <div className="w-full flex items-center">
+            <div className={`flex-1 min-w-0 flex items-center px-2 sm:px-3 gap-1 ${isMobile ? 'h-12 overflow-x-auto no-scrollbar' : 'min-h-[48px] py-1 flex-wrap'}`}>
                 {/* Save button */}
                 <div className="flex items-center gap-0.5 pr-2 border-r border-light-border dark:border-dark-border mr-1 shrink-0">
                     <button
@@ -235,7 +237,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                         onMouseDown={(e) => {
                             if (!isMobile) e.preventDefault();
                         }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all text-xs font-black uppercase tracking-wider shrink-0 shadow-sm active:scale-95 ${pulpitMode ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all text-xs font-black uppercase tracking-wider shrink-0 shadow-sm active:scale-95 ${pulpitMode ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
                         title="Pulpit Presentation Mode"
                     >
                         <Play size={12} fill="currentColor" />
@@ -341,18 +343,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                 </div>
 
                 {/* Expand Toggle for Mobile, otherwise render the desktop actions right here */}
-                {isMobile ? (
-                    <button
-                        onClick={() => setShowAdvanced(!showAdvanced)}
-                        onMouseDown={(e) => {
-                            if (!isMobile) e.preventDefault();
-                        }}
-                        className={`p-1.5 ml-auto rounded transition-all flex items-center justify-center shrink-0 min-w-[36px] min-h-[36px] ${showAdvanced ? 'bg-primary/20 text-primary' : 'text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-background dark:hover:bg-dark-background'}`}
-                        title="Advanced formatting tools"
-                    >
-                        {showAdvanced ? <ChevronUp size={18} /> : <MoreHorizontal size={18} />}
-                    </button>
-                ) : (
+                {!isMobile && (
                     <>
                         <div className="w-[1px] h-4 bg-light-border dark:bg-dark-border mx-2 shrink-0" />
                         
@@ -500,6 +491,17 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                     </>
                 )}
             </div>
+            {isMobile && (
+                <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    onMouseDown={(e) => { if (!isMobile) e.preventDefault(); }}
+                    className={`p-1.5 mr-2 rounded-lg border border-light-border/70 dark:border-dark-border transition-all flex items-center justify-center shrink-0 min-w-[38px] min-h-[38px] ${showAdvanced ? 'bg-primary text-white border-primary shadow-sm' : 'bg-light-background dark:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'}`}
+                    title="Advanced formatting tools"
+                >
+                    {showAdvanced ? <ChevronUp size={18} /> : <MoreHorizontal size={18} />}
+                </button>
+            )}
+            </div>
 
             {/* Mobile Secondary Expandable Row */}
             {isMobile && showAdvanced && (
@@ -612,6 +614,18 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
                                     className="px-2.5 py-1 text-xs font-black lowercase text-primary hover:bg-primary/10 rounded-md min-h-[32px] flex items-center justify-center"
                                 >
                                     low
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        editor.chain().focus().capitalize().run();
+                                        setIsCaseMenuExpanded(false);
+                                    }}
+                                    onMouseDown={(e) => {
+                                        if (!isMobile) e.preventDefault();
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-black capitalize text-primary hover:bg-primary/10 rounded-md min-h-[32px] flex items-center justify-center"
+                                >
+                                    Title
                                 </button>
                                 <button
                                     onClick={() => setIsCaseMenuExpanded(false)}

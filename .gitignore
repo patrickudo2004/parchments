@@ -25,5 +25,5 @@ dist-ssr
 
 # E2E test outputs
 test-results/
-videos/
+/videos/
 parchments_sample_reel.mp4

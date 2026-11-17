@@ -8,6 +8,15 @@ export function checkIsTauri(): boolean {
     }
 }
 
+export function checkIsCapacitor(): boolean {
+    try {
+        if (Capacitor.isNativePlatform()) return true;
+        return typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.());
+    } catch {
+        return false;
+    }
+}
+
 export function isWebFileSystemSupported(): boolean {
     try {
         return typeof window !== 'undefined' && typeof (window as any).showDirectoryPicker === 'function';
@@ -19,6 +28,19 @@ export function isWebFileSystemSupported(): boolean {
 // Backwards-compatible runtime flags
 export const isTauri = checkIsTauri();
 export const isCapacitor = Capacitor.isNativePlatform();
+
+const CAPACITOR_DIR_KEY = 'parchments-capacitor-directory';
+
+function getActiveCapacitorDirectory<T extends { Documents: any; External: any }>(Directory: T) {
+    try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(CAPACITOR_DIR_KEY) === 'EXTERNAL') {
+            return Directory.External;
+        }
+    } catch {
+        // Ignore storage read error
+    }
+    return Directory.Documents;
+}
 
 const IGNORED_FS_ENTRIES = new Set([
     '.assets',
@@ -97,7 +119,7 @@ export class FileSystemService {
             throw abortErr;
         }
 
-        if (isCapacitor) {
+        if (checkIsCapacitor()) {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             try {
                 const checkPerm = await Filesystem.checkPermissions();
@@ -108,21 +130,50 @@ export class FileSystemService {
                 console.warn('Failed to request filesystem permissions:', permError);
             }
 
-            try {
-                await Filesystem.mkdir({
-                    path: 'Parchments',
-                    directory: Directory.Documents,
-                    recursive: true
-                });
-            } catch {
-                // Already exists
+            // Probe Documents/Parchments first; on Android 11+ Scoped Storage EACCES (e.g. after reinstall),
+            // automatically fall back to app-owned External storage so local Markdown study vaults never break.
+            const candidates: Array<{ key: 'DOCUMENTS' | 'EXTERNAL'; dir: any }> =
+                typeof localStorage !== 'undefined' && localStorage.getItem(CAPACITOR_DIR_KEY) === 'EXTERNAL'
+                    ? [
+                        { key: 'EXTERNAL', dir: Directory.External },
+                        { key: 'DOCUMENTS', dir: Directory.Documents }
+                    ]
+                    : [
+                        { key: 'DOCUMENTS', dir: Directory.Documents },
+                        { key: 'EXTERNAL', dir: Directory.External }
+                    ];
+
+            let lastErr: any = null;
+            for (const candidate of candidates) {
+                try {
+                    try {
+                        await Filesystem.mkdir({
+                            path: 'Parchments',
+                            directory: candidate.dir,
+                            recursive: true
+                        });
+                    } catch {
+                        // Directory may already exist; verify with readdir right below
+                    }
+                    await Filesystem.readdir({
+                        path: 'Parchments',
+                        directory: candidate.dir
+                    });
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem(CAPACITOR_DIR_KEY, candidate.key);
+                    }
+                    return {
+                        kind: 'directory',
+                        name: 'Parchments',
+                        path: 'Parchments'
+                    };
+                } catch (err) {
+                    lastErr = err;
+                    console.warn(`[FileSystemService] Capacitor directory unavailable (${candidate.key}):`, err);
+                }
             }
 
-            return {
-                kind: 'directory',
-                name: 'Parchments',
-                path: 'Parchments'
-            };
+            throw lastErr || new Error('Could not access phone storage for Parchments folder');
         }
 
         // Browser File System Access API
@@ -229,12 +280,12 @@ export class FileSystemService {
             }
         }
 
-        if (isCapacitor && parent.path) {
+        if (checkIsCapacitor() && parent.path) {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             try {
                 await Filesystem.stat({
                     path: `${parent.path}/${name}`,
-                    directory: Directory.Documents
+                    directory: getActiveCapacitorDirectory(Directory)
                 });
                 return true;
             } catch {
@@ -296,11 +347,11 @@ export class FileSystemService {
                 }));
         }
 
-        if (isCapacitor && handle.path) {
+        if (checkIsCapacitor() && handle.path) {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             const res = await Filesystem.readdir({
                 path: handle.path,
-                directory: Directory.Documents
+                directory: getActiveCapacitorDirectory(Directory)
             });
             return res.files
                 .filter(file => !shouldIgnoreEntry(file.name))
@@ -338,11 +389,11 @@ export class FileSystemService {
             return binary ? new Blob([data], { type: mime }) : new TextDecoder().decode(data);
         }
 
-        if (isCapacitor && handle.path) {
+        if (checkIsCapacitor() && handle.path) {
             const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
             const res = await Filesystem.readFile({
                 path: handle.path,
-                directory: Directory.Documents,
+                directory: getActiveCapacitorDirectory(Directory),
                 encoding: binary ? undefined : Encoding.UTF8
             });
             if (binary) {
@@ -370,7 +421,7 @@ export class FileSystemService {
      * Gets a file handle by name from a parent directory.
      */
     async getFileHandle(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemFileHandle> {
-        if ((checkIsTauri() || isCapacitor) && parent.path) {
+        if ((checkIsTauri() || checkIsCapacitor()) && parent.path) {
             return { kind: 'file', name, path: `${parent.path}/${name}` };
         }
         if (parent.rawHandle) {
@@ -384,7 +435,7 @@ export class FileSystemService {
      * Gets a directory handle by name from a parent directory.
      */
     async getDirectoryHandle(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
-        if ((checkIsTauri() || isCapacitor) && parent.path) {
+        if ((checkIsTauri() || checkIsCapacitor()) && parent.path) {
             return { kind: 'directory', name, path: `${parent.path}/${name}` };
         }
         if (parent.rawHandle) {
@@ -407,11 +458,11 @@ export class FileSystemService {
             };
         }
 
-        if (isCapacitor && handle.path) {
+        if (checkIsCapacitor() && handle.path) {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             const stats = await Filesystem.stat({
                 path: handle.path,
-                directory: Directory.Documents
+                directory: getActiveCapacitorDirectory(Directory)
             });
             return {
                 lastModified: stats.mtime ? new Date(stats.mtime).getTime() : stats.ctime ? new Date(stats.ctime).getTime() : Date.now(),
@@ -446,7 +497,7 @@ export class FileSystemService {
             return;
         }
 
-        if (isCapacitor && handle.path) {
+        if (checkIsCapacitor() && handle.path) {
             const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
             let dataToSave: string;
             if (typeof content === 'string') {
@@ -463,7 +514,7 @@ export class FileSystemService {
             }
             await Filesystem.writeFile({
                 path: handle.path,
-                directory: Directory.Documents,
+                directory: getActiveCapacitorDirectory(Directory),
                 data: dataToSave,
                 encoding: typeof content === 'string' ? Encoding.UTF8 : undefined
             });
@@ -484,7 +535,7 @@ export class FileSystemService {
      * Creates a new file in a directory.
      */
     async createFile(parent: FileSystemDirectoryHandle, name: string, content: string | Blob): Promise<FileSystemFileHandle> {
-        if ((checkIsTauri() || isCapacitor) && parent.path) {
+        if ((checkIsTauri() || checkIsCapacitor()) && parent.path) {
             const path = `${parent.path}/${name}`;
             await this.writeFile({ kind: 'file', name, path }, content);
             return { kind: 'file', name, path };
@@ -515,13 +566,13 @@ export class FileSystemService {
             return { kind: 'directory', name, path };
         }
 
-        if (isCapacitor && parent.path) {
+        if (checkIsCapacitor() && parent.path) {
             const path = `${parent.path}/${name}`;
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             try {
                 await Filesystem.mkdir({
                     path,
-                    directory: Directory.Documents,
+                    directory: getActiveCapacitorDirectory(Directory),
                     recursive: true
                 });
             } catch {
@@ -548,18 +599,19 @@ export class FileSystemService {
             return;
         }
 
-        if (isCapacitor && parent.path) {
+        if (checkIsCapacitor() && parent.path) {
             const path = `${parent.path}/${name}`;
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
+            const dir = getActiveCapacitorDirectory(Directory);
             try {
                 await Filesystem.deleteFile({
                     path,
-                    directory: Directory.Documents
+                    directory: dir
                 });
             } catch {
                 await Filesystem.rmdir({
                     path,
-                    directory: Directory.Documents,
+                    directory: dir,
                     recursive: true
                 });
             }
@@ -615,7 +667,7 @@ export class FileSystemService {
             return { ...handle, name: newName, path: newPath };
         }
 
-        if (isCapacitor && handle.path) {
+        if (checkIsCapacitor() && handle.path) {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
             const lastSlash = Math.max(handle.path.lastIndexOf('/'), handle.path.lastIndexOf('\\'));
             const parentPath = lastSlash !== -1 ? handle.path.substring(0, lastSlash) : '';
@@ -623,7 +675,7 @@ export class FileSystemService {
             await Filesystem.rename({
                 from: handle.path,
                 to: toPath,
-                directory: Directory.Documents
+                directory: getActiveCapacitorDirectory(Directory)
             });
             handle.path = toPath;
             handle.name = newName;
@@ -678,12 +730,15 @@ export class FileSystemService {
     ): Promise<{ handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[]> {
         let entries: { handle: FileSystemHandle; parentId: string | null; id: string; kind: 'file' | 'directory'; name: string }[] = [];
 
-        if ((checkIsTauri() || isCapacitor) && dirHandle.path) {
+        if ((checkIsTauri() || checkIsCapacitor()) && dirHandle.path) {
             let rawEntries: FileSystemHandle[] = [];
             try {
                 rawEntries = await this.readDirectory(dirHandle);
             } catch (err) {
                 console.warn('[FileSystemService] Skipping unreadable directory:', dirHandle.path, err);
+                if (parentId === null) {
+                    throw err;
+                }
                 return entries;
             }
 

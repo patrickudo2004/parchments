@@ -31,6 +31,7 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
   // Multi-camera selection support
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const [manualCameraId, setManualCameraId] = useState<string>('');
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScanningRef = useRef(false);
@@ -38,66 +39,76 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
   const { setLocalSyncStatus, deviceName } = useSyncStore();
   const currentNote = useNoteStore((s) => s.currentNote);
 
-  // ---- Enumerate available cameras ----
-  useEffect(() => {
-    let isMounted = true;
-    if (isOpen && tab === 'qr') {
-      Html5Qrcode.getCameras()
-        .then((devices) => {
-          if (isMounted && devices && devices.length > 0) {
-            setCameras(devices);
-            setSelectedCameraId((prev) => {
-              if (prev && devices.some((d) => d.id === prev)) return prev;
-              // Prefer back/rear camera if available
-              const backCam = devices.find((d) => {
-                const label = d.label.toLowerCase();
-                return label.includes('back') || label.includes('rear') || label.includes('environment');
-              });
-              return backCam ? backCam.id : devices[0].id;
-            });
-          }
-        })
-        .catch((err) => {
-          console.warn('Could not enumerate cameras:', err);
-        });
+  // Safe stop guard: html5-qrcode throws synchronously if stop() is called before start() resolves
+  const safeStopScanner = (scanner: Html5Qrcode | null) => {
+    isScanningRef.current = false;
+    if (!scanner) return;
+    try {
+      const stopRes = scanner.stop();
+      if (stopRes && typeof (stopRes as Promise<void>).catch === 'function') {
+        (stopRes as Promise<void>).catch(() => {});
+      }
+    } catch {
+      // Scanner was not running or already stopped
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, tab]);
+  };
 
-  // ---- QR scanner lifecycle ----
+  // ---- QR scanner lifecycle (enumerates once, then starts single camera stream) ----
   useEffect(() => {
     if (!isOpen || tab !== 'qr') return;
 
     let isCancelled = false;
 
-    // Small delay so the DOM node is mounted
     const timer = setTimeout(async () => {
-      if (isScanningRef.current) return;
+      if (isCancelled || isScanningRef.current) return;
       const el = document.getElementById(QR_SCANNER_ID);
       if (!el) return;
 
+      let chosenCameraId = manualCameraId;
+      if (!chosenCameraId) {
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (isCancelled) return;
+          if (devices && devices.length > 0) {
+            setCameras(devices);
+            const backCam = devices.find((d) => {
+              const label = d.label.toLowerCase();
+              return label.includes('back') || label.includes('rear') || label.includes('environment');
+            });
+            chosenCameraId = backCam ? backCam.id : devices[0].id;
+            setSelectedCameraId(chosenCameraId);
+          }
+        } catch (err) {
+          console.warn('Could not enumerate cameras:', err);
+        }
+      }
+
+      if (isCancelled) return;
+      let scanner: Html5Qrcode | null = null;
       try {
-        const scanner = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
+        scanner = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
         scannerRef.current = scanner;
-        isScanningRef.current = true;
         setStatus('scanning');
 
-        const cameraConfig = selectedCameraId ? selectedCameraId : { facingMode: 'environment' };
+        const cameraConfig = chosenCameraId ? chosenCameraId : { facingMode: 'environment' };
 
         await scanner.start(
           cameraConfig,
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText: string) => {
-            // Stop scanner and connect
-            scanner.stop().catch(() => {});
-            isScanningRef.current = false;
+            safeStopScanner(scanner);
             handleConnect(decodedText);
           },
           () => { /* scan frame error — ignore */ },
         );
+
+        if (isCancelled) {
+          safeStopScanner(scanner);
+          return;
+        }
+        isScanningRef.current = true;
       } catch (err: unknown) {
+        isScanningRef.current = false;
         if (!isCancelled) {
           const msg = err instanceof Error ? err.message : String(err);
           setErrorMsg(`Camera access unavailable (${msg}). Please enter the host address manually.`);
@@ -109,13 +120,12 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
     return () => {
       isCancelled = true;
       clearTimeout(timer);
-      if (scannerRef.current && isScanningRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        isScanningRef.current = false;
+      if (isScanningRef.current) {
+        safeStopScanner(scannerRef.current);
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, tab, selectedCameraId]);
+  }, [isOpen, tab, manualCameraId]);
 
   // Pre-fill if ws URL was passed in (e.g. from deep-link)
   useEffect(() => {
@@ -128,9 +138,8 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
   // ---- Stop scanner when switching tabs ----
   const handleTabSwitch = (t: InputTab) => {
     if (t === tab) return;
-    if (scannerRef.current && isScanningRef.current) {
-      scannerRef.current.stop().catch(() => {});
-      isScanningRef.current = false;
+    if (isScanningRef.current) {
+      safeStopScanner(scannerRef.current);
     }
     setStatus('idle');
     setErrorMsg(null);
@@ -144,19 +153,16 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
 
     try {
       const { getYDoc } = await import('@/lib/sync/YjsService');
-      let note = currentNote;
-      if (!note) {
-        const { createNote, setCurrentNote } = useNoteStore.getState();
-        note = await createNote(null, 'Shared Note');
-        if (note) setCurrentNote(note);
-      }
 
-      const ydoc = getYDoc(note?.id ?? 'join-temp');
-
-      // Build the full ws URL — raw might be just a code like "839-204" or IP:port
+      // Validate connection URL first before creating any local note
       const wsUrl = rawUrl.startsWith('ws://') || rawUrl.startsWith('wss://') ? rawUrl : resolveCodeToUrl(rawUrl);
       if (!wsUrl) {
-        throw new Error('Please enter a valid connection address (e.g. 192.168.1.5:8765) or scan the host QR code.');
+        const isSixDigitPin = /^\d{3}-?\d{3}$/.test(rawUrl.trim());
+        throw new Error(
+          isSixDigitPin
+            ? 'A 6-digit code alone cannot find a Wi-Fi host without its IP. Paste the full ws:// address (or IP:Port?token=...) shown on Desktop, or scan the QR code.'
+            : 'Please enter the full ws:// address (e.g. ws://192.168.1.5:48921?token=...) shown on the host, or scan the QR code.'
+        );
       }
 
       const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
@@ -166,6 +172,19 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
       if (isHttps && !isTauri && !isCapacitor && wsUrl.startsWith('ws://')) {
         throw new Error('Browser security blocks insecure local Wi-Fi connections (ws://) from HTTPS web pages. To join notes over local Wi-Fi, please use the Parchments Desktop or Mobile application.');
       }
+
+      // Always create a dedicated shared note when joining unless currently positioned on an empty temporary Shared Note,
+      // preventing remote Yjs CRDT state from overwriting an unrelated open sermon/study note.
+      let note = currentNote && currentNote.title === 'Shared Note' && (!currentNote.content || currentNote.content === '<p></p>')
+        ? currentNote
+        : null;
+      if (!note) {
+        const { createNote, setCurrentNote } = useNoteStore.getState();
+        note = await createNote(null, 'Shared Note');
+        if (note) setCurrentNote(note);
+      }
+
+      const ydoc = getYDoc(note?.id ?? 'join-temp');
 
       await joinLocalServer(ydoc, wsUrl, deviceName, mode);
 
@@ -278,55 +297,57 @@ export const JoinNoteModal: React.FC<JoinNoteModalProps> = ({
               </button>
             </div>
 
-            {/* QR scanner */}
-            {tab === 'qr' && (
-              <div className="flex flex-col items-center gap-3">
-                {/* Camera Switcher Dropdown (if multiple cameras detected) */}
-                {cameras.length > 1 && (
-                  <div className="w-full flex items-center justify-between gap-2 px-1">
-                    <label className="text-white/60 text-xs font-semibold flex items-center gap-1.5 shrink-0">
-                      <Camera size={14} className="text-indigo-400" />
-                      <span>Camera ({cameras.length})</span>
-                    </label>
-                    <select
-                      value={selectedCameraId}
-                      onChange={(e) => {
-                        const newId = e.target.value;
-                        if (scannerRef.current && isScanningRef.current) {
-                          scannerRef.current.stop().catch(() => {}).then(() => {
-                            isScanningRef.current = false;
-                            setSelectedCameraId(newId);
-                          });
-                        } else {
-                          setSelectedCameraId(newId);
-                        }
-                      }}
-                      className="bg-white/10 text-white text-xs rounded-xl px-2.5 py-1.5 border border-white/15 focus:outline-none focus:border-indigo-400 truncate max-w-[220px]"
-                    >
-                      {cameras.map((c, idx) => (
-                        <option key={c.id} value={c.id} className="bg-[#1e1e2e] text-white">
-                          {c.label || `Camera ${idx + 1}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+            {/* QR scanner (kept in DOM via CSS hidden to prevent detaching <video> mid-play() when switching tabs) */}
+            <div className={tab === 'qr' ? 'flex flex-col items-center gap-3' : 'hidden'}>
+              {/* Camera Switcher Dropdown (if multiple cameras detected) */}
+              {cameras.length > 1 && (
+                <div className="w-full flex items-center justify-between gap-2 px-1">
+                  <label className="text-white/60 text-xs font-semibold flex items-center gap-1.5 shrink-0">
+                    <Camera size={14} className="text-indigo-400" />
+                    <span>Camera ({cameras.length})</span>
+                  </label>
+                  <select
+                    value={selectedCameraId}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      safeStopScanner(scannerRef.current);
+                      setSelectedCameraId(newId);
+                      setManualCameraId(newId);
+                    }}
+                    className="bg-white/10 text-white text-xs rounded-xl px-2.5 py-1.5 border border-white/15 focus:outline-none focus:border-indigo-400 truncate max-w-[220px]"
+                  >
+                    {cameras.map((c, idx) => (
+                      <option key={c.id} value={c.id} className="bg-[#1e1e2e] text-white">
+                        {c.label || `Camera ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-                <div
-                  id={QR_SCANNER_ID}
-                  className="w-full rounded-xl overflow-hidden bg-black"
-                  style={{ minHeight: 260 }}
-                />
-                {status === 'scanning' && (
-                  <p className="text-white/40 text-xs text-center">
-                    Point your camera at the host's QR code
-                  </p>
-                )}
-                {status === 'error' && (
+              <div
+                id={QR_SCANNER_ID}
+                className="w-full rounded-xl overflow-hidden bg-black"
+                style={{ minHeight: 260 }}
+              />
+              {status === 'scanning' && (
+                <p className="text-white/40 text-xs text-center">
+                  Point your camera at the host's QR code
+                </p>
+              )}
+              {status === 'error' && (
+                <div className="flex flex-col items-center gap-2">
                   <p className="text-red-400 text-xs text-center">{errorMsg}</p>
-                )}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => handleTabSwitch('code')}
+                    className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer min-h-[38px]"
+                  >
+                    Switch to Enter Code Instead
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Manual code entry */}
             {tab === 'code' && (
@@ -402,9 +423,12 @@ function resolveCodeToUrl(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   if (trimmed.startsWith('ws://') || trimmed.startsWith('wss://')) return trimmed;
-  // If user entered IP:PORT or host:port e.g. 192.168.1.5:8765
+  // If user entered IP:PORT or IP:PORT?token=... (e.g. 192.168.1.5:48921?token=...)
   if (/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|localhost|[\w.-]+):\d+/.test(trimmed)) {
-    return trimmed.includes('/sync') ? `ws://${trimmed}` : `ws://${trimmed}/sync`;
+    if (trimmed.includes('?token=') || trimmed.includes('/sync')) {
+      return `ws://${trimmed}`;
+    }
+    return `ws://${trimmed}`;
   }
   return null;
 }

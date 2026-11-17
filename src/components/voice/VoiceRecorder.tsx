@@ -295,7 +295,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
             console.error('[VoiceRecorder] Error accessing microphone:', err);
             setAlertMessage('Could not access microphone. Please allow microphone permissions in your system settings.');
             setIsAlertOpen(true);
-            onCancel();
         }
     };
 
@@ -668,7 +667,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onSave, onCancel, 
                 title="Microphone Error"
                 message={alertMessage}
                 type="error"
-                onClose={() => setIsAlertOpen(false)}
+                onClose={() => {
+                    setIsAlertOpen(false);
+                    onCancel();
+                }}
             />
         </div>
     );

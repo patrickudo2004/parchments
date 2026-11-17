@@ -132,14 +132,14 @@ export const JoinHandler: React.FC = () => {
                     
                     if (provider) {
                         provider.on('synced', handleSynced);
-                        // Fallback timeout after 3.5 seconds to proceed anyway
+                        // Proceed promptly after IndexedDB persistence loads if no remote signaling peers respond
                         setTimeout(() => {
                             if (!resolved) {
                                 resolved = true;
                                 provider.off('synced', handleSynced);
                                 resolve();
                             }
-                        }, 3500);
+                        }, 1200);
                     } else {
                         // Let IndexedDB persistence finish loading
                         const persistence = YjsService.getPersistence(remoteNoteId);

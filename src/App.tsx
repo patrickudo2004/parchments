@@ -18,6 +18,7 @@ import { TermsOfService } from '@/components/marketing/TermsOfService';
 import { AccessibilityStatement } from '@/components/marketing/AccessibilityStatement';
 import { ReleasesPage } from '@/components/marketing/ReleasesPage';
 import { useNoteStore } from '@/stores/noteStore';
+import { useSyncStore } from '@/stores/syncStore';
 import { Capacitor } from '@capacitor/core';
 import { storagePersistence } from '@/lib/utils/storagePersistence';
 import { Analytics } from '@vercel/analytics/react';
@@ -30,7 +31,8 @@ const App: React.FC = () => {
         storagePersistence.requestPersistence().catch(err => console.error('Failed to request storage persistence:', err));
         seedBibleData().catch(err => console.error('Failed to seed Bible data:', err));
         
-        // Initialize local folder reconnection and load initial DB notes and folders
+        // Initialize local folder reconnection, E2EE sync identity, and initial DB notes/folders
+        useSyncStore.getState().initializeIdentity().catch(err => console.error('Failed to init sync identity:', err));
         const { loadNotes, loadFolders, initStorageFoundation } = useNoteStore.getState();
         initStorageFoundation().catch(err => console.error('Failed to init local folder:', err));
         loadNotes().catch(err => console.error('Failed to load notes:', err));

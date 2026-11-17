@@ -336,12 +336,12 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">
             {/* Nav Header */}
-            <div className="h-14 border-b border-light-border dark:border-dark-border flex items-center justify-between px-3 bg-light-background/30 dark:bg-dark-background/20 shrink-0 gap-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+            <div className="min-h-[3.5rem] sm:h-14 border-b border-light-border dark:border-dark-border flex flex-wrap sm:flex-nowrap items-center justify-between px-2.5 sm:px-3 py-1 sm:py-0 bg-light-background/30 dark:bg-dark-background/20 shrink-0 gap-y-1 gap-x-2">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     <select
                         value={mainVersion}
                         onChange={(e) => setMainVersion(e.target.value)}
-                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0 min-h-[36px] py-1 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
                     >
                         {installedVersions.map((v: BibleVersion) => (
                             <option 
@@ -368,7 +368,8 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
                     {activeVersions.length < 4 && (
                         <button
                             onClick={() => setIsAddParallelOpen(!isAddParallelOpen)}
-                            className={`p-1 rounded-full hover:bg-primary/10 text-primary transition-colors ${isAddParallelOpen ? 'bg-primary/20' : ''}`}
+                            className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full hover:bg-primary/10 text-primary transition-colors shrink-0 ${isAddParallelOpen ? 'bg-primary/20' : ''}`}
+                            title="Add Parallel Bible Version"
                         >
                             <Plus size={18} />
                         </button>
@@ -377,34 +378,34 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1 shrink-0" />
                     <button
                         onClick={() => setIsPickerOpen(!isPickerOpen)}
-                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors shrink-0 ${isPickerOpen ? 'text-primary' : ''}`}
+                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors shrink-0 min-h-[36px] px-1.5 py-1 flex items-center gap-0.5 rounded-lg ${isPickerOpen ? 'text-primary' : ''}`}
                     >
                         {book} {chapter} {isPickerOpen ? '▴' : '▾'}
                     </button>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0 ml-auto">
                     {!hideSearchButton && (
                         <button
                             onClick={() => setSearchOpen(!isSearchOpen)}
                             data-testid="bible-reader-search-btn"
-                            className={`p-1.5 rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled hover:text-primary'}`}
+                            className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled hover:text-primary'}`}
                             title={isSearchOpen ? 'Close Scripture Search' : "Search Scripture (Keywords, References, Strong's)"}
                             aria-label="Search Scripture"
                         >
-                            <Search size={17} />
+                            <Search size={16} />
                         </button>
                     )}
                     <button
                         onClick={toggleInterlinear}
-                        className={`p-1.5 rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                        className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
                         title="Toggle Interlinear"
                     >
                         <Languages size={18} />
                     </button>
                     <button
                         onClick={() => setReadingFlowMode(prev => prev === 'study' ? 'paragraph' : 'study')}
-                        className={`p-1.5 rounded-full transition-colors ${readingFlowMode === 'paragraph' ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
+                        className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${readingFlowMode === 'paragraph' ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
                         title={readingFlowMode === 'paragraph' ? "Switch to Verse Study Grid" : "Switch to Continuous Paragraph Flow"}
                     >
                         <AlignLeft size={18} />
@@ -431,8 +432,11 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
                     </button>
                     )}
                     <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
-                    <button onClick={() => handleNavigation('prev')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={18} /></button>
-                    <button onClick={() => handleNavigation('next')} className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={18} /></button>
+                    <button onClick={() => handleNavigation('prev')} title="Previous Chapter" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={17} /></button>
+                    <button onClick={() => handleNavigation('next')} title="Next Chapter" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={17} /></button>
+                    {isMobile && !isIndependent && (
+                        <button onClick={closeRightSidebar} title="Close Bible" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-red-500/10 text-light-text-secondary hover:text-red-500 rounded-full transition-colors"><CloseIcon style={{ fontSize: '17px' }} /></button>
+                    )}
                 </div>
             </div>
 
@@ -663,7 +667,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
                             title="Insert scripture blockquote directly into active note"
                         >
                             <Quote size={11} className="text-primary" />
-                            <span className="hidden sm:inline">Quote in Note</span>
+                            <span className="text-[10px] font-bold">Quote</span>
                         </button>
 
                         {/* Optional TSK References */}
@@ -676,7 +680,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
                             title="Open TSK Cross-References in sidebar"
                         >
                             <GitBranch size={11} className="text-primary" />
-                            <span className="hidden sm:inline">TSK References</span>
+                            <span className="text-[10px] font-bold">TSK</span>
                         </button>
 
                         <button

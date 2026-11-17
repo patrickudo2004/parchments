@@ -152,7 +152,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         return () => metadata.unobserve(observer);
     }, [shouldSync, ydoc, currentNote?.id, currentNote?.content, saveCurrentNote, title]);
 
-    const { updateRoomTitle, joinedRooms, isConnected, leaveRoom } = useSyncStore();
+    const { updateRoomTitle, joinedRooms, isConnected, leaveRoom, isLocalSyncActive, initializeIdentity } = useSyncStore();
 
     // Title Discovery for Shared Rooms: Update sidebar title once data is synced
     // BUT: Only update if the activeRoom is a NOTE room, not a FOLDER room
@@ -674,8 +674,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             <span className={isSaving ? 'text-primary animate-pulse' : ''}>
                                 {isSaving ? 'Saving...' : 'All Saved'}
                             </span>
-                            {/* Real-time Sync Connection Badge */}
-                            {shouldSync && (
+                            {/* Real-time Sync Connection Badge (only shown during active LAN Wi-Fi sync or room collaboration) */}
+                            {shouldSync && (isLocalSyncActive || !!activeRoom) && (
                                 <span
                                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${
                                         isConnected
@@ -693,16 +693,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
 
                         <div className="flex flex-wrap items-center gap-2">
                             {/* Share Note Button */}
-                            {identity && (
-                                <button
-                                    onClick={() => setIsShareModalOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
-                                    title="Share Note"
-                                >
-                                    <Share2 size={12} />
-                                    <span>Share Note</span>
-                                </button>
-                            )}
+                            <button
+                                onClick={async () => {
+                                    if (!identity) {
+                                        await initializeIdentity();
+                                    }
+                                    setIsShareModalOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                                title="Share Note"
+                            >
+                                <Share2 size={12} />
+                                <span>Share Note</span>
+                            </button>
                             {/* Leave Room Button — only shown in collaborative mode */}
                             {shouldSync && activeRoom && (
                                 <button
@@ -710,7 +713,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                                         leaveRoom();
                                         useUIStore.getState().showToast('Left the collaborative room', 'info');
                                     }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
                                     title="Leave collaborative room"
                                 >
                                     <LogOut size={12} />
@@ -721,7 +724,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                             <button
                                 onClick={() => saveToDB(title, editor?.getHTML() || '')}
                                 disabled={isSaving || !editor}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-3 py-1.5 min-h-[36px] rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <RotateCcw size={12} className={isSaving ? 'animate-spin' : ''} />
                                 <span>Save Now</span>

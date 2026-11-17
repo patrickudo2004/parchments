@@ -34,6 +34,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useResearchStore } from '@/stores/researchStore';
 import { ShareNoteModal } from '@/components/editor/ShareNoteModal';
 import { useReadingPlanStore } from '@/stores/readingPlanStore';
+import { checkIsTauri, checkIsCapacitor, isWebFileSystemSupported } from '@/lib/filesystem/FileSystemService';
 
 
 export const FilesSidebar: React.FC = () => {
@@ -123,7 +124,7 @@ export const FilesSidebar: React.FC = () => {
                         e.stopPropagation();
                         setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen);
                     }}
-                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 min-h-[38px] rounded-lg text-xs font-bold transition-colors border ${
                         isLocalDisconnected
                             ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
                             : 'text-light-text-primary dark:text-dark-text-primary bg-light-background/50 dark:bg-dark-background/40 border-light-border/70 dark:border-dark-border hover:bg-light-background dark:hover:bg-dark-background'
@@ -698,12 +699,12 @@ export const FilesSidebar: React.FC = () => {
                         >
                             Continue with Browser Database
                         </button>
-                        {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                        {(checkIsTauri() || checkIsCapacitor() || isWebFileSystemSupported()) && (
                             <button
                                 onClick={openLocalFolder}
-                                className="w-full py-2.5 border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-all active:scale-95"
+                                className="w-full py-2.5 min-h-[42px] border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-all active:scale-95 touch-manipulation"
                             >
-                                Choose Different Local Folder
+                                {checkIsCapacitor() ? 'Open Phone Parchments Folder' : 'Choose Different Local Folder'}
                             </button>
                         )}
                     </div>
@@ -765,7 +766,7 @@ export const FilesSidebar: React.FC = () => {
                         {selectedFolderId && (
                             <button
                                 onClick={() => setSelectedFolderId(parentFolderId)}
-                                className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary mr-1"
+                                className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary mr-1 touch-manipulation"
                                 title="Go Back"
                             >
                                 <ChevronRight size={20} className="rotate-180 shrink-0" />
@@ -788,14 +789,14 @@ export const FilesSidebar: React.FC = () => {
                                     toggleLeftSidebar();
                                 }
                             }}
-                            className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary touch-manipulation"
                             title="New Note"
                         >
                             <FilePlus size={18} />
                         </button>
                         <button
                             onClick={() => handleStartRecordingInFolder(selectedFolderId)}
-                            className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary touch-manipulation"
                             title="Record Voice Note"
                         >
                             <Mic size={18} />
@@ -819,14 +820,14 @@ export const FilesSidebar: React.FC = () => {
                                     }
                                 });
                             }}
-                            className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary touch-manipulation"
                             title="New Folder"
                         >
                             <FolderPlus size={18} />
                         </button>
                         <button
                             onClick={handleJoinRoom}
-                            className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-primary touch-manipulation"
                             title="Join Collaborative Note"
                         >
                             <Users size={18} />
@@ -862,7 +863,7 @@ export const FilesSidebar: React.FC = () => {
                                                             e.stopPropagation();
                                                             handleRenameClick(e, { ...folder, title: folder.name, type: 'folder' });
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-primary transition-colors touch-manipulation"
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
@@ -871,7 +872,7 @@ export const FilesSidebar: React.FC = () => {
                                                             e.stopPropagation();
                                                             handleDeleteClick(e, { ...folder, title: folder.name, type: 'folder' });
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-red-500 transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-red-500 transition-colors touch-manipulation"
                                                     >
                                                         <Trash2 size={12} />
                                                     </button>
@@ -936,7 +937,7 @@ export const FilesSidebar: React.FC = () => {
                                                             setShareNoteId(note.id);
                                                             setIsShareModalOpen(true);
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-primary transition-colors touch-manipulation"
                                                         title="Share Note"
                                                     >
                                                         <Share2 size={12} />
@@ -950,7 +951,7 @@ export const FilesSidebar: React.FC = () => {
                                                                 noteTitle: note.title || note.name || 'Note',
                                                             });
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-primary transition-colors touch-manipulation"
                                                         title="Move to Folder"
                                                     >
                                                         <FolderInput size={12} />
@@ -960,7 +961,7 @@ export const FilesSidebar: React.FC = () => {
                                                             e.stopPropagation();
                                                             handleRenameClick(e, note);
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-primary transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-primary transition-colors touch-manipulation"
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
@@ -969,7 +970,7 @@ export const FilesSidebar: React.FC = () => {
                                                             e.stopPropagation();
                                                             handleDeleteClick(e, note);
                                                         }}
-                                                        className="p-1 text-light-text-disabled hover:text-red-500 transition-colors"
+                                                        className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-light-text-disabled hover:text-red-500 transition-colors touch-manipulation"
                                                     >
                                                         <Trash2 size={12} />
                                                     </button>
@@ -1150,12 +1151,12 @@ export const FilesSidebar: React.FC = () => {
                                 >
                                     Use Browser Database (Offline)
                                 </button>
-                                {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                                {(checkIsTauri() || checkIsCapacitor() || isWebFileSystemSupported()) && (
                                     <button
                                         onClick={openLocalFolder}
                                         className="w-full py-2 border border-primary/30 text-primary text-xs font-semibold rounded-lg hover:bg-primary/5 transition-all cursor-pointer min-h-[40px] touch-manipulation"
                                     >
-                                        Open Local Folder
+                                        {checkIsCapacitor() ? 'Open Phone Parchments Folder' : 'Open Local Folder'}
                                     </button>
                                 )}
                             </div>

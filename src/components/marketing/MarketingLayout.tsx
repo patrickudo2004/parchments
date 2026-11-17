@@ -7,8 +7,15 @@ interface MarketingLayoutProps {
 }
 
 export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
+    const handleSectionLink = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+        if (typeof window !== 'undefined' && window.location.pathname === '/') {
+            e.preventDefault();
+            document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-[#050505] text-white selection:bg-primary/30 selection:text-white font-sans">
+        <div className="min-h-screen bg-[#050505] text-white selection:bg-primary/30 selection:text-white font-sans overflow-x-clip">
             {/* Skip to Main Content for Screen Readers & Keyboard Navigation (WCAG 2.1 AA) */}
             <a
                 href="#main-content"
@@ -18,19 +25,19 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
             </a>
 
             {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5">
-                <nav aria-label="Main Navigation" className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity" aria-label="Parchments Home">
-                        <img src="/logo.png" alt="Parchments Logo" className="w-10 h-10 object-contain" />
-                        <span className="text-xl font-black tracking-tighter uppercase italic">Parchments</span>
+            <header className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/85 backdrop-blur-xl border-b border-white/5">
+                <nav aria-label="Main Navigation" className="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2">
+                    <a href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity shrink-0" aria-label="Parchments Home">
+                        <img src="/logo.png" alt="Parchments Logo" className="w-7 h-7 sm:w-10 sm:h-10 object-contain shrink-0" />
+                        <span className="text-sm sm:text-xl font-black tracking-tighter uppercase italic">Parchments</span>
                     </a>
 
                     <div className="hidden md:flex items-center gap-6 lg:gap-8">
-                        <a href="#scenarios" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Scenarios</a>
-                        <a href="#comparison" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Comparison</a>
+                        <a href="/#scenarios" onClick={(e) => handleSectionLink(e, 'scenarios')} className="text-sm font-medium text-white/60 hover:text-white transition-colors">Scenarios</a>
+                        <a href="/#comparison" onClick={(e) => handleSectionLink(e, 'comparison')} className="text-sm font-medium text-white/60 hover:text-white transition-colors">Comparison</a>
                         <a href="/guide" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Guide</a>
                         <a href="/releases" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Releases</a>
-                        <a href="#download" className="text-sm font-medium text-white/60 hover:text-white transition-colors">Download</a>
+                        <a href="/#download" onClick={(e) => handleSectionLink(e, 'download')} className="text-sm font-medium text-white/60 hover:text-white transition-colors">Download</a>
                         <a
                             href="https://github.com/patrickudo2004/parchments"
                             target="_blank"
@@ -43,23 +50,26 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                         </a>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                         <a
-                            href="/app"
-                            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-full transition-all border border-white/10 flex items-center gap-1.5 shadow-sm active:scale-95"
-                            title="Launch interactive web app without installing"
+                            href="/guide"
+                            className="md:hidden px-2 py-1.5 text-[11px] font-semibold text-white/70 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            <span>Try Web App</span>
+                            Guide
                         </a>
                         <a
-                            href="#download"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
-                            }}
-                            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-[#121212] text-xs font-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                            href="/releases"
+                            className="md:hidden px-2 py-1.5 text-[11px] font-semibold text-white/70 hover:text-white transition-colors whitespace-nowrap"
                         >
-                            Get Beta
+                            Releases
+                        </a>
+                        <a
+                            href="/app"
+                            className="px-3 sm:px-5 py-2 sm:py-2.5 bg-primary hover:bg-primary/90 text-[#121212] text-[11px] sm:text-xs font-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 whitespace-nowrap"
+                            title="Launch interactive web app without installing"
+                        >
+                            <span className="sm:hidden">Web App</span>
+                            <span className="hidden sm:inline">Launch Web App</span>
                         </a>
                     </div>
                 </nav>
@@ -145,10 +155,12 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) =>
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-6">Product</h4>
                             <ul className="space-y-4 text-sm text-white/40">
-                                <li><a href="#scenarios" className="hover:text-white transition-colors">Study Scenarios</a></li>
-                                <li><a href="/guide" className="hover:text-white transition-colors">User Guide</a></li>
+                                <li><a href="/#scenarios" onClick={(e) => handleSectionLink(e, 'scenarios')} className="hover:text-white transition-colors">Study Scenarios</a></li>
+                                <li><a href="/guide" className="hover:text-white transition-colors">User Guide & Video Tour</a></li>
+                                <li><a href="/releases" className="hover:text-white transition-colors">Releases & Updates</a></li>
+                                <li><a href="/#download" onClick={(e) => handleSectionLink(e, 'download')} className="hover:text-white transition-colors">Download Apps</a></li>
                                 <li><a href="/accessibility" className="hover:text-white transition-colors">Accessibility Statement</a></li>
-                                <li><a href="/app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors italic">Web Preview (/app)</a></li>
+                                <li><a href="/app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors italic">Web App (/app)</a></li>
                             </ul>
                         </div>
 

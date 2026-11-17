@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MarketingLayout } from './MarketingLayout';
+import { ShowcaseVideoCard } from './ShowcaseVideoCard';
 import {
     Download,
     ShieldCheck,
@@ -75,19 +76,19 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
     {
         id: 'mobile',
         label: 'Mobile Pocket Exegesis',
-        badge: 'Mobile Companion',
-        scenarioTitle: 'Scenario 3: Pastoral Care & Study on the Move',
-        device: 'Mobile Phone (375px – 430px)',
+        badge: 'Android & Mobile',
+        scenarioTitle: 'Scenario 3: Pastoral Care, Phone Folders & Wi-Fi Sync',
+        device: 'Android APK & Mobile Web (360px – 430px)',
         image: '/screenshots/scenarios/scenario11_mobile_375_group_by_book.png',
-        headline: 'Full-Height Touch Drawers & Anti-Zoom Mobile Inputs',
-        caption: 'Adaptive 602px search overlay positioned above the bottom navigation bar, with 16px anti-zoom inputs and generous touch targets meeting the strict 48px standard.',
-        altText: 'Parchments mobile phone interface at 375px width showing full-height Scripture search drawer, ergonomic tap targets, and bottom navigation bar without browser auto-zoom.',
-        story: 'Whether visiting church members in hospital rooms or reviewing sermon points while traveling, Parchments on mobile feels like a native app. Inputs are calibrated at 16px to prevent iOS Safari auto-zoom, while tap targets exceed 48px to eliminate frustrating mis-taps.',
+        headline: 'Full-Height Touch Drawers, Phone Folders & Live Desktop Sync',
+        caption: 'Two-row responsive Bible header, 360px+ touch navigation, local Documents/Parchments phone folder storage, and zero-server Wi-Fi QR pairing with your Desktop library.',
+        altText: 'Parchments mobile phone interface showing full-height Scripture search drawer, ergonomic tap targets, and bottom navigation bar without clipping.',
+        story: 'Whether visiting church members in hospital rooms or preaching with notes drafted on your PC, Parchments on Android works standalone with local Markdown phone folders and connects instantaneously to your Desktop workspace over local Wi-Fi QR pairing.',
         highlights: [
-            'Full viewport height search drawer anchored above the bottom navigation bar',
-            '16px font sizing prevents frustrating mobile browser auto-zoom',
-            'Strict >= 48px touch targets for effortless thumb navigation',
-            'Slide-over touch sheets with safe-area notch awareness',
+            'Native Android APK with persistent Documents/Parchments local phone folder storage',
+            'Instant Desktop ↔ Android Wi-Fi & QR code collaboration without cloud accounts',
+            'Responsive two-row Bible header & expanded + Tools sheet (TSK, Strong\'s, Voice Studio)',
+            'Full-viewport touch sheets with safe-area notch awareness and >= 36px/48px targets',
             '100% offline capability—works completely in Airplane Mode'
         ]
     },
@@ -298,6 +299,12 @@ export const LandingPage: React.FC = () => {
         if (consent !== 'true') {
             setShowBanner(true);
         }
+        if (window.location.hash) {
+            const target = document.getElementById(window.location.hash.slice(1));
+            if (target) {
+                setTimeout(() => target.scrollIntoView({ behavior: 'smooth' }), 120);
+            }
+        }
     }, []);
 
     const acceptConsent = () => {
@@ -474,6 +481,11 @@ export const LandingPage: React.FC = () => {
                                         loading="lazy"
                                     />
                                 </a>
+                            </div>
+
+                            {/* Widescreen Guided Product Tour Video Showcase */}
+                            <div className="pt-10 w-full">
+                                <ShowcaseVideoCard />
                             </div>
                         </div>
                     </motion.div>

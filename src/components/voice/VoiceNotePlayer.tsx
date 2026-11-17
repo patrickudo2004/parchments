@@ -74,6 +74,9 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
         }
 
         return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+            }
             if (url) URL.revokeObjectURL(url);
         };
     }, [audioBlob, audioUrl]);
@@ -91,6 +94,10 @@ export const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({
                         setIsPlaying(true);
                     })
                     .catch((err) => {
+                        if (err?.name === 'AbortError') {
+                            setIsPlaying(false);
+                            return;
+                        }
                         console.warn('[VoiceNotePlayer] Playback rejected:', err);
                         setIsPlaying(false);
                         setAudioError('Playback failed. Audio format may be unsupported on this device.');

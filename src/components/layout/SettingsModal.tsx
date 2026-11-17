@@ -1301,7 +1301,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                     {activeTab === 'storage' && (
                                         <>
-                                            <section className="grid grid-cols-2 gap-1.5 [&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
+                                            <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&>div]:p-5 sm:[&>div]:p-6 [&>div]:border [&>div]:rounded-2xl transition-all">
                                                 <div className="bg-light-background dark:bg-dark-background border-light-border dark:border-dark-border group hover:border-primary/30">
                                                     <div className="flex items-center gap-3 mb-4 text-light-text-primary dark:text-dark-text-primary">
                                                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
@@ -1381,7 +1381,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                                                         <button
                                                                             onClick={() => handleDeleteVersion(v.id)}
-                                                                            className="text-xs text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                                                                            className="text-xs text-red-500 font-bold opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:underline px-2 py-1 min-h-[34px]"
                                                                         >
                                                                             Delete
                                                                         </button>

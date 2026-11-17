@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Copy, Check } from 'lucide-react';
 import {
   startLocalServer,
   stopLocalSync,
@@ -24,6 +25,7 @@ interface PairNoteModalProps {
 export const PairNoteModal: React.FC<PairNoteModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = React.useState<'idle' | 'starting' | 'active'>('idle');
   const [error, setError] = React.useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = React.useState(false);
 
   const {
     localSyncCode,
@@ -187,12 +189,35 @@ export const PairNoteModal: React.FC<PairNoteModalProps> = ({ isOpen, onClose })
               </p>
             </div>
 
-            {/* 6-digit code */}
-            <div className="text-center">
-              <p className="text-white/50 text-xs mb-1">Or enter this code manually</p>
-              <span className="text-white font-mono text-3xl tracking-[0.3em] select-all">
-                {localSyncCode ?? '···-···'}
-              </span>
+            {/* Connection Address (Copyable for Manual Mobile/Tablet Entry) + Reference Code */}
+            <div className="space-y-3">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-white/50 text-[11px] uppercase tracking-wider font-semibold">Manual Connection Address</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!localSyncWsUrl) return;
+                      try {
+                        await navigator.clipboard.writeText(localSyncWsUrl);
+                        setCopiedUrl(true);
+                        setTimeout(() => setCopiedUrl(false), 2000);
+                      } catch {}
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    {copiedUrl ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                    <span>{copiedUrl ? 'Copied' : 'Copy Address'}</span>
+                  </button>
+                </div>
+                <p className="text-white/90 font-mono text-xs break-all select-all">{localSyncWsUrl}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/40 text-[11px]">Session Reference Code</p>
+                <span className="text-white/80 font-mono text-xl tracking-[0.25em] select-all">
+                  {localSyncCode ?? '···-···'}
+                </span>
+              </div>
             </div>
 
             {/* Pending approvals */}

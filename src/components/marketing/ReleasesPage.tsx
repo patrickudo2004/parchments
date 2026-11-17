@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Bug, CheckCircle, ArrowLeft, GitCommit, ExternalLink } from 'lucide-react';
+import { Sparkles, Bug, CheckCircle, ArrowLeft, GitCommit, ExternalLink, Download, Globe } from 'lucide-react';
 import { MarketingLayout } from './MarketingLayout';
+import { APP_VERSION } from '@/lib/version';
 
 interface ReleaseItem {
     version: string;
@@ -15,9 +16,51 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.2.20",
+        date: "November 17, 2026",
+        isLatest: true,
+        description: "Full Android mobile studio overhaul, persistent phone local folder storage with Scoped Storage fallback, Desktop ↔ Android Wi-Fi & QR live sync, Markdown image asset persistence (.assets/images/), offline Theological Speech Engine upgrades, and interactive showcase video tour.",
+        features: [
+            "Persistent Android Phone Local Folders: Native Capacitor folder storage persists cleanly across Android restarts with automatic Directory.Documents → Directory.External fallback on Android Scoped Storage EACCES restrictions.",
+            "Android ↔ Desktop Live Wi-Fi & QR Collaboration: Auto-initialized E2EE sync identity on startup, enabled mixed-content ws:// LAN transport in Capacitor WebView, added copyable ws:// manual host address & 6-digit PIN guidance, and isolated joined notes into clean Shared Note rooms.",
+            "Markdown Image & Study Diagram Persistence: Paste, drag, or upload images stored in .assets/images/<uuid>.ext in Local Folder mode (with IndexedDB base64 fallback) and hydrated automatically upon reopening.",
+            "Theological Speech Normalizer: On-device Whisper AI transcription accurately resolves biblical terms (Melchizedek, propitiation, Habakkuk, Thessalonians) and spoken citations ('John chapter 3 verse 16' → John 3:16).",
+            "Website Guided Product Tour: Added interactive 30-second widescreen product video showcase with chapter jump controls to the landing page and user guide."
+        ],
+        improvements: [
+            "360px Mobile Studio Ergonomics: Two-row responsive BibleReader header (eliminating truncated book controls), two-row Pulpit Mode prompter header, pinned formatting advanced toggle, and stacked Settings storage cards.",
+            "Expanded Mobile + Tools Sheet: One-tap access on phones to Voice Studio, TSK References, Strong's Lexicon, Commentary, Dictionary, Pinned Research, Dark/Light Theme toggle, and Collaborate / Sync.",
+            "Android CI Pipeline Hardening: Added Google Maven Central mirror and retry flags in Gradle release workflow.",
+            "Production Website Modernization: Removed outdated Beta labels across navigation and README, fixed subpage navigation links, fixed raw LaTeX rendering on /accessibility, and added media blob playback authorization to Vercel CSP."
+        ],
+        fixes: [
+            "Fixed Android phone local folder reverting to sandboxed browser database mode on app restart.",
+            "Fixed Share Note visibility on fresh Android installs, html5-qrcode camera unmount crashes when switching to manual entry, and Local Folder Yjs host broadcasting.",
+            "Fixed VoiceNotePlayer AbortError promise rejections on unmount and deferred VoiceRecorder dismissal until microphone permission alerts close.",
+            "Fixed mobile header overlap, BibleReader header clipping at 360px, and horizontal overflow on legal/guide pages."
+        ]
+    },
+    {
+        version: "v0.2.19",
+        date: "November 10, 2026",
+        isLatest: false,
+        description: "100% air-gapped offline AI & semantic architecture: pre-bundled Whisper speech recognition models, MiniLM neural semantic search models, self-hosted Inter & Merriweather typography, and nested subfolder voice note fixes.",
+        features: [
+            "100% Pre-Bundled Offline AI Models: Embedded Whisper Tiny/Base speech recognition weights and MiniLM neural semantic embeddings directly into application builds for zero-download air-gapped use.",
+            "Self-Hosted Typography Suite: Bundled Inter and Merriweather font weights directly inside the workspace with zero Google Fonts network dependency."
+        ],
+        improvements: [
+            "Hardened offline Web Worker initialization with English-only Whisper parameter guards and single-threaded WASM scheduling.",
+            "Verified 100% network air-gap compliance for voice dictation and semantic search."
+        ],
+        fixes: [
+            "Fixed Voice Note creation and audio file resolution inside nested subfolders in Local Folder mode."
+        ]
+    },
+    {
         version: "v0.2.18",
         date: "October 30, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Desktop cross-platform audio & speech remediation: bundled all 4 ONNX Runtime WASM binaries (JSEP & WASM SIMD threaded) directly into the app bundle, expanded desktop Content Security Policy to authorize blob media playback, mapped native file audio MIME types, and integrated macOS microphone hardware entitlements.",
         features: [
             "Local ONNX Runtime WASM Bundling: Bundled all 4 essential WebAssembly binaries (`ort-wasm-simd-threaded.jsep.wasm`, `ort-wasm-simd-threaded.wasm`, `.mjs`) directly into `/dist/ort/`, eliminating 404 HTML fallback compile errors during desktop offline AI inference.",
@@ -402,13 +445,50 @@ export const ReleasesPage: React.FC = () => {
                 </div>
 
                 {/* Header */}
-                <div className="mb-20 text-center md:text-left">
-                    <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase mb-4 leading-none">
+                <div className="mb-6 text-center md:text-left">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[11px] font-black uppercase tracking-widest text-primary mb-4">
+                        Production Release • v{APP_VERSION}
+                    </div>
+                    <h1 className="text-3xl sm:text-4xl md:text-6xl font-black italic tracking-tighter uppercase mb-4 leading-none">
                         Releases & Updates
                     </h1>
                     <p className="text-white/60 text-lg max-w-2xl leading-relaxed">
-                        Track the evolution of Parchments. Explore new features, performance improvements, and bugs resolved by our team.
+                        Track every Parchments release and download verified v{APP_VERSION} packages for Windows, macOS, Linux, and Android.
                     </p>
+                </div>
+
+                {/* Direct Downloads for Current Release */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5 mb-16">
+                    <a
+                        href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_x64_en-US.msi`}
+                        className="min-h-[40px] px-4 py-2 rounded-xl bg-white text-black hover:bg-primary font-bold text-xs inline-flex items-center gap-2 transition-colors"
+                    >
+                        <Download size={14} /> Windows (.msi)
+                    </a>
+                    <a
+                        href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_universal.dmg`}
+                        className="min-h-[40px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 font-bold text-xs inline-flex items-center gap-2 transition-colors"
+                    >
+                        <Download size={14} /> macOS (.dmg)
+                    </a>
+                    <a
+                        href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/Parchments_${APP_VERSION}_amd64.AppImage`}
+                        className="min-h-[40px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 font-bold text-xs inline-flex items-center gap-2 transition-colors"
+                    >
+                        <Download size={14} /> Linux (.AppImage)
+                    </a>
+                    <a
+                        href={`https://github.com/patrickudo2004/parchments/releases/download/v${APP_VERSION}/parchments-android.apk`}
+                        className="min-h-[40px] px-4 py-2 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 font-bold text-xs inline-flex items-center gap-2 transition-colors"
+                    >
+                        <Download size={14} /> Android (.apk)
+                    </a>
+                    <a
+                        href="/app"
+                        className="min-h-[40px] px-4 py-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/80 hover:text-white border border-white/10 font-bold text-xs inline-flex items-center gap-2 transition-colors"
+                    >
+                        <Globe size={14} /> Open Web App
+                    </a>
                 </div>
 
                 {/* Releases Timeline */}

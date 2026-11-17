@@ -4,7 +4,7 @@ import type { Note, Folder } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import {
     fileSystem,
-    isCapacitor,
+    checkIsCapacitor,
     checkIsTauri,
     isWebFileSystemSupported,
     type FileSystemDirectoryHandle,
@@ -297,10 +297,13 @@ interface NoteStore {
     initStorageFoundation: () => Promise<void>;
 }
 
-const hasNativeFs = typeof window !== 'undefined' && (checkIsTauri() || isCapacitor);
-const isFileSystemSupported = isWebFileSystemSupported();
-// Never disable local folder mode merely because the desktop browser window is < 1024px wide
-const autoSandbox = isCapacitor || (!hasNativeFs && !isFileSystemSupported);
+function checkIsAutoSandbox(): boolean {
+    if (typeof window === 'undefined') return false;
+    const hasNativeFs = checkIsTauri() || checkIsCapacitor();
+    return !hasNativeFs && !isWebFileSystemSupported();
+}
+
+const autoSandboxInit = checkIsAutoSandbox();
 
 const savedStorageFoundation = typeof window !== 'undefined' ? (localStorage.getItem('parchments-storage-foundation') as 'local' | 'browser' | null) : null;
 const savedLastFolderName = typeof window !== 'undefined' ? localStorage.getItem('parchments-last-folder-name') : null;
@@ -315,15 +318,15 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     storageFoundation: savedStorageFoundation,
     lastLocalFolderName: savedLastFolderName,
     pendingLocalRawHandle: null,
-    needsLocalReconnect: savedStorageFoundation === 'local' && !autoSandbox,
+    needsLocalReconnect: savedStorageFoundation === 'local' && !autoSandboxInit,
     isMigrationModalOpen: false,
     pendingMigrationCount: 0,
     setIsMigrationModalOpen: (open) => set({ isMigrationModalOpen: open }),
-    isLocalMode: savedStorageFoundation === 'local' ? !autoSandbox : false,
+    isLocalMode: savedStorageFoundation === 'local' ? !autoSandboxInit : false,
     localDirectoryHandle: null,
     localFiles: [],
     currentFileHandle: null,
-    hasStudyspace: savedStorageFoundation === 'browser' || (savedStorageFoundation === 'local' && autoSandbox),
+    hasStudyspace: savedStorageFoundation === 'browser' || (savedStorageFoundation === 'local' && autoSandboxInit),
     isWorkspaceLocked: false,
     lockedNotesBuffer: [],
     activeWorkspaceId: null,
@@ -1126,7 +1129,42 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             }
         }
 
-        // 2. Web App 1-click reconnect using persisted FileSystemDirectoryHandle in IndexedDB
+        // 2. Capacitor Android/iOS reconnect using native Documents/External Parchments folder
+        if (checkIsCapacitor()) {
+            try {
+                const handle = await fileSystem.openDirectory();
+                localStorage.setItem('parchments-storage-foundation', 'local');
+                localStorage.setItem('parchments-last-folder-name', handle.name);
+                if (handle.path) {
+                    localStorage.setItem('parchments-last-folder-path', handle.path);
+                }
+                set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    lastLocalFolderName: handle.name,
+                    localDirectoryHandle: handle,
+                    needsLocalReconnect: false,
+                    hasStudyspace: true,
+                    currentNote: null,
+                    currentFileHandle: null,
+                    selectedFolderId: null
+                });
+                await get().refreshLocalFiles(true);
+                await get().flushWorkspaceLockBuffer();
+                useUIStore.getState().openLeftSidebar('files');
+                useUIStore.getState().showToast(`Reconnected phone folder '${handle.name}'`, 'success');
+                return;
+            } catch (err: any) {
+                console.warn('[NoteStore] Capacitor local folder reconnect failed:', err);
+                useUIStore.getState().showToast(
+                    `Could not access phone folder: ${err?.message || 'Storage permission denied'}`,
+                    'error'
+                );
+                return;
+            }
+        }
+
+        // 3. Web App 1-click reconnect using persisted FileSystemDirectoryHandle in IndexedDB
         if (!isDesktopTauri) {
             const rawHandle = get().pendingLocalRawHandle || (await loadPersistedDirectoryHandle());
             if (rawHandle) {
@@ -1206,8 +1244,41 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             }
         }
 
-        // Web App: load persisted FileSystemDirectoryHandle from IndexedDB
-        if (!isDesktopTauri && !isCapacitor) {
+        // 2. Capacitor Mobile App: auto-reconnect saved phone folder (Documents/Parchments or External fallback)
+        if (checkIsCapacitor() && savedFoundation === 'local') {
+            try {
+                const handle = await fileSystem.openDirectory();
+                if (handle.path) {
+                    localStorage.setItem('parchments-last-folder-path', handle.path);
+                }
+                set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    lastLocalFolderName: handle.name || savedName || 'Parchments',
+                    localDirectoryHandle: handle,
+                    needsLocalReconnect: false,
+                    hasStudyspace: true
+                });
+                await get().refreshLocalFiles(true);
+                console.log(`[NoteStore] Auto-reconnected Capacitor phone folder: ${handle.name}`);
+                return;
+            } catch (err) {
+                console.warn('[NoteStore] Failed to auto-reconnect Capacitor phone folder:', err);
+                set({
+                    isLocalMode: true,
+                    storageFoundation: 'local',
+                    localDirectoryHandle: null,
+                    needsLocalReconnect: true,
+                    hasStudyspace: false
+                });
+                return;
+            }
+        }
+
+        const autoSandbox = checkIsAutoSandbox();
+
+        // 3. Web App: load persisted FileSystemDirectoryHandle from IndexedDB
+        if (!isDesktopTauri && !checkIsCapacitor()) {
             const savedRawHandle = await loadPersistedDirectoryHandle();
             if (savedRawHandle) {
                 const folderName = savedRawHandle.name || savedName || 'Local Folder';

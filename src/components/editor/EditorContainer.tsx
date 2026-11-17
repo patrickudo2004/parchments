@@ -8,17 +8,18 @@ import { AlertCircle } from 'lucide-react';
 
 export const EditorContainer: React.FC = () => {
     const { currentNote, isLocalMode, setCurrentNote } = useNoteStore();
-    const { identity, activeRoom } = useSyncStore();
+    const { identity, activeRoom, isLocalSyncActive } = useSyncStore();
 
     // Force key change on room/mode switch to guarantee clean Tiptap mount
     const editorKey = currentNote
-        ? `${currentNote.id}-${isLocalMode}-${!!activeRoom}-${identity?.publicKey?.slice(0, 10)}`
+        ? `${currentNote.id}-${isLocalMode}-${!!activeRoom || isLocalSyncActive}-${identity?.publicKey?.slice(0, 10)}`
         : 'empty';
 
     // Only use Yjs sync when:
     // 1. In DB mode (not local mode), OR
-    // 2. Actively in a single-note collaboration room
-    const shouldSync = !isLocalMode || !!activeRoom;
+    // 2. Actively in a single-note collaboration room, OR
+    // 3. Actively hosting/joined in a Local Wi-Fi sync session
+    const shouldSync = !isLocalMode || !!activeRoom || isLocalSyncActive;
 
     return (
         <div className="h-full flex flex-col bg-light-background dark:bg-dark-background relative overflow-hidden">

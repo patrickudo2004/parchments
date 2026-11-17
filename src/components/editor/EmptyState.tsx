@@ -19,6 +19,7 @@ import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { useUIStore } from '@/stores/uiStore';
 import { useReadingPlanStore } from '@/stores/readingPlanStore';
 import { Capacitor } from '@capacitor/core';
+import { checkIsCapacitor } from '@/lib/filesystem/FileSystemService';
 
 export const EmptyState: React.FC = () => {
     const {
@@ -49,8 +50,9 @@ export const EmptyState: React.FC = () => {
     const isNativeApp = typeof window !== 'undefined' && (
         !!(window as any).__TAURI_INTERNALS__ ||
         !!(window as any).__TAURI__ ||
-        Capacitor.isNativePlatform()
+        checkIsCapacitor()
     );
+    const isAndroidNative = checkIsCapacitor() || Capacitor.isNativePlatform();
     const canOpenLocalFolder = isNativeApp || isFileSystemSupported;
 
     // First Launch / No Studyspace Choice Screen
@@ -120,15 +122,15 @@ export const EmptyState: React.FC = () => {
                                         <HardDrive size={24} />
                                     </div>
                                     <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                        Best for PC / Mac
+                                        {isAndroidNative ? 'Phone Storage' : 'Best for PC / Mac'}
                                     </span>
                                 </div>
 
                                 <h3 className="text-lg font-bold text-light-text-primary dark:text-white mb-1.5">
-                                    Local Computer Folder
+                                    {isAndroidNative ? 'Local Phone Folder' : 'Local Computer Folder'}
                                 </h3>
                                 <p className="text-xs text-light-text-secondary dark:text-white/60 mb-5 leading-relaxed">
-                                    Stores your study notes as standard <strong className="text-light-text-primary dark:text-white">.md Markdown</strong> files in an actual folder on your hard drive.
+                                    Stores your study notes as standard <strong className="text-light-text-primary dark:text-white">.md Markdown</strong> files directly on your {isAndroidNative ? 'device storage' : 'hard drive'}.
                                 </p>
 
                                 <ul className="space-y-2.5 text-xs text-light-text-secondary dark:text-white/60 mb-6">
@@ -153,7 +155,7 @@ export const EmptyState: React.FC = () => {
                                     className="w-full py-4 px-6 bg-primary text-[#121212] font-black rounded-2xl text-xs sm:text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer touch-manipulation min-h-[50px]"
                                 >
                                     <Upload size={18} />
-                                    <span>Choose Folder on PC / Mac</span>
+                                    <span>{isAndroidNative ? 'Use Phone Parchments Folder' : 'Choose Folder on PC / Mac'}</span>
                                 </button>
                             ) : (
                                 <div className="p-3 rounded-2xl bg-light-background dark:bg-white/[0.03] border border-light-border dark:border-white/5 text-[11px] text-light-text-secondary dark:text-white/50 flex items-start gap-2">

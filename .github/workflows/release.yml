@@ -83,13 +83,13 @@ jobs:
         run: npx cap sync android
 
       - name: set up gradle cache
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/actions/setup-gradle@v4
 
       - name: build release apk
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --max-workers=2 -Dorg.gradle.internal.http.retry.max=5 || (sleep 10 && ./gradlew assembleRelease --max-workers=2 -Dorg.gradle.internal.http.retry.max=5)
 
       - name: rename apk
         run: |

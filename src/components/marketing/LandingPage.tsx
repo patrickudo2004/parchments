@@ -98,35 +98,35 @@ const SCENARIO_ITEMS: ScenarioItem[] = [
         scenarioTitle: 'Scenario 4: 100% Data Sovereignty on Your Drive',
         device: 'Universal Desktop & Web',
         image: '/screenshots/scenarios/scenario9_local_folder_connected.png',
-        headline: 'Physical .md Files with Standard YAML Frontmatter',
-        caption: 'Connect any folder on your computer. Your sermons and notes stay on your local disk as readable Markdown files—fully compatible with Obsidian, VS Code, and Git backup tools.',
-        altText: 'Parchments Storage Foundation settings showing active connection to a local computer folder with direct Markdown file access and zero cloud dependency.',
-        story: 'Never worry about subscription price hikes, proprietary file formats, or cloud shutdowns. Your life’s theological work belongs to you in open, portable, standard Markdown on your own hardware. Switch between browser IndexedDB and local physical folders with one-click migration.',
+        headline: 'Physical .md Files with Portable .assets/images/ & YAML Frontmatter',
+        caption: 'Connect any folder on your computer. Your sermons, notes, and embedded study images stay on your local disk as standard Markdown files—fully compatible with Obsidian, VS Code, and Git.',
+        altText: 'Parchments Storage Foundation settings showing active connection to a local computer folder with direct Markdown file and image asset access.',
+        story: 'Never worry about subscription price hikes, broken image links, proprietary file formats, or cloud shutdowns. Your life’s theological work belongs to you in open, portable Markdown on your own hardware, with embedded diagrams and photos stored cleanly in .assets/images/.',
         highlights: [
-            'Direct access to physical .md files on your local hard drive',
+            'Direct access to physical .md files and .assets/images/ on your local hard drive',
+            'Drag, paste, or insert study diagrams & pictures with automatic Markdown asset hydration',
             'Standard YAML frontmatter metadata (title, tags, created, updated)',
             'Interoperable with Obsidian, VS Code, Zotero, and Git version control',
-            'Browser IndexedDB mode includes AES-GCM cryptographic encryption',
             'One-click library export and seamless folder-to-database migration'
         ]
     },
     {
         id: 'voice',
         label: 'Voice-to-Text Studio',
-        badge: 'On-Device AI',
-        scenarioTitle: 'Scenario 5: Hands-Free Sermon Dictation & Drafting',
+        badge: 'Theological AI',
+        scenarioTitle: 'Scenario 5: Hands-Free Sermon Dictation & Theological Speech Engine',
         device: 'Desktop & Tablet Studio',
         image: '/screenshots/scenarios/scenario6_voice_note_editor.png',
-        headline: '100% On-Device Whisper Voice Transcription',
-        caption: 'Dictate sermon outlines and prayer walks with Whisper WebAssembly. Transcribes spoken words directly at the cursor in real time with zero audio sent to any external server.',
-        altText: 'Parchments rich text sermon editor with active voice recording waveform and real-time speech transcription inserted at the cursor.',
-        story: 'Capture fleeting sermon insights while pacing your office or praying in study. Local AI transcribes your spoken reflections directly into your TipTap rich-text manuscript without risking privacy, transmitting audio files, or leaking sermon drafts to commercial cloud providers.',
+        headline: '100% Offline Whisper AI + Theological Speech Normalizer',
+        caption: 'Dictate sermon outlines and spoken Scripture citations offline. Accurately recognizes biblical terms (Melchizedek, propitiation, Habakkuk) and formats spoken verses ("John chapter 3 verse 16" → John 3:16) in real time.',
+        altText: 'Parchments rich text sermon editor with active voice recording waveform and real-time theological speech transcription inserted at the cursor.',
+        story: 'Standard voice typing butchers biblical names and fails without Wi-Fi. Parchments combines on-device Whisper WebAssembly with a dedicated Theological Speech Processor that recognizes Greek, Hebrew, and doctrinal terms while turning spoken Scripture citations into interactive verse links on the fly.',
         highlights: [
-            'Real-time speech-to-text dictation directly at active editor cursor',
-            'Whisper WebAssembly models run 100% in local browser Web Workers',
-            'Zero audio streamed or uploaded to OpenAI, Google, or Microsoft',
-            'Floating audio recording pill with live audio waveform feedback',
-            'TipTap rich-text formatting with automatic scripture verse linking'
+            'Theological Speech Processor accurately resolves biblical names (Melchizedek, Habakkuk, propitiation, Thessalonians)',
+            'Spoken Scripture citation formatter ("First Corinthians chapter 13 verse 4 to 8" → 1 Corinthians 13:4-8)',
+            'Whisper WebAssembly (Tiny.en & Base.en) runs 100% offline in local Web Workers',
+            'Streaming chunk boundary deduplication with acoustic microphone resonance feedback',
+            'Zero audio streamed or uploaded to OpenAI, Google, or external cloud servers'
         ]
     },
     {
@@ -242,6 +242,13 @@ const COMPARISON_DATA = [
         logos: 'Cloud lookups / separate panels',
         obsidian: 'Requires third-party community regex plugins',
         notion: 'Not supported (manual copy-paste only)'
+    },
+    {
+        feature: 'Offline Theological Voice Dictation & Verse Formatting',
+        parchments: 'Built-in Whisper AI + Theological Normalizer',
+        logos: 'Not supported',
+        obsidian: 'OS dictation only (mishears biblical names)',
+        notion: 'Paid cloud AI add-on'
     },
     {
         feature: 'Live Sunday Pulpit Deck & Stage Prompter',
@@ -403,7 +410,7 @@ export const LandingPage: React.FC = () => {
                                 </a>
 
                                 <button
-                                    onClick={() => alert("To install on iOS / iPadOS:\n1. Open Safari.\n2. Navigate to https://parchments.vercel.app\n3. Tap the Share button in Safari.\n4. Tap 'Add to Home Screen'.")}
+                                    onClick={() => alert("To install on iOS / iPadOS:\n1. Open Safari.\n2. Navigate to https://parchments-rust.vercel.app\n3. Tap the Share button in Safari.\n4. Tap 'Add to Home Screen'.")}
                                     className="min-h-[44px] px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 hover:border-white/10 rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer touch-manipulation"
                                     title="Instructions for iPad and iPhone PWA installation"
                                     aria-label="Instructions for installing Parchments as an iOS progressive web application"

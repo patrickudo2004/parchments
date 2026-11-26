@@ -23,9 +23,11 @@ import {
     X,
     ArrowRight,
     RotateCcw,
-    FolderInput
+    FolderInput,
+    GripVertical
 } from 'lucide-react';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { DeleteProtectionModal } from '@/components/ui/DeleteProtectionModal';
+import { TrashModal } from '@/components/notes/TrashModal';
 import { PromptModal } from '@/components/ui/PromptModal';
 import { MoveNoteModal } from '@/components/notes/MoveNoteModal';
 import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
@@ -41,7 +43,9 @@ export const FilesSidebar: React.FC = () => {
     const {
         currentNote,
         setCurrentNote, createNote, createVoiceNote, createFolder,
-        notes, folders, deleteNote, deleteFolder,
+        notes, folders, trashItems, deleteNote, deleteFolder,
+        moveNoteToTrash, moveFolderToTrash, getFolderBlastRadius,
+        moveNote, moveFolder,
         isLocalMode, localFiles, openLocalFolder, openLocalFile,
         createLocalFolder,
         renameNote, renameFolder,
@@ -292,6 +296,104 @@ export const FilesSidebar: React.FC = () => {
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [shareNoteId, setShareNoteId] = useState<string | null>(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isTrashOpen, setIsTrashOpen] = useState(false);
+
+    // Drag-and-Drop State (Desktop HTML5 + Touch Pointer)
+    const [dragItem, setDragItem] = useState<{ id: string; kind: 'file' | 'folder'; name: string } | null>(null);
+    const [dropTargetId, setDropTargetId] = useState<string | '__ROOT__' | null>(null);
+    const [touchGhostPos, setTouchGhostPos] = useState<{ x: number; y: number } | null>(null);
+    const hoverExpandTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const visibleTrashCount = trashItems.filter(t => t.storageMode === (isLocalMode ? 'local' : 'browser')).length;
+
+    const clearHoverExpandTimer = () => {
+        if (hoverExpandTimerRef.current) {
+            clearTimeout(hoverExpandTimerRef.current);
+            hoverExpandTimerRef.current = null;
+        }
+    };
+
+    const scheduleAutoExpandFolder = (folderId: string) => {
+        clearHoverExpandTimer();
+        hoverExpandTimerRef.current = setTimeout(() => {
+            setExpandedFolders(prev => {
+                if (prev.has(folderId)) return prev;
+                const next = new Set(prev);
+                next.add(folderId);
+                return next;
+            });
+        }, 550);
+    };
+
+    const executeDrop = async (
+        source: { id: string; kind: 'file' | 'folder'; name: string },
+        target: string | '__ROOT__' | null
+    ) => {
+        clearHoverExpandTimer();
+        setDragItem(null);
+        setDropTargetId(null);
+        setTouchGhostPos(null);
+
+        if (!target) return;
+        const destFolderId = target === '__ROOT__' ? null : target;
+        if (source.kind === 'folder' && source.id === destFolderId) return;
+
+        if (source.kind === 'file') {
+            await moveNote(source.id, destFolderId);
+        } else {
+            await moveFolder(source.id, destFolderId);
+        }
+    };
+
+    // Touch-friendly pointer drag initiated from drag handle (never interferes with normal vertical scroll)
+    const startTouchDrag = (
+        e: React.PointerEvent,
+        item: { id: string; kind: 'file' | 'folder'; name: string }
+    ) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setDragItem(item);
+        setTouchGhostPos({ x: e.clientX, y: e.clientY });
+
+        let latestTarget: string | '__ROOT__' | null = null;
+
+        const onPointerMove = (moveEvent: PointerEvent) => {
+            setTouchGhostPos({ x: moveEvent.clientX, y: moveEvent.clientY });
+            const el = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null;
+            const dropEl = el?.closest('[data-drop-folder-id]') as HTMLElement | null;
+            const targetId = (dropEl?.getAttribute('data-drop-folder-id') as string | '__ROOT__' | null) || null;
+            latestTarget = targetId;
+            setDropTargetId(targetId);
+            if (targetId && targetId !== '__ROOT__') {
+                scheduleAutoExpandFolder(targetId);
+            } else {
+                clearHoverExpandTimer();
+            }
+        };
+
+        const cleanup = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerCancel);
+        };
+
+        const onPointerUp = () => {
+            cleanup();
+            executeDrop(item, latestTarget);
+        };
+
+        const onPointerCancel = () => {
+            cleanup();
+            clearHoverExpandTimer();
+            setDragItem(null);
+            setDropTargetId(null);
+            setTouchGhostPos(null);
+        };
+
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerCancel);
+    };
 
     const [deleteConfig, setDeleteConfig] = useState<{
         isOpen: boolean;
@@ -467,7 +569,16 @@ export const FilesSidebar: React.FC = () => {
         });
     };
 
-    const handleConfirmDelete = async () => {
+    const handleMoveToTrash = async () => {
+        if (deleteConfig.targetType === 'file') {
+            await moveNoteToTrash(deleteConfig.targetId);
+        } else {
+            await moveFolderToTrash(deleteConfig.targetId);
+        }
+        setDeleteConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const handlePermanentDelete = async () => {
         if (deleteConfig.targetType === 'file') {
             await deleteNote(deleteConfig.targetId);
         } else {
@@ -476,12 +587,9 @@ export const FilesSidebar: React.FC = () => {
         setDeleteConfig(prev => ({ ...prev, isOpen: false }));
     };
 
-    const isFolderEmpty = (folderId: string) => {
-        if (isLocalMode) {
-            return !localFiles.some(f => f.parentId === folderId);
-        }
-        return !notes.some(n => n.folderId === folderId) && !folders.some(f => f.parentId === folderId);
-    };
+    const activeDeleteBlast = deleteConfig.isOpen && deleteConfig.targetType === 'folder'
+        ? getFolderBlastRadius(deleteConfig.targetId)
+        : { noteCount: 0, folderCount: 0, sampleNames: [] };
 
     // Desktop Tree Item Renderer
     const renderTreeItem = (item: any, level: number = 0) => {
@@ -499,18 +607,87 @@ export const FilesSidebar: React.FC = () => {
 
         const finalChildren = children;
         const isFolder = item.type === 'folder' || item.kind === 'directory';
+        const isBeingDragged = dragItem?.id === item.id;
+        const isDropHighlighted = isFolder && dropTargetId === item.id && dragItem?.id !== item.id;
 
         return (
             <React.Fragment key={item.id}>
                 <div
+                    draggable
+                    data-tree-item-id={item.id}
+                    data-tree-item-kind={isFolder ? 'folder' : 'file'}
+                    data-drop-folder-id={isFolder ? item.id : undefined}
+                    onDragStart={(e) => {
+                        e.stopPropagation();
+                        const payload = { id: item.id, kind: (isFolder ? 'folder' : 'file') as 'file' | 'folder', name: item.name || item.title || 'Item' };
+                        setDragItem(payload);
+                        e.dataTransfer.effectAllowed = 'move';
+                        try {
+                            e.dataTransfer.setData('application/x-parchments-item', JSON.stringify(payload));
+                            e.dataTransfer.setData('text/plain', payload.name);
+                        } catch {
+                            // Some WebViews restrict custom MIME types
+                        }
+                    }}
+                    onDragOver={(e) => {
+                        if (!isFolder || !dragItem || dragItem.id === item.id) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dropTargetId !== item.id) {
+                            setDropTargetId(item.id);
+                            scheduleAutoExpandFolder(item.id);
+                        }
+                    }}
+                    onDragLeave={(e) => {
+                        if (isFolder && dropTargetId === item.id && !e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setDropTargetId(null);
+                            clearHoverExpandTimer();
+                        }
+                    }}
+                    onDrop={(e) => {
+                        if (!isFolder) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        let source = dragItem;
+                        if (!source) {
+                            try {
+                                const raw = e.dataTransfer.getData('application/x-parchments-item');
+                                if (raw) source = JSON.parse(raw);
+                            } catch {}
+                        }
+                        if (source) {
+                            executeDrop(source, item.id);
+                        }
+                    }}
+                    onDragEnd={() => {
+                        clearHoverExpandTimer();
+                        setDragItem(null);
+                        setDropTargetId(null);
+                    }}
                     onClick={(e) => handleItemClick(e, item)}
-                    className={`group flex items-center justify-between py-2 px-1.5 rounded-lg cursor-pointer text-sm transition-colors select-none min-h-[38px] sm:min-h-[40px] touch-manipulation ${(selectedFolderId === item.id || (!isFolder && currentNote?.id === item.id))
-                        ? 'bg-primary/20 text-primary font-medium'
-                        : 'hover:bg-light-background dark:hover:bg-dark-background'
-                        }`}
+                    className={`group flex items-center justify-between py-2 px-1.5 rounded-lg cursor-pointer text-sm transition-all select-none min-h-[38px] sm:min-h-[40px] touch-manipulation ${
+                        isDropHighlighted
+                            ? 'ring-2 ring-primary bg-primary/15 text-primary font-semibold'
+                            : (selectedFolderId === item.id || (!isFolder && currentNote?.id === item.id))
+                                ? 'bg-primary/20 text-primary font-medium'
+                                : 'hover:bg-light-background dark:hover:bg-dark-background'
+                    } ${isBeingDragged ? 'opacity-45' : ''}`}
                     style={{ paddingLeft: `${level * 16 + 6}px` }}
                 >
                     <div className="flex items-center overflow-hidden flex-1 min-w-0">
+                        <div
+                            onPointerDown={(e) => {
+                                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                                    startTouchDrag(e, { id: item.id, kind: isFolder ? 'folder' : 'file', name: item.name || item.title || 'Item' });
+                                }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-5 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing text-light-text-disabled opacity-0 group-hover:opacity-70 hover:!opacity-100 touch-none transition-opacity"
+                            title="Drag to move into a folder"
+                        >
+                            <GripVertical size={12} />
+                        </div>
                         <div className="w-5 h-5 flex items-center justify-center shrink-0">
                             {hasChildren && (
                                 <div
@@ -850,8 +1027,13 @@ export const FilesSidebar: React.FC = () => {
                                     return (
                                         <div
                                             key={folder.id}
+                                            data-drop-folder-id={folder.id}
                                             onClick={() => setSelectedFolderId(folder.id)}
-                                            className="group flex flex-col justify-between p-4 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-2xl shadow-sm hover:border-primary/50 transition-all active:scale-[0.98] select-none"
+                                            className={`group flex flex-col justify-between p-4 bg-light-background dark:bg-dark-background border rounded-2xl shadow-sm transition-all active:scale-[0.98] select-none ${
+                                                dropTargetId === folder.id && dragItem?.id !== folder.id
+                                                    ? 'border-primary ring-2 ring-primary bg-primary/10'
+                                                    : 'border-light-border dark:border-dark-border hover:border-primary/50'
+                                            }`}
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
@@ -925,6 +1107,14 @@ export const FilesSidebar: React.FC = () => {
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                                                    <div
+                                                        onPointerDown={(e) => startTouchDrag(e, { id: note.id, kind: 'file', name: note.title || note.name || 'Note' })}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-1.5 -ml-1 rounded-lg text-light-text-disabled hover:text-primary cursor-grab active:cursor-grabbing touch-none shrink-0"
+                                                        title="Drag into a folder"
+                                                    >
+                                                        <GripVertical size={14} />
+                                                    </div>
                                                     <div className={`p-1.5 rounded-lg shrink-0 ${note.type === 'voice' ? 'bg-primary/10 text-primary' : 'bg-light-text-secondary/10 text-light-text-secondary dark:text-dark-text-secondary'}`}>
                                                         {note.type === 'voice' ? <Mic size={14} /> : <FileText size={14} />}
                                                     </div>
@@ -995,17 +1185,66 @@ export const FilesSidebar: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Mobile Footer: Trash Drawer Button + Parent Drop Zone while dragging */}
+                <div className="px-4 py-2.5 border-t border-light-border dark:border-dark-border bg-light-background/40 dark:bg-dark-background/40 flex items-center justify-between gap-2 shrink-0">
+                    {dragItem && selectedFolderId ? (
+                        <div
+                            data-drop-folder-id="__ROOT__"
+                            className={`flex-1 py-2 px-3 rounded-xl border border-dashed text-center text-xs font-bold transition-colors ${
+                                dropTargetId === '__ROOT__'
+                                    ? 'border-primary bg-primary/15 text-primary'
+                                    : 'border-primary/40 text-primary/80'
+                            }`}
+                        >
+                            Drop here → Move to Root
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            data-testid="open-trash-btn"
+                            onClick={() => setIsTrashOpen(true)}
+                            className="w-full min-h-[40px] py-2 px-3 rounded-xl flex items-center justify-between text-xs font-bold text-light-text-secondary dark:text-dark-text-secondary hover:text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors touch-manipulation"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Trash2 size={14} />
+                                <span>Recently Deleted (Trash)</span>
+                            </span>
+                            {visibleTrashCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black">
+                                    {visibleTrashCount}
+                                </span>
+                            )}
+                        </button>
+                    )}
+                </div>
+
+                {dragItem && touchGhostPos && createPortal(
+                    <div
+                        className="fixed z-[300] pointer-events-none px-3 py-1.5 rounded-xl bg-primary text-[#121212] text-xs font-black shadow-2xl flex items-center gap-1.5 -translate-x-1/2 -translate-y-full"
+                        style={{ left: touchGhostPos.x, top: touchGhostPos.y - 12 }}
+                    >
+                        {dragItem.kind === 'folder' ? <Folder size={13} /> : <FileText size={13} />}
+                        <span className="max-w-[180px] truncate">{dragItem.name}</span>
+                    </div>,
+                    document.body
+                )}
+
                 {recorderModal}
 
-                <ConfirmModal
+                <DeleteProtectionModal
                     isOpen={deleteConfig.isOpen}
-                    title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'}`}
-                    message={`Are you sure you want to delete "${deleteConfig.targetName}"?`}
-                    confirmLabel="Delete"
-                    onConfirm={handleConfirmDelete}
+                    targetType={deleteConfig.targetType}
+                    targetName={deleteConfig.targetName}
+                    isLocalMode={isLocalMode}
+                    noteCount={activeDeleteBlast.noteCount}
+                    folderCount={activeDeleteBlast.folderCount}
+                    sampleNames={activeDeleteBlast.sampleNames}
+                    onMoveToTrash={handleMoveToTrash}
+                    onPermanentDelete={handlePermanentDelete}
                     onCancel={() => setDeleteConfig(prev => ({ ...prev, isOpen: false }))}
-                    isDanger={true}
                 />
+
+                <TrashModal isOpen={isTrashOpen} onClose={() => setIsTrashOpen(false)} />
 
                 <PromptModal
                     isOpen={promptConfig.isOpen}
@@ -1014,6 +1253,22 @@ export const FilesSidebar: React.FC = () => {
                     defaultValue={promptConfig.defaultValue}
                     onConfirm={promptConfig.onConfirm}
                     onCancel={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
+                />
+
+                <ShareNoteModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => {
+                        setIsShareModalOpen(false);
+                        setShareNoteId(null);
+                    }}
+                    noteId={shareNoteId}
+                />
+
+                <MoveNoteModal
+                    isOpen={moveConfig.isOpen}
+                    onClose={() => setMoveConfig({ isOpen: false, noteId: '', noteTitle: '' })}
+                    noteId={moveConfig.noteId}
+                    noteTitle={moveConfig.noteTitle}
                 />
             </div>
         );
@@ -1204,32 +1459,86 @@ export const FilesSidebar: React.FC = () => {
                                 </button>
                             </div>
                         )}
+                        {/* Root Drop Target Banner while Dragging */}
+                        {dragItem && (
+                            <div
+                                data-testid="root-drop-zone"
+                                data-drop-folder-id="__ROOT__"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = 'move';
+                                    setDropTargetId('__ROOT__');
+                                }}
+                                onDragLeave={() => {
+                                    if (dropTargetId === '__ROOT__') setDropTargetId(null);
+                                }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    if (dragItem) executeDrop(dragItem, '__ROOT__');
+                                }}
+                                className={`mb-2 px-3 py-2 rounded-xl border border-dashed text-[11px] font-bold text-center transition-all ${
+                                    dropTargetId === '__ROOT__'
+                                        ? 'border-primary bg-primary/15 text-primary'
+                                        : 'border-primary/35 bg-primary/5 text-primary/80'
+                                }`}
+                            >
+                                Drop here to move to Workspace Root
+                            </div>
+                        )}
                         {rootItems.map(item => renderTreeItem(item, 0))}
                     </>
                 )}
             </div>
 
-            <ConfirmModal
+            {/* Desktop Footer: Recoverable Trash Safety Net */}
+            <div className="px-2.5 py-2 border-t border-light-border dark:border-dark-border bg-light-background/40 dark:bg-dark-background/30 shrink-0">
+                <button
+                    type="button"
+                    data-testid="open-trash-btn"
+                    onClick={() => setIsTrashOpen(true)}
+                    className="w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary hover:text-primary hover:bg-light-background dark:hover:bg-dark-background transition-colors cursor-pointer"
+                    title="View and restore deleted notes and folders (kept for 30 days)"
+                >
+                    <span className="flex items-center gap-2">
+                        <Trash2 size={13} />
+                        <span>Trash</span>
+                    </span>
+                    {visibleTrashCount > 0 && (
+                        <span
+                            data-testid="trash-count-badge"
+                            className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black"
+                        >
+                            {visibleTrashCount}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            {dragItem && touchGhostPos && createPortal(
+                <div
+                    className="fixed z-[300] pointer-events-none px-3 py-1.5 rounded-xl bg-primary text-[#121212] text-xs font-black shadow-2xl flex items-center gap-1.5 -translate-x-1/2 -translate-y-full"
+                    style={{ left: touchGhostPos.x, top: touchGhostPos.y - 12 }}
+                >
+                    {dragItem.kind === 'folder' ? <Folder size={13} /> : <FileText size={13} />}
+                    <span className="max-w-[180px] truncate">{dragItem.name}</span>
+                </div>,
+                document.body
+            )}
+
+            <DeleteProtectionModal
                 isOpen={deleteConfig.isOpen}
-                title={`Delete ${deleteConfig.targetType === 'file' ? 'File' : 'Folder'}`}
-                message={
-                    deleteConfig.targetType === 'folder' && !isFolderEmpty(deleteConfig.targetId) ? (
-                        <div className="space-y-2">
-                            <p>Are you sure you want to delete <span className="font-bold">"{deleteConfig.targetName}"</span>?</p>
-                            <p className="text-red-500 font-bold flex items-center gap-1 text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                                <AlertTriangle size={16} />
-                                WARNING: This folder contains files. Deleting it may leave those files without a home.
-                            </p>
-                        </div>
-                    ) : (
-                        <p>Are you sure you want to delete <span className="font-bold">"{deleteConfig.targetName}"</span>?</p>
-                    )
-                }
-                confirmLabel="Delete"
-                onConfirm={handleConfirmDelete}
+                targetType={deleteConfig.targetType}
+                targetName={deleteConfig.targetName}
+                isLocalMode={isLocalMode}
+                noteCount={activeDeleteBlast.noteCount}
+                folderCount={activeDeleteBlast.folderCount}
+                sampleNames={activeDeleteBlast.sampleNames}
+                onMoveToTrash={handleMoveToTrash}
+                onPermanentDelete={handlePermanentDelete}
                 onCancel={() => setDeleteConfig(prev => ({ ...prev, isOpen: false }))}
-                isDanger={true}
             />
+
+            <TrashModal isOpen={isTrashOpen} onClose={() => setIsTrashOpen(false)} />
 
             <PromptModal
                 isOpen={promptConfig.isOpen}

@@ -243,7 +243,7 @@ async function run() {
                     brokenAnchors: Array.from(document.querySelectorAll('a[href^="#"]')).filter(a => !document.getElementById((a.getAttribute('href') || '').slice(1))).map(a => a.getAttribute('href')),
                     hasBetaHeaderBtn: Array.from(document.querySelectorAll('header a, header button')).some(el => /Get Beta/i.test(el.textContent || '')),
                     hasVideo: r === '/guide' ? Boolean(document.querySelector('video[src="/videos/parchments-website-showcase.mp4"]')) : undefined,
-                    hasLatestV0220: r === '/releases' ? /v0\.2\.20[\s\S]*Latest Release/i.test(document.body.innerText) : undefined,
+                    hasLatestV0221: r === '/releases' ? /v0\.2\.21[\s\S]*Latest Release/i.test(document.body.innerText) : undefined,
                     hasRawLatex: r === '/accessibility' ? (document.body.innerText.includes('\\ge') || document.body.innerText.includes('\\times') || document.body.innerText.includes('\\text')) : undefined,
                 }), subRoute);
             }
@@ -252,10 +252,10 @@ async function run() {
                 c.brokenAnchors.length > 0 ||
                 c.hasBetaHeaderBtn ||
                 (r === '/guide' && !c.hasVideo) ||
-                (r === '/releases' && !c.hasLatestV0220) ||
+                (r === '/releases' && !c.hasLatestV0221) ||
                 (r === '/accessibility' && c.hasRawLatex)
             );
-            record('Website', 'All website subpages (/guide video, /releases v0.2.20, /accessibility, /privacy, /terms) pass 360px layout & content checks', subpageIssues.length === 0, JSON.stringify(subpageChecks));
+            record('Website', 'All website subpages (/guide video, /releases v0.2.21, /accessibility, /privacy, /terms) pass 360px layout & content checks', subpageIssues.length === 0, JSON.stringify(subpageChecks));
             await page.close();
         }
 

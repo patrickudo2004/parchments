@@ -6,37 +6,44 @@
 
 const APP_SECRET_SALT = new Uint8Array([80, 97, 114, 99, 104, 109, 101, 110, 116, 115, 66, 105, 98, 108, 101, 75]); // "ParchmentsBibleK"
 const ENCRYPTION_PREFIX = 'ENC::v1::';
+const sharedEncoder = new TextEncoder();
+const sharedDecoder = new TextDecoder();
 
 let cachedKey: CryptoKey | null = null;
+let keyPromise: Promise<CryptoKey> | null = null;
 
 async function getEncryptionKey(): Promise<CryptoKey> {
     if (cachedKey) return cachedKey;
+    if (keyPromise) return keyPromise;
 
-    const encoder = new TextEncoder();
-    const rawSecret = encoder.encode('Parchments-Internal-Protection-Key-2026');
+    keyPromise = (async () => {
+        const rawSecret = sharedEncoder.encode('Parchments-Internal-Protection-Key-2026');
 
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        rawSecret,
-        { name: 'PBKDF2' },
-        false,
-        ['deriveKey']
-    );
+        const keyMaterial = await crypto.subtle.importKey(
+            'raw',
+            rawSecret,
+            { name: 'PBKDF2' },
+            false,
+            ['deriveKey']
+        );
 
-    cachedKey = await crypto.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt: APP_SECRET_SALT,
-            iterations: 1000,
-            hash: 'SHA-256'
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt', 'decrypt']
-    );
+        cachedKey = await crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt: APP_SECRET_SALT,
+                iterations: 1000,
+                hash: 'SHA-256'
+            },
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
 
-    return cachedKey;
+        return cachedKey;
+    })();
+
+    return keyPromise;
 }
 
 /**
@@ -48,8 +55,7 @@ export async function encryptVerseText(text: string): Promise<string> {
 
     try {
         const key = await getEncryptionKey();
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
+        const data = sharedEncoder.encode(text);
         const iv = crypto.getRandomValues(new Uint8Array(12));
 
         const encryptedBuffer = await crypto.subtle.encrypt(
@@ -100,8 +106,7 @@ export async function decryptVerseText(ciphertext: string): Promise<string> {
             data
         );
 
-        const decoder = new TextDecoder();
-        return decoder.decode(decryptedBuffer);
+        return sharedDecoder.decode(decryptedBuffer);
     } catch (err) {
         console.error('[BibleCrypto] Decryption failed:', err);
         return ciphertext;

@@ -110,9 +110,13 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
     // Fullscreen state
     const [isFullscreen, setIsFullscreen] = useState(false);
 
-    // Ensure TipTap editor content updates immediately when selecting another note in Pulpit Mode
+    // Track note ID inside Pulpit Mode so we NEVER overwrite unsaved live editor text on mount,
+    // and only load new HTML when the preacher switches to a different note via Sunday Deck / Switcher.
+    const prevPulpitNoteIdRef = useRef<string | null>(currentNote?.id ?? null);
     useEffect(() => {
-        if (editor && currentNote?.content !== undefined) {
+        if (!editor || !currentNote?.id) return;
+        if (prevPulpitNoteIdRef.current !== currentNote.id) {
+            prevPulpitNoteIdRef.current = currentNote.id;
             editor.commands.setContent(currentNote.content || '');
         }
     }, [currentNote?.id, currentNote?.content, editor]);
@@ -397,6 +401,8 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
             }
 
             if (book && chapter) {
+                // Immediately dismiss any desktop hover tooltip so it never floats over the lectern modal
+                window.dispatchEvent(new Event('parchments:dismiss-scripture-tooltip'));
                 setIsAutoScrolling(false);
                 setScriptureTarget({
                     book,
@@ -1100,7 +1106,7 @@ export const PulpitMode: React.FC<PulpitModeProps> = ({ editor, title, onExit })
                         className="pulpit-content font-serif tracking-normal leading-relaxed max-w-none transition-[font-size] duration-150"
                         style={{ fontSize: `${pulpitFontSize}px` }}
                     >
-                        <ScriptureTooltipProvider>
+                        <ScriptureTooltipProvider disableOnTouch={true}>
                             <EditorContent editor={editor} />
                         </ScriptureTooltipProvider>
                     </div>

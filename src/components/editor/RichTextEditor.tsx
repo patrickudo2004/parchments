@@ -55,10 +55,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         focusedHeadingPos,
         setFocusedHeadingPos,
         enableAutoSave,
+        autoSaveFrequency,
+        markdownSupport,
         pulpitMode,
         togglePulpitMode
     } = useUIStore();
     const [title, setTitle] = useState(currentNote?.title || '');
+    const titleValueRef = useRef(title);
+    titleValueRef.current = title;
     const [isSaving, setIsSaving] = useState(false);
 
     // Guards against double-seeding race: ensures IndexedDB has finished loading
@@ -229,7 +233,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         }
     };
 
-    // Debounce Save (2 seconds)
+    // Debounce Save (respects user autoSaveFrequency setting, min 500ms)
     const debouncedSave = useCallback(
         (t: string, c: string) => {
             if (!enableAutoSave) return;
@@ -242,12 +246,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                 clearTimeout(saveTimeoutRef.current);
             }
 
+            const delayMs = Math.max(500, Math.min(30000, autoSaveFrequency || 2000));
             saveTimeoutRef.current = setTimeout(() => {
                 saveTimeoutRef.current = null;
                 saveToDB(t, c, targetId);
-            }, 2000);
+            }, delayMs);
         },
-        [enableAutoSave, currentNote?.id, saveCurrentNote]
+        [enableAutoSave, autoSaveFrequency, currentNote?.id, saveCurrentNote]
     );
 
     const editor = useEditor({
@@ -266,10 +271,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
             Color,
             Highlight.configure({ multicolor: true }),
             BulletList.configure({
-                HTMLAttributes: { class: 'list-disc pl-4' },
+                HTMLAttributes: { class: 'pl-4' },
             }),
             OrderedList.configure({
-                HTMLAttributes: { class: 'list-decimal pl-4' },
+                HTMLAttributes: { class: 'pl-4' },
             }),
             ListItem.extend({
                 addKeyboardShortcuts() {
@@ -449,9 +454,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
         // When sync is enabled, don't set initial content - let Yjs load from IndexedDB
         // Only set content when in local-only mode
         ...(shouldSync ? {} : { content: currentNote?.content || '' }),
+        enableInputRules: markdownSupport ? true : ['scripture', 'scriptureQuote'],
         onUpdate: ({ editor }) => {
             const html = editor.getHTML();
-            debouncedSave(title, html);
+            debouncedSave(titleValueRef.current, html);
             if (shouldSync && ydoc) {
                 const text = ydoc.getText('content');
                 if (text.toString() !== html) {
@@ -462,7 +468,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                 }
             }
         },
-    }, [currentNote?.id, ydoc, provider, shouldSync, activeRoom, identity]);
+    }, [currentNote?.id, ydoc, provider, shouldSync, activeRoom, identity, markdownSupport]);
 
     // Seed Yjs with local content if it's empty and we're starting a sync session.
     // IMPORTANT: We guard behind isPersistenceSynced to prevent double-seeding.
@@ -648,7 +654,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         </div>
                     )}
 
-                    {/* Note Header / Title */}
+                    {/* Note Header / Title — Obsidian-calibrated proportions for long sermon titles */}
                     <textarea
                         ref={titleRef}
                         value={title}
@@ -662,7 +668,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                         }}
                         placeholder="Note Title"
                         rows={1}
-                        className={`w-full text-3xl md:text-5xl font-black mb-8 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block break-words ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''} ${pulpitMode ? 'cursor-default pointer-events-none select-none' : ''}`}
+                        className={`w-full text-2xl sm:text-[30px] md:text-[32px] leading-tight font-extrabold tracking-tight mb-5 bg-transparent border-none outline-none focus:ring-0 placeholder:opacity-20 transition-all hover:placeholder:opacity-30 resize-none overflow-hidden block break-words ${focusedHeadingPos !== null ? 'opacity-20 blur-[1px]' : ''} ${pulpitMode ? 'cursor-default pointer-events-none select-none' : ''}`}
                         style={{ height: 'auto' }}
                     />
 
@@ -785,7 +791,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ activeRoom, iden
                     {/* Tiptap Editor — Always visible & editable (including on Voice Notes for continued typing, formatting & inline dictation) */}
                     <ScriptureTooltipProvider>
                         <div
-                            className={`prose prose-lg dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''} ${pulpitMode ? 'pulpit-active select-none' : ''}`}
+                            className={`prose dark:prose-invert max-w-none tiptap-editor ${focusedHeadingPos !== null ? 'focus-active' : ''} ${pulpitMode ? 'pulpit-active select-none' : ''}`}
                             style={{
                                 fontSize: pulpitMode ? `${Math.max(editorFontSize * 1.35, 24)}px` : `${editorFontSize}px`,
                                 lineHeight: pulpitMode ? 1.8 : editorLineSpacing,

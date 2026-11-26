@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useBibleStore } from '@/stores/bibleStore';
-import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2, AlignLeft, Search } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, X as CloseIcon, ExternalLink, Maximize2, Minimize2, AlignLeft, Search, SlidersHorizontal } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { BibleVerse, BibleVersion } from '@/types/database';
@@ -39,8 +39,9 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
 
     const { pinItem } = useResearchStore();
 
-    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, openCrossRefs, selectedVerseId, setSelectedVerseId } = useUIStore();
+    const { showToast, isMobile, isRightSidebarFloating, toggleRightSidebarFloating, closeRightSidebar, openCrossRefs, selectedVerseId, setSelectedVerseId, bibleFontSize, setBibleFontSize } = useUIStore();
     const [readingFlowMode, setReadingFlowMode] = useState<'study' | 'paragraph'>('study');
+    const [isToolsOpen, setIsToolsOpen] = useState(false);
 
     // Auto-expand/dock logic based on mode
     useEffect(() => {
@@ -335,109 +336,230 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-dark-surface relative overflow-hidden">
-            {/* Nav Header */}
-            <div className="min-h-[3.5rem] sm:h-14 border-b border-light-border dark:border-dark-border flex flex-wrap sm:flex-nowrap items-center justify-between px-2.5 sm:px-3 py-1 sm:py-0 bg-light-background/30 dark:bg-dark-background/20 shrink-0 gap-y-1 gap-x-2">
-                <div className="flex items-center gap-1.5 w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto no-scrollbar">
-                    <select
-                        value={mainVersion}
-                        onChange={(e) => setMainVersion(e.target.value)}
-                        className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0 min-h-[36px] py-1 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
-                    >
-                        {installedVersions.map((v: BibleVersion) => (
-                            <option 
-                                key={v.id} 
-                                value={v.id}
-                                className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+            {/* Compact Nav Header — keeps long book/chapter names unobstructed; extra controls live in collapsible Tools bar */}
+            <div className="border-b border-light-border dark:border-dark-border bg-light-background/30 dark:bg-dark-background/20 shrink-0">
+                <div className="h-12 sm:h-13 flex items-center justify-between px-2.5 sm:px-3 gap-2">
+                    {/* Left: Version + Book/Chapter (full width priority, never covered by icons) */}
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <select
+                            value={mainVersion}
+                            onChange={(e) => setMainVersion(e.target.value)}
+                            aria-label="Bible translation"
+                            className="bg-transparent border-none text-xs font-black uppercase tracking-tight focus:ring-0 cursor-pointer hover:text-primary transition-colors shrink-0 min-h-[34px] py-1 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                        >
+                            {installedVersions.map((v: BibleVersion) => (
+                                <option
+                                    key={v.id}
+                                    value={v.id}
+                                    className="bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary"
+                                >
+                                    {v.abbreviation}
+                                </option>
+                            ))}
+                        </select>
+
+                        {parallelVersions.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsToolsOpen(true)}
+                                className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black shrink-0 hover:bg-primary/25 transition-colors"
+                                title={`Parallel active (${parallelVersions.length + 1} columns) — click to manage`}
                             >
-                                {v.abbreviation}
-                            </option>
-                        ))}
-                    </select>
-
-                    {parallelVersions.map(vid => (
-                        <div key={vid} className="flex items-center bg-primary/10 rounded-full pl-2 pr-1 py-0.5 shrink-0">
-                            <span className="text-[10px] font-black uppercase tracking-tighter text-primary mr-1">
-                                {installedVersions.find(v => v.id === vid)?.abbreviation || vid.toUpperCase()}
-                            </span>
-                            <button onClick={() => removeParallelVersion(vid)} className="text-primary hover:text-primary/70">
-                                <CloseIcon style={{ fontSize: '12px' }} />
+                                +{parallelVersions.length}
                             </button>
+                        )}
+
+                        <div className="w-[1px] h-3.5 bg-light-border dark:bg-dark-border shrink-0" />
+
+                        <button
+                            type="button"
+                            onClick={() => setIsPickerOpen(!isPickerOpen)}
+                            data-testid="bible-chapter-picker-btn"
+                            title={`${book} ${chapter} — click to change book or chapter`}
+                            className={`text-xs sm:text-[13px] font-black tracking-tight hover:text-primary transition-colors min-w-0 flex-1 max-w-full min-h-[34px] px-1.5 py-1 flex items-center gap-1 rounded-lg text-left ${isPickerOpen ? 'text-primary bg-primary/5' : 'text-light-text-primary dark:text-dark-text-primary'}`}
+                        >
+                            <span className="truncate">{book} {chapter}</span>
+                            <span className="shrink-0 text-[10px] opacity-70">{isPickerOpen ? '▴' : '▾'}</span>
+                        </button>
+                    </div>
+
+                    {/* Right: Essential Chapter Nav + Collapsible Tools Toggle */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => handleNavigation('prev')}
+                            title="Previous Chapter"
+                            className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleNavigation('next')}
+                            title="Next Chapter"
+                            className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsToolsOpen(prev => !prev)}
+                            data-testid="bible-reader-tools-toggle"
+                            aria-expanded={isToolsOpen}
+                            aria-label={isToolsOpen ? 'Hide Bible Tools' : 'Show Bible Tools'}
+                            title={isToolsOpen ? 'Hide Bible Tools' : 'Show Bible Tools (Parallel, Search, Interlinear, Font Size)'}
+                            className={`relative min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${
+                                isToolsOpen
+                                    ? 'bg-primary text-white shadow-sm'
+                                    : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'
+                            }`}
+                        >
+                            <SlidersHorizontal size={15} />
+                            {!isToolsOpen && (interlinearEnabled || parallelVersions.length > 0 || readingFlowMode === 'paragraph' || isSearchOpen) && (
+                                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary" />
+                            )}
+                        </button>
+                        {isMobile && !isIndependent && (
+                            <button
+                                type="button"
+                                onClick={closeRightSidebar}
+                                title="Close Bible"
+                                className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-red-500/10 text-light-text-secondary hover:text-red-500 rounded-full transition-colors"
+                            >
+                                <CloseIcon size={16} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Collapsible Secondary Tools Tray */}
+                {isToolsOpen && (
+                    <div
+                        data-testid="bible-reader-tools-bar"
+                        className="px-2.5 sm:px-3 py-2 border-t border-light-border/70 dark:border-dark-border/70 bg-light-surface/70 dark:bg-dark-surface/70 flex flex-wrap items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1 duration-150"
+                    >
+                        {/* Parallel Columns & Add Button */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {parallelVersions.map(vid => (
+                                <div key={vid} className="flex items-center bg-primary/10 rounded-full pl-2 pr-1 py-0.5 shrink-0">
+                                    <span className="text-[10px] font-black uppercase tracking-tighter text-primary mr-1">
+                                        {installedVersions.find(v => v.id === vid)?.abbreviation || vid.toUpperCase()}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeParallelVersion(vid)}
+                                        className="text-primary hover:text-primary/70 p-0.5"
+                                        title={`Remove ${vid.toUpperCase()} parallel column`}
+                                    >
+                                        <CloseIcon size={11} />
+                                    </button>
+                                </div>
+                            ))}
+
+                            {activeVersions.length < 4 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddParallelOpen(!isAddParallelOpen)}
+                                    data-testid="bible-add-parallel-btn"
+                                    className={`flex items-center gap-1 px-2 py-1 min-h-[30px] rounded-lg text-[10px] font-bold border transition-colors ${
+                                        isAddParallelOpen
+                                            ? 'bg-primary text-white border-primary'
+                                            : 'border-light-border dark:border-dark-border text-light-text-secondary dark:text-dark-text-secondary hover:border-primary/40 hover:text-primary'
+                                    }`}
+                                    title="Add Parallel Bible Version"
+                                >
+                                    <Plus size={13} />
+                                    <span>Parallel</span>
+                                </button>
+                            )}
+
+                            {/* Inline Bible Font Size Adjuster (A- / A+) */}
+                            <div className="flex items-center rounded-lg border border-light-border dark:border-dark-border bg-light-background/70 dark:bg-dark-background/60 overflow-hidden">
+                                <button
+                                    type="button"
+                                    data-testid="bible-font-decrease"
+                                    onClick={() => setBibleFontSize((bibleFontSize || 16) - 1)}
+                                    disabled={(bibleFontSize || 16) <= 12}
+                                    className="px-2 py-1 min-h-[28px] text-[11px] font-black hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Decrease Bible text size"
+                                >
+                                    A-
+                                </button>
+                                <span
+                                    data-testid="bible-font-size-label"
+                                    className="px-1.5 text-[10px] font-mono font-bold text-light-text-secondary dark:text-dark-text-secondary select-none"
+                                >
+                                    {bibleFontSize || 16}px
+                                </span>
+                                <button
+                                    type="button"
+                                    data-testid="bible-font-increase"
+                                    onClick={() => setBibleFontSize((bibleFontSize || 16) + 1)}
+                                    disabled={(bibleFontSize || 16) >= 24}
+                                    className="px-2 py-1 min-h-[28px] text-[11px] font-black hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Increase Bible text size"
+                                >
+                                    A+
+                                </button>
+                            </div>
                         </div>
-                    ))}
 
-                    {activeVersions.length < 4 && (
-                        <button
-                            onClick={() => setIsAddParallelOpen(!isAddParallelOpen)}
-                            className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full hover:bg-primary/10 text-primary transition-colors shrink-0 ${isAddParallelOpen ? 'bg-primary/20' : ''}`}
-                            title="Add Parallel Bible Version"
-                        >
-                            <Plus size={18} />
-                        </button>
-                    )}
-
-                    <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1 shrink-0" />
-                    <button
-                        onClick={() => setIsPickerOpen(!isPickerOpen)}
-                        className={`text-xs font-black uppercase tracking-tight hover:text-primary transition-colors shrink-0 min-h-[36px] px-1.5 py-1 flex items-center gap-0.5 rounded-lg ${isPickerOpen ? 'text-primary' : ''}`}
-                    >
-                        {book} {chapter} {isPickerOpen ? '▴' : '▾'}
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-0.5 shrink-0 ml-auto">
-                    {!hideSearchButton && (
-                        <button
-                            onClick={() => setSearchOpen(!isSearchOpen)}
-                            data-testid="bible-reader-search-btn"
-                            className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled hover:text-primary'}`}
-                            title={isSearchOpen ? 'Close Scripture Search' : "Search Scripture (Keywords, References, Strong's)"}
-                            aria-label="Search Scripture"
-                        >
-                            <Search size={16} />
-                        </button>
-                    )}
-                    <button
-                        onClick={toggleInterlinear}
-                        className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${interlinearEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
-                        title="Toggle Interlinear"
-                    >
-                        <Languages size={18} />
-                    </button>
-                    <button
-                        onClick={() => setReadingFlowMode(prev => prev === 'study' ? 'paragraph' : 'study')}
-                        className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full transition-colors ${readingFlowMode === 'paragraph' ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
-                        title={readingFlowMode === 'paragraph' ? "Switch to Verse Study Grid" : "Switch to Continuous Paragraph Flow"}
-                    >
-                        <AlignLeft size={18} />
-                    </button>
-                    {!isIndependent && !isMobile && (
-                        <button
-                            onClick={toggleRightSidebarFloating}
-                            className={`p-1.5 rounded-full transition-colors ${isRightSidebarFloating ? 'bg-primary/10 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-disabled'}`}
-                            title={isRightSidebarFloating ? "Dock Sidebar" : "Undock Sidebar"}
-                        >
-                            {isRightSidebarFloating ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                        </button>
-                    )}
-                    {!isMobile && (
-                    <button
-                        onClick={() => {
-                            popoutService.open('bible');
-                            if (!isIndependent) closeRightSidebar();
-                        }}
-                        className="p-1.5 hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors text-light-text-disabled hover:text-primary"
-                        title="Open in New Window"
-                    >
-                        <ExternalLink size={18} />
-                    </button>
-                    )}
-                    <div className="w-[1px] h-3 bg-light-border dark:border-dark-border mx-1" />
-                    <button onClick={() => handleNavigation('prev')} title="Previous Chapter" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronLeft size={17} /></button>
-                    <button onClick={() => handleNavigation('next')} title="Next Chapter" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-full transition-colors"><ChevronRight size={17} /></button>
-                    {isMobile && !isIndependent && (
-                        <button onClick={closeRightSidebar} title="Close Bible" className="min-w-[34px] min-h-[34px] flex items-center justify-center hover:bg-red-500/10 text-light-text-secondary hover:text-red-500 rounded-full transition-colors"><CloseIcon style={{ fontSize: '17px' }} /></button>
-                    )}
-                </div>
+                        {/* Feature Action Icons */}
+                        <div className="flex items-center gap-1 ml-auto">
+                            {!hideSearchButton && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchOpen(!isSearchOpen)}
+                                    data-testid="bible-reader-search-btn"
+                                    className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg transition-colors ${isSearchOpen ? 'bg-primary text-white' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'}`}
+                                    title={isSearchOpen ? 'Close Scripture Search' : "Search Scripture (Keywords, References, Strong's)"}
+                                    aria-label="Search Scripture"
+                                >
+                                    <Search size={15} />
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={toggleInterlinear}
+                                className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg transition-colors ${interlinearEnabled ? 'bg-primary/15 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'}`}
+                                title="Toggle Greek/Hebrew Interlinear"
+                            >
+                                <Languages size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setReadingFlowMode(prev => prev === 'study' ? 'paragraph' : 'study')}
+                                className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg transition-colors ${readingFlowMode === 'paragraph' ? 'bg-primary/15 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'}`}
+                                title={readingFlowMode === 'paragraph' ? 'Switch to Verse Study Grid' : 'Switch to Continuous Paragraph Flow'}
+                            >
+                                <AlignLeft size={16} />
+                            </button>
+                            {!isIndependent && !isMobile && (
+                                <button
+                                    type="button"
+                                    onClick={toggleRightSidebarFloating}
+                                    className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg transition-colors ${isRightSidebarFloating ? 'bg-primary/15 text-primary' : 'hover:bg-light-background dark:hover:bg-dark-background text-light-text-secondary dark:text-dark-text-secondary hover:text-primary'}`}
+                                    title={isRightSidebarFloating ? 'Dock Sidebar' : 'Undock Sidebar'}
+                                >
+                                    {isRightSidebarFloating ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                                </button>
+                            )}
+                            {!isMobile && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        popoutService.open('bible');
+                                        if (!isIndependent) closeRightSidebar();
+                                    }}
+                                    className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-light-background dark:hover:bg-dark-background rounded-lg transition-colors text-light-text-secondary dark:text-dark-text-secondary hover:text-primary"
+                                    title="Open in New Window"
+                                >
+                                    <ExternalLink size={15} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Parallel Selector Popover */}
@@ -517,14 +639,21 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ isIndependent = false,
 
             {/* Reading Content */}
             <div ref={contentRef} className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className={`${activeVersions.length > 1 ? 'max-w-[1400px]' : 'max-w-4xl'} mx-auto ${isMobile ? 'p-6 pt-10' : 'p-4 sm:p-12'}`}>
-                    <h1 className={`${isMobile ? 'text-3xl' : 'text-5xl'} font-black mb-8 text-light-text-primary dark:text-dark-text-primary tracking-tight`}>
+                <div className={`${activeVersions.length > 1 ? 'max-w-[1400px]' : 'max-w-4xl'} mx-auto ${isMobile ? 'p-5 pt-6' : 'p-5 sm:p-8'}`}>
+                    <h1
+                        data-testid="bible-chapter-heading"
+                        style={{ fontSize: `${Math.round((bibleFontSize || 16) * 1.65)}px` }}
+                        className="font-extrabold leading-tight mb-5 pb-3 border-b border-light-border/60 dark:border-dark-border/60 text-light-text-primary dark:text-dark-text-primary tracking-tight"
+                    >
                         {book} <span className="text-primary">{chapter}</span>
                     </h1>
 
                     {/* Scripture Text — Paragraph Flow vs Verse Study Grid */}
                     {readingFlowMode === 'paragraph' ? (
-                        <div className="font-serif text-lg leading-relaxed text-light-text-primary dark:text-dark-text-primary py-4 select-text">
+                        <div
+                            style={{ fontSize: `${bibleFontSize || 16}px`, lineHeight: 1.72 }}
+                            className="font-serif text-light-text-primary dark:text-dark-text-primary py-3 select-text"
+                        >
                             {sortedVerseNums.map((vNum) => {
                                 const v = groupedVerses[vNum]?.[mainVersion];
                                 if (!v) return null;

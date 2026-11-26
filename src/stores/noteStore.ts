@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import type { Note, Folder } from '@/types/database';
+import type { Note, Folder, TrashItem } from '@/types/database';
 import { db, dbHelpers } from '@/lib/db';
 import {
     fileSystem,
@@ -230,6 +230,7 @@ interface NoteStore {
     currentNote: Note | null;
     notes: Note[];
     folders: Folder[];
+    trashItems: TrashItem[];
     isLoading: boolean;
     // Local File System State
     isLocalMode: boolean;
@@ -243,6 +244,7 @@ interface NoteStore {
     // Actions
     loadNotes: () => Promise<void>;
     loadFolders: () => Promise<void>;
+    loadTrash: () => Promise<void>;
     createNote: (folderId: string | null, title?: string, forceId?: string) => Promise<Note>;
     createNoteFromTemplate: (folderId: string | null, templateId: string) => Promise<Note>;
     createVoiceNote: (folderId: string | null, audioBlob: Blob, duration: number, transcript: string) => Promise<Note>;
@@ -251,9 +253,16 @@ interface NoteStore {
     createFolder: (name: string, parentId?: string | null, forceId?: string) => Promise<Folder>;
     deleteNote: (id: string) => Promise<void>;
     deleteFolder: (id: string) => Promise<void>;
+    moveNoteToTrash: (id: string) => Promise<void>;
+    moveFolderToTrash: (id: string) => Promise<void>;
+    restoreTrashItem: (trashId: string) => Promise<void>;
+    permanentlyDeleteTrashItem: (trashId: string) => Promise<void>;
+    emptyTrash: () => Promise<void>;
+    getFolderBlastRadius: (folderId: string) => { noteCount: number; folderCount: number; sampleNames: string[] };
     renameNote: (id: string, newName: string) => Promise<void>;
     renameFolder: (id: string, newName: string) => Promise<void>;
     moveNote: (noteId: string, destinationFolderId: string | null) => Promise<void>;
+    moveFolder: (folderId: string, destinationParentId: string | null) => Promise<void>;
     setCurrentNote: (note: Note | null) => void;
     updateCurrentNoteMetadata: (metadata: Record<string, any>) => void;
     setNotes: (notes: Note[]) => void;
@@ -312,6 +321,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     currentNote: null,
     notes: [],
     folders: [],
+    trashItems: [],
     isLoading: false,
     selectedFolderId: null,
     setSelectedFolderId: (id) => set({ selectedFolderId: id }),
@@ -735,7 +745,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     },
 
     deleteFolder: async (id) => {
-        const { isLocalMode, localDirectoryHandle, localFiles, folders, currentNote } = get();
+        const { isLocalMode, localDirectoryHandle, localFiles, folders, notes, currentNote } = get();
 
         if (isLocalMode) {
             if (!localDirectoryHandle) return;
@@ -761,17 +771,415 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
                     if (item.parentId) {
                         get().broadcastNoteDeletion(item.parentId, item.id);
                     }
+                    useUIStore.getState().showToast(`Permanently deleted "${item.name}"`, 'info');
                 } catch (error) {
                     console.error('Failed to delete local folder:', error);
                     useUIStore.getState().showToast('Failed to delete local folder.', 'error');
                 }
             }
         } else {
-            await db.folders.delete(id);
-            set({
-                folders: folders.filter((f) => f.id !== id),
+            // Collect folder + all descendant folders & notes cleanly so nothing is orphaned
+            const descendantFolderIds = new Set<string>([id]);
+            let added = true;
+            while (added) {
+                added = false;
+                for (const f of folders) {
+                    if (f.parentId && descendantFolderIds.has(f.parentId) && !descendantFolderIds.has(f.id)) {
+                        descendantFolderIds.add(f.id);
+                        added = true;
+                    }
+                }
+            }
+            const deletedNoteIds = new Set(notes.filter(n => n.folderId && descendantFolderIds.has(n.folderId)).map(n => n.id));
+            const targetFolder = folders.find(f => f.id === id);
+
+            await db.transaction('rw', [db.folders, db.notes], async () => {
+                await db.folders.bulkDelete(Array.from(descendantFolderIds));
+                if (deletedNoteIds.size > 0) {
+                    await db.notes.bulkDelete(Array.from(deletedNoteIds));
+                }
             });
+
+            set({
+                folders: folders.filter(f => !descendantFolderIds.has(f.id)),
+                notes: notes.filter(n => !deletedNoteIds.has(n.id)),
+                selectedFolderId: get().selectedFolderId && descendantFolderIds.has(get().selectedFolderId!) ? null : get().selectedFolderId,
+                currentNote: currentNote && deletedNoteIds.has(currentNote.id) ? null : currentNote,
+            });
+            useUIStore.getState().showToast(`Permanently deleted "${targetFolder?.name || 'Folder'}"`, 'info');
         }
+    },
+
+    getFolderBlastRadius: (folderId: string) => {
+        const { isLocalMode, localFiles, folders, notes } = get();
+        if (isLocalMode) {
+            const normTarget = normalizeFsPath(folderId);
+            const childDirs = new Set<string>([folderId]);
+            let changed = true;
+            while (changed) {
+                changed = false;
+                for (const item of localFiles) {
+                    if (item.kind === 'directory' && item.parentId) {
+                        const parentMatch = childDirs.has(item.parentId) || (normTarget && normalizeFsPath(item.parentId)?.startsWith(normTarget));
+                        if (parentMatch && !childDirs.has(item.id)) {
+                            childDirs.add(item.id);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            const descFolders = localFiles.filter(f => f.kind === 'directory' && f.id !== folderId && childDirs.has(f.id));
+            const descNotes = localFiles.filter(f => f.kind === 'file' && f.parentId && childDirs.has(f.parentId));
+            return {
+                noteCount: descNotes.length,
+                folderCount: descFolders.length,
+                sampleNames: [...descNotes.map(n => n.name), ...descFolders.map(d => `${d.name}/`)].slice(0, 6)
+            };
+        }
+
+        const descFolderIds = new Set<string>([folderId]);
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const f of folders) {
+                if (f.parentId && descFolderIds.has(f.parentId) && !descFolderIds.has(f.id)) {
+                    descFolderIds.add(f.id);
+                    changed = true;
+                }
+            }
+        }
+        const childFolders = folders.filter(f => f.id !== folderId && descFolderIds.has(f.id));
+        const childNotes = notes.filter(n => n.folderId && descFolderIds.has(n.folderId));
+        return {
+            noteCount: childNotes.length,
+            folderCount: childFolders.length,
+            sampleNames: [...childNotes.map(n => n.title), ...childFolders.map(f => `${f.name}/`)].slice(0, 6)
+        };
+    },
+
+    loadTrash: async () => {
+        try {
+            const now = Date.now();
+            const all = await db.trash.toArray();
+            const expired = all.filter(item => item.expiresAt <= now);
+            if (expired.length > 0) {
+                const { localDirectoryHandle } = get();
+                for (const exp of expired) {
+                    if (exp.storageMode === 'local' && exp.localTrashName && localDirectoryHandle) {
+                        try {
+                            const trashDir = await fileSystem.getDirectoryHandle(localDirectoryHandle, '.parchments-trash');
+                            await fileSystem.deleteEntry(trashDir, exp.localTrashName);
+                        } catch {
+                            // Already removed on disk
+                        }
+                    }
+                }
+                await db.trash.bulkDelete(expired.map(e => e.id));
+            }
+            const active = all
+                .filter(item => item.expiresAt > now)
+                .sort((a, b) => b.deletedAt - a.deletedAt);
+            set({ trashItems: active });
+        } catch (err) {
+            console.warn('[NoteStore] Failed to load trash:', err);
+        }
+    },
+
+    moveNoteToTrash: async (id: string) => {
+        const { isLocalMode, localDirectoryHandle, localFiles, notes, currentNote } = get();
+        const now = Date.now();
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        const trashId = `trash-${now}-${Math.random().toString(36).slice(2, 7)}`;
+
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
+            const item = localFiles.find(f => f.id === id && f.kind === 'file');
+            if (!item) return;
+
+            try {
+                let srcParent = localDirectoryHandle;
+                if (item.parentId) {
+                    const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                    if (parent) srcParent = parent.handle as FileSystemDirectoryHandle;
+                }
+                const trashDir = await fileSystem.createDirectory(localDirectoryHandle, '.parchments-trash');
+                const storedName = `${trashId}__${item.name}`;
+                const movedHandle = await fileSystem.moveEntry(item.handle, srcParent, trashDir, storedName);
+
+                const record: TrashItem = {
+                    id: trashId,
+                    storageMode: 'local',
+                    kind: 'file',
+                    name: item.name,
+                    originalParentId: item.parentId,
+                    deletedAt: now,
+                    expiresAt: now + thirtyDays,
+                    localTrashName: movedHandle.name,
+                    localOriginalRelPath: item.id,
+                    localParentRelPath: item.parentId,
+                };
+                await db.trash.put(record);
+
+                if (currentNote?.id === id) {
+                    set({ currentNote: null, currentFileHandle: null });
+                }
+                await get().refreshLocalFiles(true);
+                await get().loadTrash();
+                useUIStore.getState().showToast(`Moved "${item.name}" to Trash`, 'info');
+            } catch (err) {
+                console.error('[NoteStore] Failed to move local note to trash:', err);
+                useUIStore.getState().showToast('Could not move file to Trash.', 'error');
+            }
+            return;
+        }
+
+        const targetNote = notes.find(n => n.id === id);
+        if (!targetNote) return;
+
+        const record: TrashItem = {
+            id: trashId,
+            storageMode: 'browser',
+            kind: 'file',
+            name: targetNote.title || 'Untitled Note',
+            originalParentId: targetNote.folderId,
+            deletedAt: now,
+            expiresAt: now + thirtyDays,
+            noteSnapshot: targetNote,
+        };
+        await db.transaction('rw', [db.notes, db.trash], async () => {
+            await db.trash.put(record);
+            await db.notes.delete(id);
+        });
+        set({
+            notes: notes.filter(n => n.id !== id),
+            currentNote: currentNote?.id === id ? null : currentNote,
+        });
+        await get().loadTrash();
+        useUIStore.getState().showToast(`Moved "${record.name}" to Trash`, 'info');
+    },
+
+    moveFolderToTrash: async (id: string) => {
+        const { isLocalMode, localDirectoryHandle, localFiles, folders, notes, currentNote } = get();
+        const now = Date.now();
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        const trashId = `trash-${now}-${Math.random().toString(36).slice(2, 7)}`;
+
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
+            const item = localFiles.find(f => f.id === id && f.kind === 'directory');
+            if (!item) return;
+
+            try {
+                const blast = get().getFolderBlastRadius(id);
+                let srcParent = localDirectoryHandle;
+                if (item.parentId) {
+                    const parent = localFiles.find(f => f.id === item.parentId && f.kind === 'directory');
+                    if (parent) srcParent = parent.handle as FileSystemDirectoryHandle;
+                }
+                const trashDir = await fileSystem.createDirectory(localDirectoryHandle, '.parchments-trash');
+                const storedName = `${trashId}__${item.name}`;
+                const movedHandle = await fileSystem.moveEntry(item.handle, srcParent, trashDir, storedName);
+
+                const record: TrashItem = {
+                    id: trashId,
+                    storageMode: 'local',
+                    kind: 'folder',
+                    name: item.name,
+                    originalParentId: item.parentId,
+                    deletedAt: now,
+                    expiresAt: now + thirtyDays,
+                    localTrashName: movedHandle.name,
+                    localOriginalRelPath: item.id,
+                    localParentRelPath: item.parentId,
+                    itemCount: blast.noteCount + blast.folderCount,
+                };
+                await db.trash.put(record);
+
+                const normId = normalizeFsPath(id);
+                if (get().selectedFolderId === id || (normId && normalizeFsPath(get().selectedFolderId)?.startsWith(normId))) {
+                    set({ selectedFolderId: null });
+                }
+                if (currentNote?.folderId === id || (normId && normalizeFsPath(currentNote?.folderId)?.startsWith(normId))) {
+                    set({ currentNote: null, currentFileHandle: null });
+                }
+                await get().refreshLocalFiles(true);
+                await get().loadTrash();
+                useUIStore.getState().showToast(`Moved folder "${item.name}" to Trash`, 'info');
+            } catch (err) {
+                console.error('[NoteStore] Failed to move local folder to trash:', err);
+                useUIStore.getState().showToast('Could not move folder to Trash.', 'error');
+            }
+            return;
+        }
+
+        const targetFolder = folders.find(f => f.id === id);
+        if (!targetFolder) return;
+
+        const descFolderIds = new Set<string>([id]);
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const f of folders) {
+                if (f.parentId && descFolderIds.has(f.parentId) && !descFolderIds.has(f.id)) {
+                    descFolderIds.add(f.id);
+                    changed = true;
+                }
+            }
+        }
+        const childFolders = folders.filter(f => f.id !== id && descFolderIds.has(f.id));
+        const childNotes = notes.filter(n => n.folderId && descFolderIds.has(n.folderId));
+        const deletedNoteIds = new Set(childNotes.map(n => n.id));
+
+        const record: TrashItem = {
+            id: trashId,
+            storageMode: 'browser',
+            kind: 'folder',
+            name: targetFolder.name,
+            originalParentId: targetFolder.parentId,
+            deletedAt: now,
+            expiresAt: now + thirtyDays,
+            folderSnapshot: targetFolder,
+            childFolders,
+            childNotes,
+            itemCount: childNotes.length + childFolders.length,
+        };
+
+        await db.transaction('rw', [db.folders, db.notes, db.trash], async () => {
+            await db.trash.put(record);
+            await db.folders.bulkDelete(Array.from(descFolderIds));
+            if (deletedNoteIds.size > 0) {
+                await db.notes.bulkDelete(Array.from(deletedNoteIds));
+            }
+        });
+
+        set({
+            folders: folders.filter(f => !descFolderIds.has(f.id)),
+            notes: notes.filter(n => !deletedNoteIds.has(n.id)),
+            selectedFolderId: get().selectedFolderId && descFolderIds.has(get().selectedFolderId!) ? null : get().selectedFolderId,
+            currentNote: currentNote && deletedNoteIds.has(currentNote.id) ? null : currentNote,
+        });
+        await get().loadTrash();
+        useUIStore.getState().showToast(`Moved folder "${targetFolder.name}" to Trash`, 'info');
+    },
+
+    restoreTrashItem: async (trashId: string) => {
+        const record = await db.trash.get(trashId);
+        if (!record) return;
+
+        const { localDirectoryHandle, localFiles, activeWorkspaceId, folders, notes } = get();
+
+        if (record.storageMode === 'local') {
+            if (!localDirectoryHandle || !record.localTrashName) {
+                useUIStore.getState().showToast('Reconnect your local folder first to restore this item.', 'info');
+                return;
+            }
+            try {
+                const trashDir = await fileSystem.getDirectoryHandle(localDirectoryHandle, '.parchments-trash');
+                const entryHandle = record.kind === 'folder'
+                    ? await fileSystem.getDirectoryHandle(trashDir, record.localTrashName)
+                    : await fileSystem.getFileHandle(trashDir, record.localTrashName);
+
+                let destDir = localDirectoryHandle;
+                if (record.localParentRelPath) {
+                    const normParent = normalizeFsPath(record.localParentRelPath);
+                    const parentItem = localFiles.find(f => f.kind === 'directory' && (f.id === record.localParentRelPath || normalizeFsPath(f.id) === normParent));
+                    if (parentItem) {
+                        destDir = parentItem.handle as FileSystemDirectoryHandle;
+                    }
+                }
+
+                await fileSystem.moveEntry(entryHandle, trashDir, destDir, record.name);
+                await db.trash.delete(trashId);
+                await get().refreshLocalFiles(true);
+                await get().loadTrash();
+                useUIStore.getState().showToast(`Restored "${record.name}"`, 'success');
+            } catch (err) {
+                console.error('[NoteStore] Failed to restore local trash item:', err);
+                useUIStore.getState().showToast('Could not restore file from .parchments-trash.', 'error');
+            }
+            return;
+        }
+
+        // Browser DB Restore
+        if (record.kind === 'file' && record.noteSnapshot) {
+            const parentStillExists = record.originalParentId && folders.some(f => f.id === record.originalParentId);
+            const restoredNote: Note = {
+                ...record.noteSnapshot,
+                folderId: parentStillExists ? record.originalParentId : activeWorkspaceId,
+                updatedAt: Date.now(),
+            };
+            await db.transaction('rw', [db.notes, db.trash], async () => {
+                await db.notes.put(restoredNote);
+                await db.trash.delete(trashId);
+            });
+            set({ notes: [...notes.filter(n => n.id !== restoredNote.id), restoredNote] });
+            await get().loadTrash();
+            useUIStore.getState().showToast(`Restored "${restoredNote.title}"`, 'success');
+        } else if (record.kind === 'folder' && record.folderSnapshot) {
+            const parentStillExists = record.originalParentId && folders.some(f => f.id === record.originalParentId);
+            const restoredRoot: Folder = {
+                ...record.folderSnapshot,
+                parentId: parentStillExists ? record.originalParentId : activeWorkspaceId,
+                updatedAt: Date.now(),
+            };
+            const allRestoredFolders = [restoredRoot, ...(record.childFolders || [])];
+            const allRestoredNotes = record.childNotes || [];
+            await db.transaction('rw', [db.folders, db.notes, db.trash], async () => {
+                await db.folders.bulkPut(allRestoredFolders);
+                if (allRestoredNotes.length > 0) {
+                    await db.notes.bulkPut(allRestoredNotes);
+                }
+                await db.trash.delete(trashId);
+            });
+            await get().loadFolders();
+            await get().loadNotes();
+            await get().loadTrash();
+            useUIStore.getState().showToast(`Restored folder "${restoredRoot.name}"`, 'success');
+        }
+    },
+
+    permanentlyDeleteTrashItem: async (trashId: string) => {
+        const record = await db.trash.get(trashId);
+        if (!record) return;
+        const { localDirectoryHandle } = get();
+        if (record.storageMode === 'local' && record.localTrashName && localDirectoryHandle) {
+            try {
+                const trashDir = await fileSystem.getDirectoryHandle(localDirectoryHandle, '.parchments-trash');
+                await fileSystem.deleteEntry(trashDir, record.localTrashName);
+            } catch {
+                // Already deleted on disk
+            }
+        }
+        await db.trash.delete(trashId);
+        await get().loadTrash();
+        useUIStore.getState().showToast(`Permanently removed "${record.name}"`, 'info');
+    },
+
+    emptyTrash: async () => {
+        const { isLocalMode, localDirectoryHandle, trashItems } = get();
+        const mode = isLocalMode ? 'local' : 'browser';
+        const matching = trashItems.filter(item => item.storageMode === mode);
+        if (matching.length === 0) return;
+
+        if (isLocalMode && localDirectoryHandle) {
+            try {
+                const trashDir = await fileSystem.getDirectoryHandle(localDirectoryHandle, '.parchments-trash');
+                for (const item of matching) {
+                    if (item.localTrashName) {
+                        try {
+                            await fileSystem.deleteEntry(trashDir, item.localTrashName);
+                        } catch {
+                            // Ignore missing file
+                        }
+                    }
+                }
+            } catch {
+                // Trash folder missing
+            }
+        }
+        await db.trash.bulkDelete(matching.map(m => m.id));
+        await get().loadTrash();
+        useUIStore.getState().showToast('Trash emptied permanently', 'info');
     },
 
     renameNote: async (id, newName) => {
@@ -944,13 +1352,83 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         }
 
         // Browser IndexedDB mode
-        await db.notes.update(noteId, { folderId: destinationFolderId, updatedAt: Date.now() });
-        const updatedNotes = notes.map(n => n.id === noteId ? { ...n, folderId: destinationFolderId, updatedAt: Date.now() } : n);
+        const destId = destinationFolderId ?? get().activeWorkspaceId;
+        await db.notes.update(noteId, { folderId: destId, updatedAt: Date.now() });
+        const updatedNotes = notes.map(n => n.id === noteId ? { ...n, folderId: destId, updatedAt: Date.now() } : n);
         set({
             notes: updatedNotes,
-            currentNote: currentNote?.id === noteId ? { ...currentNote, folderId: destinationFolderId } : currentNote
+            currentNote: currentNote?.id === noteId ? { ...currentNote, folderId: destId } : currentNote
         });
         useUIStore.getState().showToast('Note moved successfully', 'success');
+    },
+
+    moveFolder: async (folderId: string, destinationParentId: string | null) => {
+        const { isLocalMode, folders, localFiles, localDirectoryHandle, refreshLocalFiles, activeWorkspaceId } = get();
+
+        if (folderId === destinationParentId) return;
+
+        if (isLocalMode) {
+            if (!localDirectoryHandle) return;
+            const folderItem = localFiles.find(f => f.id === folderId && f.kind === 'directory');
+            if (!folderItem) return;
+
+            const normFolder = normalizeFsPath(folderId);
+            const normDest = normalizeFsPath(destinationParentId);
+            // Cycle guard: cannot move a folder into itself or any of its descendants
+            if (normFolder && normDest && (normDest === normFolder || normDest.startsWith(`${normFolder}/`))) {
+                useUIStore.getState().showToast('Cannot move a folder inside itself.', 'error');
+                return;
+            }
+            if (normalizeFsPath(folderItem.parentId) === normDest) return;
+
+            let srcParentHandle = localDirectoryHandle;
+            if (folderItem.parentId) {
+                const srcParent = localFiles.find(f => f.id === folderItem.parentId && f.kind === 'directory');
+                if (srcParent) srcParentHandle = srcParent.handle as FileSystemDirectoryHandle;
+            }
+
+            let destParentHandle = localDirectoryHandle;
+            if (destinationParentId) {
+                const destParent = localFiles.find(f => (f.id === destinationParentId || normalizeFsPath(f.id) === normDest) && f.kind === 'directory');
+                if (destParent) destParentHandle = destParent.handle as FileSystemDirectoryHandle;
+            }
+
+            try {
+                await fileSystem.moveEntry(folderItem.handle, srcParentHandle, destParentHandle, folderItem.name);
+                await refreshLocalFiles(true);
+                useUIStore.getState().showToast(`Moved folder "${folderItem.name}"`, 'success');
+            } catch (err) {
+                console.error('[moveFolder] Failed to move local folder:', err);
+                useUIStore.getState().showToast('Could not move folder on disk.', 'error');
+            }
+            return;
+        }
+
+        // Browser DB mode with cycle guard
+        const targetParentId = destinationParentId ?? activeWorkspaceId;
+        if (targetParentId === folderId) return;
+
+        // Walk up ancestors of targetParentId to ensure folderId is not an ancestor
+        let cursor = targetParentId;
+        const seen = new Set<string>();
+        while (cursor && !seen.has(cursor)) {
+            if (cursor === folderId) {
+                useUIStore.getState().showToast('Cannot move a folder inside itself.', 'error');
+                return;
+            }
+            seen.add(cursor);
+            const parentFolder = folders.find(f => f.id === cursor);
+            cursor = parentFolder?.parentId ?? null;
+        }
+
+        const currentFolder = folders.find(f => f.id === folderId);
+        if (!currentFolder || currentFolder.parentId === targetParentId) return;
+
+        await db.folders.update(folderId, { parentId: targetParentId, updatedAt: Date.now() });
+        set({
+            folders: folders.map(f => f.id === folderId ? { ...f, parentId: targetParentId, updatedAt: Date.now() } : f),
+        });
+        useUIStore.getState().showToast(`Moved folder "${currentFolder.name}"`, 'success');
     },
 
     setCurrentNote: (note) => {

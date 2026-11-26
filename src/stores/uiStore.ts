@@ -6,10 +6,11 @@ interface UIStore {
     theme: 'light' | 'dark' | 'system';
     density: 'comfortable' | 'compact';
 
-    // Editor
+    // Editor & Reader Typography
     editorFontFamily: 'sans' | 'serif';
     editorFontSize: number;
     editorLineSpacing: number;
+    bibleFontSize: number;
     writingLayout: 'centered' | 'full';
     autoSaveFrequency: number;
     enableAutoSave: boolean;
@@ -108,6 +109,7 @@ interface UIStore {
     setPulpitModeType: (mode: 'scroll' | 'paginate') => void;
     setPulpitScrollSpeed: (speed: number) => void;
     setPulpitFontSize: (size: number) => void;
+    setBibleFontSize: (size: number) => void;
     setPulpitHighContrast: (highContrast: boolean) => void;
     setPulpitTheme: (theme: 'standard' | 'dark' | 'contrast') => void;
     setEditorStats: (words: number, characters: number) => void;
@@ -126,6 +128,7 @@ export const useUIStore = create<UIStore>()(
             editorFontFamily: 'serif',
             editorFontSize: 16,
             editorLineSpacing: 1.5,
+            bibleFontSize: 16,
             writingLayout: 'centered',
             autoSaveFrequency: 5000,
             enableAutoSave: true,
@@ -306,6 +309,7 @@ export const useUIStore = create<UIStore>()(
             setPulpitModeType: (mode) => set({ pulpitModeType: mode }),
             setPulpitScrollSpeed: (speed) => set({ pulpitScrollSpeed: speed }),
             setPulpitFontSize: (size) => set({ pulpitFontSize: size }),
+            setBibleFontSize: (size) => set({ bibleFontSize: Math.max(12, Math.min(24, size)) }),
             setPulpitHighContrast: (highContrast) => set((state) => ({
                 pulpitHighContrast: highContrast,
                 pulpitTheme: highContrast ? 'contrast' : (state.pulpitTheme === 'contrast' ? 'standard' : state.pulpitTheme)
@@ -400,6 +404,7 @@ export const useUIStore = create<UIStore>()(
                 editorFontFamily: state.editorFontFamily,
                 editorFontSize: state.editorFontSize,
                 editorLineSpacing: state.editorLineSpacing,
+                bibleFontSize: state.bibleFontSize,
                 writingLayout: state.writingLayout,
                 autoSaveFrequency: state.autoSaveFrequency,
                 enableAutoSave: state.enableAutoSave,

@@ -54,7 +54,7 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
 
     const isSelected = isFocused || (selectionRange && verseNum >= Math.min(selectionRange.start, selectionRange.end) && verseNum <= Math.max(selectionRange.start, selectionRange.end));
 
-    const { isMobile } = useUIStore();
+    const { isMobile, bibleFontSize } = useUIStore();
 
     return (
         <div
@@ -151,7 +151,11 @@ export const ParallelVerseRow: React.FC<ParallelVerseRowProps> = ({
                             return (
                                 <div
                                     dir={isHebrew ? 'rtl' : 'ltr'}
-                                    className={`inline-block text-lg leading-relaxed font-serif ${isHebrew ? 'text-right text-xl leading-loose font-serif' : isGreek ? 'font-serif' : ''} text-light-text-main dark:text-dark-text-main`}
+                                    style={{
+                                        fontSize: `${isHebrew ? Math.round((bibleFontSize || 16) * 1.18) : (bibleFontSize || 16)}px`,
+                                        lineHeight: isHebrew ? 1.85 : 1.68
+                                    }}
+                                    className={`inline-block font-serif ${isHebrew ? 'text-right font-serif' : isGreek ? 'font-serif' : ''} text-light-text-main dark:text-dark-text-main`}
                                 >
                                     {!v ? (
                                         <span className="text-light-text-disabled italic text-xs">

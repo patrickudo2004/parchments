@@ -6,9 +6,11 @@ import type { BibleVerse } from '@/types/database';
 
 interface ScriptureTooltipProps {
     children: React.ReactNode;
+    /** When true (used in Pulpit Mode), suppresses hover tooltips on touch pointers and dismisses tooltip on scripture click */
+    disableOnTouch?: boolean;
 }
 
-export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ children }) => {
+export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ children, disableOnTouch = false }) => {
     const { verseHoverPreviews } = useBibleStore();
 
     if (!verseHoverPreviews) return <>{children}</>;
@@ -16,7 +18,7 @@ export const ScriptureTooltipProvider: React.FC<ScriptureTooltipProps> = ({ chil
     return (
         <Tooltip.Provider delayDuration={400}>
             {children}
-            <GlobalScriptureListener />
+            <GlobalScriptureListener disableOnTouch={disableOnTouch} />
         </Tooltip.Provider>
     );
 };
@@ -26,7 +28,7 @@ interface VerseSegmentGroup {
     omittedBeforeNotice?: string | null;
 }
 
-const GlobalScriptureListener: React.FC = () => {
+const GlobalScriptureListener: React.FC<{ disableOnTouch?: boolean }> = ({ disableOnTouch = false }) => {
     const { mainVersion } = useBibleStore();
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -36,9 +38,51 @@ const GlobalScriptureListener: React.FC = () => {
     const currentTargetRef = useRef<HTMLElement | null>(null);
     const isHoveringTooltipRef = useRef(false);
     const activeFetchRef = useRef(0);
+    const lastPointerTypeRef = useRef<string>('mouse');
+    const lastTouchTimeRef = useRef<number>(0);
 
     useEffect(() => {
+        const dismissTooltip = () => {
+            if (closeTimeoutRef.current) {
+                clearTimeout(closeTimeoutRef.current);
+                closeTimeoutRef.current = null;
+            }
+            activeFetchRef.current++;
+            setOpen(false);
+            currentTargetRef.current = null;
+        };
+
+        const handlePointerDown = (e: PointerEvent) => {
+            lastPointerTypeRef.current = e.pointerType || 'mouse';
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                lastTouchTimeRef.current = Date.now();
+                if (disableOnTouch) {
+                    dismissTooltip();
+                }
+            }
+        };
+
+        const handleTouchStart = () => {
+            lastPointerTypeRef.current = 'touch';
+            lastTouchTimeRef.current = Date.now();
+            if (disableOnTouch) {
+                dismissTooltip();
+            }
+        };
+
         const handleMouseOver = async (e: MouseEvent) => {
+            // In Pulpit Mode on touch devices, suppress hover tooltips completely so 1-tap opens PulpitScriptureModal cleanly
+            if (disableOnTouch) {
+                const firesTouch = Boolean((e as any).sourceCapabilities?.firesTouchEvents);
+                const recentTouch = Date.now() - lastTouchTimeRef.current < 1500;
+                const isCoarseOnly =
+                    typeof window !== 'undefined' &&
+                    window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+                if (lastPointerTypeRef.current === 'touch' || firesTouch || recentTouch || isCoarseOnly) {
+                    return;
+                }
+            }
+
             const target = (e.target as HTMLElement).closest('.scripture-ref') as HTMLElement | null;
             if (!target) return;
 
@@ -177,23 +221,34 @@ const GlobalScriptureListener: React.FC = () => {
 
         const handleClickOutside = (e: MouseEvent) => {
             const target = (e.target as HTMLElement).closest('.scripture-ref');
+            if (disableOnTouch && target) {
+                // Clicking a scripture in Pulpit Mode opens the full lectern modal — dismiss tooltip immediately
+                dismissTooltip();
+                return;
+            }
             if (!target && !isHoveringTooltipRef.current) {
                 setOpen(false);
                 currentTargetRef.current = null;
             }
         };
 
+        document.addEventListener('pointerdown', handlePointerDown, true);
+        document.addEventListener('touchstart', handleTouchStart, { passive: true, capture: true });
         document.addEventListener('mouseover', handleMouseOver);
         document.addEventListener('mouseout', handleMouseOut);
-        document.addEventListener('click', handleClickOutside);
+        document.addEventListener('click', handleClickOutside, true);
+        window.addEventListener('parchments:dismiss-scripture-tooltip', dismissTooltip);
 
         return () => {
+            document.removeEventListener('pointerdown', handlePointerDown, true);
+            document.removeEventListener('touchstart', handleTouchStart, true);
             document.removeEventListener('mouseover', handleMouseOver);
             document.removeEventListener('mouseout', handleMouseOut);
-            document.removeEventListener('click', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside, true);
+            window.removeEventListener('parchments:dismiss-scripture-tooltip', dismissTooltip);
             if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
         };
-    }, [mainVersion, open]);
+    }, [mainVersion, open, disableOnTouch]);
 
     if (!open || !content) return null;
 
@@ -213,6 +268,7 @@ const GlobalScriptureListener: React.FC = () => {
             </Tooltip.Trigger>
             <Tooltip.Portal>
                 <Tooltip.Content
+                    data-scripture-tooltip="true"
                     className="z-[200] max-w-sm rounded-xl bg-gray-900/95 backdrop-blur-md px-4 py-4 text-sm leading-relaxed text-white shadow-2xl border border-white/10 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 select-text"
                     side="top"
                     sideOffset={12}

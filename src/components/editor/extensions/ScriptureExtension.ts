@@ -313,6 +313,11 @@ export const ScriptureExtension = Mark.create({
             new Plugin({
                 props: {
                     handleClick: (view, pos, event) => {
+                        // In Pulpit Mode, PulpitMode.tsx owns scripture taps (1-tap Lectern Modal on touch)
+                        if (useUIStore.getState().pulpitMode) {
+                            return false;
+                        }
+
                         const isTouch = (typeof window !== 'undefined' && (
                             window.matchMedia('(hover: none), (pointer: coarse)').matches ||
                             'ontouchstart' in window
@@ -334,6 +339,10 @@ export const ScriptureExtension = Mark.create({
                         return false;
                     },
                     handleDoubleClick: (view, pos, event) => {
+                        if (useUIStore.getState().pulpitMode) {
+                            return false;
+                        }
+
                         const { doc } = view.state;
                         const range = doc.resolve(pos);
 

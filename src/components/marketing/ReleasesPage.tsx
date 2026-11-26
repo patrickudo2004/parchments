@@ -16,9 +16,32 @@ interface ReleaseItem {
 
 const RELEASES: ReleaseItem[] = [
     {
+        version: "v0.2.21",
+        date: "November 26, 2026",
+        isLatest: true,
+        description: "Editorial studio refinement release: Scriptures Cited outline index, Obsidian-calibrated editor typography & upgraded toolbar (H3, Checklists, Indent/Outdent, Colors), smooth Tab/Shift-Tab nested outlining, desktop & touch drag-and-drop file management, 1-tap Pulpit Mode touch fix, clutter-free Bible Reader with customizable text sizing, 1,500+ online free Bible translations via HelloAO plus repaired USFM/.zip/GitHub JSON import, and Option A Delete Protection with a 30-day Trash safety net.",
+        features: [
+            "Scriptures Cited Outline Section: Two stacked collapsible Outline panels (Headings + Scriptures Cited) automatically index every scripture reference in your note with occurrence badges, click-to-jump cycling, direct Open-in-Bible actions, and 1-click Copy Scripture List.",
+            "1,500+ Online Free Bible Translations (HelloAO) & Repaired Custom Import: Search and download over 1,500 free & open-license Bibles directly in Settings for 100% offline AES-GCM encrypted reading, or import eBible.org USFM .zip archives, multi-select .usfm/.sfm books, and GitHub JSON files (thiagobodruk/bible, Scrollmapper, HelloAO).",
+            "Option A Delete Protection & 30-Day Trash Safety Net: Deleting files or folders now displays exact blast-radius counts and child previews, clarifies local disk vs. browser storage impact, defaults to safe 30-day Move to Trash with 1-click Restore, and guards permanent deletion of non-empty folders with exact folder-name confirmation.",
+            "Desktop & Touch Drag-and-Drop File Organization: Drag notes and folders directly into folders or back to root with gold drop highlights, 550ms hover-to-expand, cycle guards, and dedicated touch drag handles that preserve smooth vertical scrolling.",
+            "Customizable Bible Reading Text Size (12px–24px): Adjust Bible Reader and Mini Bible text size dynamically from both the collapsible Bible Tools tray (A-/A+) and Settings, with proportional chapter headings."
+        ],
+        improvements: [
+            "Obsidian-Calibrated Typography & Upgraded Editor Toolbar: Balanced note title and H1/H2/H3 proportions for long sermon titles, added H3, interactive Checklists, Indent/Outdent, Highlight & Text Color swatches, and Horizontal Rule, and removed the duplicate mobile Pulpit toolbar button.",
+            "Smooth Outlining & Typing Mechanics: Bound Tab and Shift+Tab for nested lists (with cascading 1. → a. → i. and • → ◦ → ▪ markers) and prose indentation, wired the Markdown Support toggle, and stabilized auto-save timing to prevent stale-title overwrites or cursor jumps.",
+            "Unobstructed Bible Reader & Mini Bible Header: Replaced the crowded icon strip with a sleek collapsible Tools tray so long book titles like 1 Thessalonians 5 and Song of Solomon 8 stay crisp and readable on narrow panes and 360px phones."
+        ],
+        fixes: [
+            "Fixed Pulpit Mode touch collision so tapping a scripture reference on tablets and phones opens the full-screen Pulpit Scripture Modal directly without a competing hover tooltip (while preserving mouse hover and standard editor tooltip behavior).",
+            "Fixed USFM Bible parser truncating verses at inline tags (\\wj Words of Jesus, \\nd Divine Name, \\add) or poetry newlines (\\q1/\\q2), stripped footnotes/cross-references cleanly, stripped UTF-8 BOMs from GitHub JSON files, and fixed Preferred Version dropdown case mismatch.",
+            "Fixed Browser DB folder deletion leaving orphaned subfolders and added missing Move/Share modals in mobile FilesSidebar."
+        ]
+    },
+    {
         version: "v0.2.20",
         date: "November 17, 2026",
-        isLatest: true,
+        isLatest: false,
         description: "Full Android mobile studio overhaul, persistent phone local folder storage with Scoped Storage fallback, Desktop ↔ Android Wi-Fi & QR live sync, Markdown image asset persistence (.assets/images/), offline Theological Speech Engine upgrades, and interactive showcase video tour.",
         features: [
             "Persistent Android Phone Local Folders: Native Capacitor folder storage persists cleanly across Android restarts with automatic Directory.Documents → Directory.External fallback on Android Scoped Storage EACCES restrictions.",

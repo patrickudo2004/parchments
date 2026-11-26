@@ -20,7 +20,13 @@ import {
     Info,
     Copy,
     Check,
-    Cpu
+    Cpu,
+    Globe,
+    RefreshCw,
+    ChevronDown,
+    ChevronUp,
+    FileArchive,
+    Type
 } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { db, dbHelpers } from '@/lib/db';
@@ -30,6 +36,11 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import type { BibleVersion } from '@/types/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { bibleDownloadService, type CatalogBibleVersion } from '@/lib/bible/BibleDownloadService';
+import {
+    fetchHelloAOTranslations,
+    downloadHelloAOTranslation,
+    type HelloAOTranslation
+} from '@/lib/bible/helloaoService';
 
 import { useSyncStore } from '@/stores/syncStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -110,7 +121,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
     const bibleVersions = useLiveQuery(() => db.bibleVersions.toArray()) || [];
     const installedVersions = bibleVersions.filter((v: BibleVersion) => v.isDownloaded);
-        const [bibleSearchQuery, setBibleSearchQuery] = useState('');
+    const [bibleSearchQuery, setBibleSearchQuery] = useState('');
+
+    // HelloAO 1,500+ Online Free Translations Browser state
+    const [helloaoTranslations, setHelloaoTranslations] = useState<HelloAOTranslation[]>([]);
+    const [isFetchingHelloAO, setIsFetchingHelloAO] = useState(false);
+    const [helloaoError, setHelloaoError] = useState<string | null>(null);
+    const [helloaoSearch, setHelloaoSearch] = useState('');
+    const [helloaoLanguage, setHelloaoLanguage] = useState('all');
+    const [helloaoVisibleCount, setHelloaoVisibleCount] = useState(25);
+    const [downloadingHelloAOId, setDownloadingHelloAOId] = useState<string | null>(null);
+
+    // Manual Custom Bible Import options
+    const [customImportName, setCustomImportName] = useState('');
+    const [customImportAbbrev, setCustomImportAbbrev] = useState('');
+    const [showImportGuide, setShowImportGuide] = useState(false);
 
     // Feedback State
     const { currentNote } = useNoteStore();
@@ -342,23 +367,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         isDanger: false
     });
 
-    // Fetch catalog logic
+    // Fetch official bundled catalog & HelloAO online catalog when Bible tab opens
     useEffect(() => {
-        if (activeTab === 'bible' && catalog.length === 0) {
-            const loadCatalog = async () => {
-                setIsFetchingCatalog(true);
-                try {
-                    const data = await bibleDownloadService.fetchCatalog();
-                    setCatalog(data);
-                } catch (err) {
-                    console.error('Failed to load Bible catalog:', err);
-                } finally {
-                    setIsFetchingCatalog(false);
-                }
-            };
-            loadCatalog();
+        if (activeTab === 'bible') {
+            if (catalog.length === 0) {
+                const loadCatalog = async () => {
+                    setIsFetchingCatalog(true);
+                    try {
+                        const data = await bibleDownloadService.fetchCatalog();
+                        setCatalog(data);
+                    } catch (err) {
+                        console.error('Failed to load Bible catalog:', err);
+                    } finally {
+                        setIsFetchingCatalog(false);
+                    }
+                };
+                loadCatalog();
+            }
+
+            if (helloaoTranslations.length === 0 && !isFetchingHelloAO && !helloaoError) {
+                const loadHelloAO = async () => {
+                    setIsFetchingHelloAO(true);
+                    try {
+                        const res = await fetchHelloAOTranslations();
+                        setHelloaoTranslations(res.translations);
+                        if (res.error && res.translations.length === 0) {
+                            setHelloaoError(res.error);
+                        } else {
+                            setHelloaoError(null);
+                        }
+                    } finally {
+                        setIsFetchingHelloAO(false);
+                    }
+                };
+                loadHelloAO();
+            }
         }
-    }, [activeTab, catalog.length]);
+    }, [activeTab, catalog.length, helloaoTranslations.length, isFetchingHelloAO, helloaoError]);
+
+    const handleRefreshHelloAO = async () => {
+        setIsFetchingHelloAO(true);
+        setHelloaoError(null);
+        try {
+            const res = await fetchHelloAOTranslations(true);
+            setHelloaoTranslations(res.translations);
+            if (res.error && res.translations.length === 0) {
+                setHelloaoError(res.error);
+            }
+        } finally {
+            setIsFetchingHelloAO(false);
+        }
+    };
+
+    const helloaoLanguages = React.useMemo(() => {
+        const map = new Map<string, { code: string; label: string; count: number }>();
+        for (const t of helloaoTranslations) {
+            const code = t.language || 'und';
+            const label = t.languageEnglishName || t.languageName || code.toUpperCase();
+            const prev = map.get(code);
+            if (prev) {
+                prev.count += 1;
+            } else {
+                map.set(code, { code, label, count: 1 });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => {
+            if (a.code === 'eng') return -1;
+            if (b.code === 'eng') return 1;
+            return b.count - a.count || a.label.localeCompare(b.label);
+        });
+    }, [helloaoTranslations]);
+
+    const filteredHelloAO = React.useMemo(() => {
+        const q = helloaoSearch.trim().toLowerCase();
+        return helloaoTranslations.filter((t) => {
+            if (helloaoLanguage !== 'all' && t.language !== helloaoLanguage) return false;
+            if (!q) return true;
+            const hay = `${t.id} ${t.name} ${t.englishName || ''} ${t.shortName || ''} ${t.language} ${t.languageName || ''} ${t.languageEnglishName || ''}`.toLowerCase();
+            return hay.includes(q);
+        });
+    }, [helloaoTranslations, helloaoSearch, helloaoLanguage]);
 
     const handleDownload = async (v: CatalogBibleVersion) => {
         try {
@@ -366,6 +454,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 setImportingState({ status, progress });
             });
             setImportingState(null);
+            settings.showToast(`Downloaded ${v.name} (${v.abbreviation})!`, 'success');
         } catch (err: any) {
             setAlertConfig({
                 isOpen: true,
@@ -377,87 +466,218 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
     };
 
-    const handleManualImport = async (file: File) => {
-        const isJSON = file.name.endsWith('.json');
-        const isUSFM = file.name.endsWith('.usfm') || file.name.endsWith('.sfm');
-
-        if (!isJSON && !isUSFM) {
+    const handleDownloadHelloAO = async (t: HelloAOTranslation) => {
+        if (importingState !== null) return;
+        setDownloadingHelloAOId(t.id);
+        setImportingState({ status: `Preparing ${t.shortName || t.id}...`, progress: 2 });
+        try {
+            const res = await downloadHelloAOTranslation(t, (status, progress) => {
+                setImportingState({ status, progress });
+            });
+            setImportingState(null);
+            setDownloadingHelloAOId(null);
+            settings.showToast(
+                `Installed ${t.englishName || t.name} (${res.verseCount.toLocaleString()} verses across ${res.bookCount} books)!`,
+                'success'
+            );
+        } catch (err: any) {
+            setImportingState(null);
+            setDownloadingHelloAOId(null);
             setAlertConfig({
                 isOpen: true,
-                title: 'Format Error',
-                message: 'Unsupported file format. Please use .json or .usfm',
+                title: 'Online Download Failed',
+                message: `Could not install ${t.englishName || t.name}: ${err?.message || err}`,
+                type: 'error'
+            });
+        }
+    };
+
+    const handleManualImport = async (fileList: FileList | File[]) => {
+        const files = Array.from(fileList);
+        if (files.length === 0) return;
+
+        const firstFile = files[0];
+        const lowerFirst = firstFile.name.toLowerCase();
+        const isZip = files.length === 1 && lowerFirst.endsWith('.zip');
+        const isJson = files.length === 1 && lowerFirst.endsWith('.json');
+        const allUsfm = files.every((f) => {
+            const l = f.name.toLowerCase();
+            return l.endsWith('.usfm') || l.endsWith('.sfm');
+        });
+
+        if (!isZip && !isJson && !allUsfm) {
+            setAlertConfig({
+                isOpen: true,
+                title: 'Unsupported File Format',
+                message: 'Please select a .zip archive (e.g. from ebible.org), one or more .usfm / .sfm files, or a Bible .json file (Scrollmapper, thiagobodruk/bible, or HelloAO).',
                 type: 'error'
             });
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                let data: any = e.target?.result;
-                let versionId = `custom-${Date.now()}`;
-                let name = file.name.split('.')[0].toUpperCase();
+        let versionId = '';
+        let wasAlreadyDownloaded = false;
 
-                if (isJSON) {
-                    const json = JSON.parse(data as string);
-                    versionId = json.metadata?.id?.toLowerCase() || versionId;
-                    name = json.metadata?.name || name;
-                } else {
-                    versionId = file.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        try {
+            setImportingState({ status: 'Reading file(s)...', progress: 5 });
+
+            const rawBase = firstFile.name
+                .replace(/\.(zip|json|usfm|sfm)$/i, '')
+                .replace(/[_-]+(usfm|sfm|readaloud|json|bible)$/i, '')
+                .trim();
+            const inferredName = rawBase
+                .replace(/[_-]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim() || 'Custom Bible';
+
+            let name = customImportName.trim() || inferredName;
+            let abbrev = customImportAbbrev.trim().toUpperCase().slice(0, 8);
+            let inferredLang = 'und';
+            let workerPayload: any = null;
+            let transferables: Transferable[] = [];
+
+            if (isJson) {
+                const rawText = (await firstFile.text()).replace(/^\uFEFF/, '');
+                const parsedJson = JSON.parse(rawText);
+                const metaId = parsedJson?.metadata?.id || parsedJson?.translation?.id;
+                const metaName = parsedJson?.metadata?.name || parsedJson?.translation?.englishName || parsedJson?.translation?.name;
+                const metaShort = parsedJson?.metadata?.abbreviation || parsedJson?.translation?.shortName;
+                if (!customImportName.trim() && metaName) name = String(metaName);
+                if (!abbrev && metaShort) abbrev = String(metaShort).toUpperCase().slice(0, 8);
+                if (parsedJson?.metadata?.language || parsedJson?.translation?.language) {
+                    inferredLang = String(parsedJson?.metadata?.language || parsedJson?.translation?.language);
                 }
+                const baseSlug = (customImportAbbrev.trim() || metaId || rawBase || `custom-${Date.now()}`)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                versionId = baseSlug || `custom-${Date.now()}`;
+                workerPayload = { type: 'IMPORT_JSON', data: parsedJson, versionId };
+            } else if (isZip) {
+                const buffer = await firstFile.arrayBuffer();
+                const baseSlug = (customImportAbbrev.trim() || rawBase || `custom-${Date.now()}`)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                versionId = baseSlug || `custom-${Date.now()}`;
+                workerPayload = { type: 'IMPORT_ZIP', data: buffer, versionId };
+                transferables = [buffer];
+            } else if (files.length === 1) {
+                const rawText = await firstFile.text();
+                const baseSlug = (customImportAbbrev.trim() || rawBase || `custom-${Date.now()}`)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                versionId = baseSlug || `custom-${Date.now()}`;
+                workerPayload = { type: 'IMPORT_USFM', data: rawText, versionId };
+            } else {
+                const batchFiles = await Promise.all(
+                    files.map(async (f) => ({ name: f.name, content: await f.text() }))
+                );
+                if (!customImportName.trim()) name = `Custom USFM (${files.length} books)`;
+                const baseSlug = (customImportAbbrev.trim() || customImportName.trim() || `usfm-${Date.now()}`)
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                versionId = baseSlug || `usfm-${Date.now()}`;
+                workerPayload = { type: 'IMPORT_USFM_BATCH', files: batchFiles, versionId };
+            }
 
-                const existing = await db.bibleVersions.get(versionId);
-                if (!existing) {
-                    await db.bibleVersions.add({
-                        id: versionId,
-                        name: name,
-                        abbreviation: name.slice(0, 4),
-                        language: 'und',
-                        copyright: 'User Provided',
-                        isDownloaded: false
-                    });
-                }
+            if (!abbrev) {
+                const words = name.split(/\s+/).filter(Boolean);
+                abbrev = (words.length >= 2
+                    ? words.map((w) => w[0]).join('')
+                    : name.replace(/[^a-zA-Z0-9]/g, '')
+                ).toUpperCase().slice(0, 6) || 'CSTM';
+            }
 
-                const worker = new Worker(new URL('../../workers/bibleImportWorker.ts', import.meta.url), { type: 'module' });
+            const existing = await db.bibleVersions.get(versionId);
+            wasAlreadyDownloaded = Boolean(existing?.isDownloaded);
+            await db.bibleVersions.put({
+                id: versionId,
+                name,
+                abbreviation: abbrev,
+                language: inferredLang,
+                copyright: 'User Imported',
+                isDownloaded: wasAlreadyDownloaded
+            });
 
-                worker.onmessage = (event) => {
-                    const { status, progress, message, error } = event.data;
-                    if (status === 'complete') {
-                        setImportingState(null);
-                        worker.terminate();
-                    } else if (status === 'error') {
-                        setAlertConfig({
-                            isOpen: true,
-                            title: 'Import Failed',
-                            message: `Import failed: ${error}`,
-                            type: 'error'
-                        });
-                        setImportingState(null);
-                        worker.terminate();
-                    } else {
-                        setImportingState({ status: message || status, progress: progress || 0 });
+            const worker = new Worker(new URL('../../workers/bibleImportWorker.ts', import.meta.url), { type: 'module' });
+
+            const cleanupFailedImport = async () => {
+                if (!wasAlreadyDownloaded && versionId) {
+                    try {
+                        await db.bibleVerses.where('versionId').equals(versionId).delete();
+                        await db.bibleVersions.delete(versionId);
+                    } catch {
+                        // ignore cleanup error
                     }
-                };
+                }
+            };
 
-                worker.postMessage({
-                    type: isJSON ? 'IMPORT_JSON' : 'IMPORT_USFM',
-                    data: isJSON ? JSON.parse(data as string) : data,
-                    versionId
-                });
+            worker.onmessage = async (event) => {
+                const { status, progress, message, error, verseCount, bookCount } = event.data;
+                if (status === 'complete') {
+                    worker.terminate();
+                    try {
+                        const { invalidateBibleSearchCache } = await import('@/lib/search/bibleSearchEngine');
+                        invalidateBibleSearchCache(versionId);
+                    } catch {
+                        // ignore cache invalidation error
+                    }
+                    setImportingState(null);
+                    setCustomImportName('');
+                    setCustomImportAbbrev('');
+                    settings.showToast(
+                        `Imported ${name} (${(verseCount || 0).toLocaleString()} verses across ${bookCount || 0} books)!`,
+                        'success'
+                    );
+                } else if (status === 'error') {
+                    worker.terminate();
+                    await cleanupFailedImport();
+                    setAlertConfig({
+                        isOpen: true,
+                        title: 'Import Failed',
+                        message: `Import failed: ${error}`,
+                        type: 'error'
+                    });
+                    setImportingState(null);
+                } else {
+                    setImportingState({ status: message || status, progress: progress || 0 });
+                }
+            };
 
-            } catch (err) {
-                console.error('Import failed:', err);
+            worker.onerror = async (err) => {
+                worker.terminate();
+                await cleanupFailedImport();
                 setAlertConfig({
                     isOpen: true,
-                    title: 'Import Failed',
-                    message: 'Import failed. Please check the file format.',
+                    title: 'Import Worker Error',
+                    message: `Import failed unexpectedly: ${err.message || 'Check file structure and try again.'}`,
                     type: 'error'
                 });
-            }
-        };
+                setImportingState(null);
+            };
 
-        if (isJSON) reader.readAsText(file);
-        else reader.readAsText(file);
+            worker.postMessage(workerPayload, transferables);
+        } catch (err: any) {
+            console.error('Import failed:', err);
+            if (!wasAlreadyDownloaded && versionId) {
+                try {
+                    await db.bibleVerses.where('versionId').equals(versionId).delete();
+                    await db.bibleVersions.delete(versionId);
+                } catch {
+                    // ignore
+                }
+            }
+            setImportingState(null);
+            setAlertConfig({
+                isOpen: true,
+                title: 'Import Failed',
+                message: err?.message ? `Import failed: ${err.message}` : 'Import failed. Please check that the file is valid JSON, USFM, or a USFM/JSON .zip archive.',
+                type: 'error'
+            });
+        }
     };
 
     const handleDeleteVersion = async (id: string) => {
@@ -472,13 +692,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     setImportingState({ status: 'Deleting...', progress: 0 });
                     await db.bibleVerses.where('versionId').equals(id).delete();
                     await db.bibleVersions.delete(id);
+                    try {
+                        const { invalidateBibleSearchCache } = await import('@/lib/search/bibleSearchEngine');
+                        invalidateBibleSearchCache(id);
+                    } catch {
+                        // ignore
+                    }
 
-                    if (mainVersion === id) {
-                        const remaining = await db.bibleVersions.where('isDownloaded').equals(1).first();
+                    if (mainVersion.toLowerCase() === id.toLowerCase()) {
+                        const allRemaining = await db.bibleVersions.toArray();
+                        const remaining = allRemaining.find((v) => v.isDownloaded && v.id !== id);
                         setMainVersion(remaining?.id || 'kjv');
                     }
 
                     setImportingState(null);
+                    settings.showToast('Bible version removed from offline storage.', 'info');
                 } catch (err) {
                     console.error('Delete failed:', err);
                     setImportingState(null);
@@ -680,46 +908,161 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                     {activeTab === 'bible' && (
                                         <>
-                                            <section className="space-y-4">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Preferred Version</h4>
-                                                <div className="max-w-md">
+                                            {/* Preferred Version + Bible Reading Text Size */}
+                                            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-3 min-w-0">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Preferred Version</h4>
                                                     <select
-                                                        value={mainVersion}
+                                                        value={mainVersion.toLowerCase()}
                                                         onChange={(e) => setMainVersion(e.target.value)}
-                                                        className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
+                                                        className="w-full p-2.5 bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                     >
                                                         {installedVersions.length > 0 ? (
                                                             installedVersions.map((v, idx) => (
-                                                                <option key={v.id || `inst-${idx}`} value={v.id.toUpperCase()}>{v.name} ({v.abbreviation})</option>
+                                                                <option key={v.id || `inst-${idx}`} value={v.id.toLowerCase()}>
+                                                                    {v.name} ({v.abbreviation})
+                                                                </option>
                                                             ))
                                                         ) : (
                                                             <option disabled>No versions installed yet</option>
                                                         )}
                                                     </select>
-                                                    <p className="text-[10px] text-light-text-disabled uppercase font-black mt-2 px-1">This version will be used for auto-linking and tooltips.</p>
+                                                    <p className="text-[10px] text-light-text-disabled uppercase font-black px-1">Used for auto-linking, scripture quotes, and tooltips.</p>
+                                                </div>
+
+                                                <div className="space-y-3 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary flex items-center gap-1.5">
+                                                            <Type size={14} className="text-primary" /> Bible Reader Text Size
+                                                        </h4>
+                                                        <span className="text-xs font-black text-primary px-2 py-0.5 bg-primary/10 rounded-md">
+                                                            {settings.bibleFontSize}px
+                                                        </span>
+                                                    </div>
+                                                    <input
+                                                        type="range"
+                                                        min="12"
+                                                        max="24"
+                                                        step="1"
+                                                        data-testid="settings-bible-font-slider"
+                                                        value={settings.bibleFontSize}
+                                                        onChange={(e) => settings.setBibleFontSize(Number(e.target.value))}
+                                                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                    />
+                                                    <div
+                                                        className="p-2.5 rounded-xl bg-light-background dark:bg-dark-background/40 border border-light-border dark:border-dark-border font-serif text-light-text-primary dark:text-dark-text-primary leading-relaxed"
+                                                        style={{ fontSize: `${settings.bibleFontSize}px` }}
+                                                    >
+                                                        <span className="text-[11px] font-sans font-bold text-primary/80 mr-1.5 align-top">16</span>
+                                                        For God so loved the world...
+                                                    </div>
                                                 </div>
                                             </section>
 
-                                            <section className="space-y-4">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Official Versions Catalog</h4>
+                                            {/* Active Download / Import Progress Banner */}
+                                            {importingState && (
+                                                <div
+                                                    data-testid="bible-import-progress"
+                                                    className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center gap-4"
+                                                >
+                                                    <CircularProgress
+                                                        variant={importingState.progress > 0 ? 'determinate' : 'indeterminate'}
+                                                        value={importingState.progress}
+                                                        size={34}
+                                                        thickness={5}
+                                                        className="text-primary shrink-0"
+                                                    />
+                                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary truncate">
+                                                                {importingState.status}
+                                                            </p>
+                                                            <span className="text-[11px] font-black text-primary shrink-0">
+                                                                {Math.round(importingState.progress)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="w-full bg-light-border dark:bg-dark-border h-1.5 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="bg-primary h-full transition-all duration-200"
+                                                                style={{ width: `${Math.max(4, importingState.progress)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Installed Offline Versions */}
+                                            <section className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                        Installed Offline Library ({installedVersions.length})
+                                                    </h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                                    {installedVersions.map((v) => {
+                                                        const isActive = mainVersion.toLowerCase() === v.id.toLowerCase();
+                                                        return (
+                                                            <div
+                                                                key={v.id}
+                                                                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
+                                                                    isActive
+                                                                        ? 'bg-primary/10 border-primary/40'
+                                                                        : 'bg-light-background/60 dark:bg-dark-background/40 border-light-border dark:border-dark-border'
+                                                                }`}
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setMainVersion(v.id)}
+                                                                    className="flex-1 min-w-0 text-left flex items-center gap-2 cursor-pointer"
+                                                                    title={`Switch preferred Bible to ${v.name}`}
+                                                                >
+                                                                    <span className="px-1.5 py-0.5 rounded bg-primary/15 text-primary text-[10px] font-black uppercase shrink-0">
+                                                                        {v.abbreviation}
+                                                                    </span>
+                                                                    <span className="text-xs font-semibold text-light-text-primary dark:text-dark-text-primary truncate">
+                                                                        {v.name}
+                                                                    </span>
+                                                                </button>
+                                                                {installedVersions.length > 1 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteVersion(v.id)}
+                                                                        disabled={importingState !== null}
+                                                                        className="p-1.5 rounded-lg text-light-text-disabled hover:text-red-500 hover:bg-red-500/10 transition-colors shrink-0 disabled:opacity-40 cursor-pointer"
+                                                                        title={`Remove ${v.name}`}
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </section>
+
+                                            {/* Official Instant Offline Catalog */}
+                                            <section className="space-y-3">
+                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                    Bundled Offline Catalog
+                                                </h4>
 
                                                 {isFetchingCatalog ? (
-                                                    <div className="py-10 text-center">
-                                                        <CircularProgress size={24} className="text-primary mb-2" />
-                                                        <p className="text-xs text-light-text-disabled uppercase font-black tracking-widest">Checking Cloud Library...</p>
+                                                    <div className="py-6 text-center">
+                                                        <CircularProgress size={22} className="text-primary mb-2" />
+                                                        <p className="text-xs text-light-text-disabled uppercase font-black tracking-widest">Loading Built-in Library...</p>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-4">
-                                                        <div className="flex gap-4">
-                                                            <div className="flex-1 relative">
+                                                    <div className="space-y-3">
+                                                        <div className="flex flex-col sm:flex-row gap-3">
+                                                            <div className="flex-1 min-w-0">
                                                                 <select
                                                                     value={selectedCatalogId}
                                                                     onChange={(e) => setSelectedCatalogId(e.target.value)}
-                                                                    className="w-full p-3 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer text-light-text-primary dark:text-dark-text-primary"
+                                                                    className="w-full p-2.5 bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-light-text-primary dark:text-dark-text-primary"
                                                                 >
-                                                                    <option value="">Select a version to download...</option>
+                                                                    <option value="">Select a bundled translation...</option>
                                                                     {catalog.map((v: CatalogBibleVersion, idx) => {
-                                                                        const isInstalled = bibleVersions.some(lv => lv.id === v.id && lv.isDownloaded);
+                                                                        const isInstalled = bibleVersions.some(lv => lv.id.toLowerCase() === v.id.toLowerCase() && lv.isDownloaded);
                                                                         return (
                                                                             <option key={v.id || `cat-${idx}`} value={v.id}>
                                                                                 {v.name} ({v.abbreviation}) {isInstalled ? '✓ Installed' : ''}
@@ -727,7 +1070,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                         );
                                                                     })}
                                                                 </select>
-                                                                <BookOpen size={18} />
                                                             </div>
 
                                                             <button
@@ -735,37 +1077,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                                     const v = catalog.find(c => c.id === selectedCatalogId);
                                                                     if (v) handleDownload(v);
                                                                 }}
-                                                                disabled={!selectedCatalogId || importingState !== null || bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded)}
-                                                                className={`px-6 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded)
+                                                                disabled={!selectedCatalogId || importingState !== null || bibleVersions.some(lv => lv.id.toLowerCase() === selectedCatalogId.toLowerCase() && lv.isDownloaded)}
+                                                                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap shrink-0 cursor-pointer ${bibleVersions.some(lv => lv.id.toLowerCase() === selectedCatalogId.toLowerCase() && lv.isDownloaded)
                                                                     ? 'bg-green-100 dark:bg-green-900/30 text-green-600 cursor-default'
-                                                                    : 'bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                                    : 'bg-primary text-[#121212] font-black shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
                                                                     }`}
                                                             >
-                                                                {bibleVersions.some(lv => lv.id === selectedCatalogId && lv.isDownloaded) ? (
-                                                                    <span className="flex items-center gap-2"><CheckCircle2 size={16} /> Installed</span>
+                                                                {bibleVersions.some(lv => lv.id.toLowerCase() === selectedCatalogId.toLowerCase() && lv.isDownloaded) ? (
+                                                                    <span className="flex items-center justify-center gap-2"><CheckCircle2 size={16} /> Installed</span>
                                                                 ) : (
-                                                                    <span className="flex items-center gap-2"><Download size={16} /> Download</span>
+                                                                    <span className="flex items-center justify-center gap-2"><Download size={16} /> Install</span>
                                                                 )}
                                                             </button>
                                                         </div>
 
                                                         {selectedCatalogId && (
                                                             <motion.div
-                                                                initial={{ opacity: 0, y: -10 }}
+                                                                initial={{ opacity: 0, y: -8 }}
                                                                 animate={{ opacity: 1, y: 0 }}
-                                                                className="p-4 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-xl"
+                                                                className="p-3.5 bg-light-background dark:bg-dark-background/50 border border-light-border dark:border-dark-border rounded-xl"
                                                             >
                                                                 {(() => {
                                                                     const v = catalog.find(c => c.id === selectedCatalogId);
                                                                     if (!v) return null;
                                                                     return (
-                                                                        <div className="flex justify-between items-center text-light-text-primary dark:text-dark-text-primary">
-                                                                            <div>
-                                                                                <h5 className="font-bold">{v.name}</h5>
-                                                                                <p className="text-xs text-light-text-secondary mt-1">{v.copyright}</p>
+                                                                        <div className="flex justify-between items-center gap-3 text-light-text-primary dark:text-dark-text-primary">
+                                                                            <div className="min-w-0">
+                                                                                <h5 className="font-bold text-sm truncate">{v.name}</h5>
+                                                                                <p className="text-xs text-light-text-secondary mt-0.5">{v.copyright}</p>
                                                                             </div>
-                                                                            <div className="text-right">
-                                                                                <div className="px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded text-[10px] font-black uppercase tracking-wider inline-block">
+                                                                            <div className="text-right shrink-0">
+                                                                                <div className="px-2 py-0.5 bg-gray-200 dark:bg-gray-800 rounded text-[10px] font-black uppercase tracking-wider inline-block">
                                                                                     {v.language}
                                                                                 </div>
                                                                                 <p className="text-[10px] text-light-text-disabled mt-1">{v.size}</p>
@@ -779,48 +1121,262 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 )}
                                             </section>
 
-                                            <section className="space-y-4">
-                                                <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">Manual Bible Import</h4>
-                                                <div className="p-8 border-2 border-dashed border-light-border dark:border-dark-border rounded-2xl flex flex-col items-center justify-center gap-4 text-center group hover:border-primary/50 transition-all bg-light-background/20">
-                                                    {importingState ? (
-                                                        <div className="flex flex-col items-center gap-4 w-full max-w-xs">
-                                                            <CircularProgress variant="determinate" value={importingState.progress} size={48} thickness={5} className="text-primary" />
-                                                            <div className="space-y-1">
-                                                                <p className="text-sm font-bold uppercase tracking-widest text-light-text-primary dark:text-dark-text-primary">{importingState.status}</p>
-                                                                <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                                                                    <div className="bg-primary h-full transition-all duration-300" style={{ width: `${importingState.progress}%` }} />
-                                                                </div>
-                                                            </div>
+                                            {/* Online Free Translations Browser (1,500+ via HelloAO) */}
+                                            <section className="space-y-3" data-testid="helloao-online-browser">
+                                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <Globe size={15} className="text-primary shrink-0" />
+                                                        <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                            Online Free Translations
+                                                        </h4>
+                                                        {helloaoTranslations.length > 0 && (
+                                                            <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-black">
+                                                                {helloaoTranslations.length.toLocaleString()} available
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRefreshHelloAO}
+                                                        disabled={isFetchingHelloAO}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-light-text-secondary hover:text-primary transition-colors cursor-pointer disabled:opacity-50"
+                                                        title="Refresh online Bible catalog"
+                                                    >
+                                                        <RefreshCw size={12} className={isFetchingHelloAO ? 'animate-spin' : ''} />
+                                                        Refresh
+                                                    </button>
+                                                </div>
+
+                                                <p className="text-xs text-light-text-secondary">
+                                                    Search and install 1,500+ free &amp; open-license translations in hundreds of languages (including BSB, WEB, LSV, Spanish, French, Swahili, and more) directly for 100% offline reading.
+                                                </p>
+
+                                                <div className="p-4 rounded-2xl bg-light-background/50 dark:bg-dark-background/40 border border-light-border dark:border-dark-border space-y-3">
+                                                    <div className="flex flex-col sm:flex-row gap-2.5">
+                                                        <div className="relative flex-1 min-w-0">
+                                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-text-disabled pointer-events-none" />
+                                                            <input
+                                                                type="text"
+                                                                data-testid="helloao-search-input"
+                                                                value={helloaoSearch}
+                                                                onChange={(e) => {
+                                                                    setHelloaoSearch(e.target.value);
+                                                                    setHelloaoVisibleCount(25);
+                                                                }}
+                                                                placeholder="Search translations (e.g. Berean, BSB, Spanish, Swahili)..."
+                                                                className="w-full pl-9 pr-3 py-2 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl text-xs text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                            />
+                                                        </div>
+                                                        <select
+                                                            data-testid="helloao-language-select"
+                                                            value={helloaoLanguage}
+                                                            onChange={(e) => {
+                                                                setHelloaoLanguage(e.target.value);
+                                                                setHelloaoVisibleCount(25);
+                                                            }}
+                                                            className="sm:w-44 p-2 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl text-xs font-semibold text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                                                        >
+                                                            <option value="all">All Languages ({helloaoLanguages.length})</option>
+                                                            {helloaoLanguages.map((lang) => (
+                                                                <option key={lang.code} value={lang.code}>
+                                                                    {lang.label} ({lang.count})
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    {isFetchingHelloAO && helloaoTranslations.length === 0 ? (
+                                                        <div className="py-8 text-center">
+                                                            <CircularProgress size={22} className="text-primary mb-2" />
+                                                            <p className="text-xs text-light-text-secondary">Loading 1,500+ free translations from HelloAO...</p>
+                                                        </div>
+                                                    ) : helloaoError && helloaoTranslations.length === 0 ? (
+                                                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2">
+                                                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{helloaoError}</p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleRefreshHelloAO}
+                                                                className="px-3 py-1.5 rounded-lg bg-primary text-[#121212] text-xs font-black cursor-pointer"
+                                                            >
+                                                                Try Again
+                                                            </button>
                                                         </div>
                                                     ) : (
-                                                        <>
-                                                            <div className="w-16 h-16 bg-light-background dark:bg-dark-background rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                                                                <Upload size={32} />
-                                                            </div>
-                                                            <div className="px-4">
-                                                                <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">Import Custom Bible Version</p>
-                                                                <p className="text-xs text-light-text-disabled mt-1 max-w-xs mx-auto">Upload a <b>JSON</b> or <b>USFM</b> file to add it to your local library.</p>
-                                                                <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-primary bg-primary/5 py-1 px-3 rounded-full border border-primary/10">
-                                                                    <Info size={12} />
-                                                                    <span>Download free formats from <b>ebible.org</b></span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-3">
-                                                                <label className="px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
-                                                                    Choose File
-                                                                    <input
-                                                                        type="file"
-                                                                        className="hidden"
-                                                                        accept=".json,.usfm,.sfm"
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files?.[0];
-                                                                            if (file) handleManualImport(file);
-                                                                        }}
-                                                                    />
-                                                                </label>
-                                                            </div>
-                                                        </>
+                                                        <div className="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                                                            {filteredHelloAO.length === 0 ? (
+                                                                <p className="text-xs text-light-text-disabled text-center py-6">
+                                                                    No online translations matched &ldquo;{helloaoSearch}&rdquo;.
+                                                                </p>
+                                                            ) : (
+                                                                <>
+                                                                    {filteredHelloAO.slice(0, helloaoVisibleCount).map((t) => {
+                                                                        const isInstalled = bibleVersions.some(
+                                                                            (lv) => lv.id.toLowerCase() === t.id.toLowerCase() && lv.isDownloaded
+                                                                        );
+                                                                        const isBusyThis = downloadingHelloAOId === t.id;
+                                                                        return (
+                                                                            <div
+                                                                                key={t.id}
+                                                                                data-testid={`helloao-row-${t.id}`}
+                                                                                className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-light-surface dark:bg-dark-surface border border-light-border/70 dark:border-dark-border/70 hover:border-primary/40 transition-colors"
+                                                                            >
+                                                                                <div className="min-w-0 flex-1">
+                                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                        <span className="px-1.5 py-0.5 rounded bg-primary/15 text-primary text-[10px] font-black uppercase">
+                                                                                            {t.shortName || t.id}
+                                                                                        </span>
+                                                                                        <span className="text-xs font-bold text-light-text-primary dark:text-dark-text-primary truncate">
+                                                                                            {t.englishName || t.name}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-light-text-secondary flex-wrap">
+                                                                                        <span>{t.languageEnglishName || t.languageName || t.language}</span>
+                                                                                        {t.numberOfBooks ? <span>• {t.numberOfBooks} books</span> : null}
+                                                                                        {t.totalNumberOfVerses ? <span>• {t.totalNumberOfVerses.toLocaleString()} verses</span> : null}
+                                                                                        {t.license?.publicDomain && (
+                                                                                            <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                                                Public Domain
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                <button
+                                                                                    type="button"
+                                                                                    data-testid={`helloao-download-${t.id}`}
+                                                                                    onClick={() => handleDownloadHelloAO(t)}
+                                                                                    disabled={isInstalled || importingState !== null}
+                                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                                                                                        isInstalled
+                                                                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-default'
+                                                                                            : 'bg-primary text-[#121212] font-black hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                                                    }`}
+                                                                                >
+                                                                                    {isInstalled ? (
+                                                                                        <><CheckCircle2 size={13} /> Installed</>
+                                                                                    ) : isBusyThis ? (
+                                                                                        <>Installing...</>
+                                                                                    ) : (
+                                                                                        <><Download size={13} /> Download</>
+                                                                                    )}
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+
+                                                                    {filteredHelloAO.length > helloaoVisibleCount && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setHelloaoVisibleCount((c) => c + 30)}
+                                                                            className="w-full py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors cursor-pointer"
+                                                                        >
+                                                                            Show more ({filteredHelloAO.length - helloaoVisibleCount} remaining)
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     )}
+                                                </div>
+                                            </section>
+
+                                            {/* Manual Custom Bible Import (.zip, multi-USFM, JSON) */}
+                                            <section className="space-y-3" data-testid="manual-bible-import-section">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h4 className="text-sm font-bold uppercase tracking-wider text-light-text-secondary dark:text-dark-text-secondary">
+                                                        Import Custom Bible File
+                                                    </h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowImportGuide(!showImportGuide)}
+                                                        className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
+                                                    >
+                                                        <Info size={13} />
+                                                        Where to get files
+                                                        {showImportGuide ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                    </button>
+                                                </div>
+
+                                                {showImportGuide && (
+                                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-xs text-light-text-secondary space-y-2.5 leading-relaxed">
+                                                        <div>
+                                                            <p className="font-bold text-light-text-primary dark:text-dark-text-primary">1. From eBible.org (USFM .zip — Recommended for rare languages)</p>
+                                                            <p>Visit <b>ebible.org/find</b>, pick any translation, download the <b>USFM (.zip)</b> bundle, and upload the <b>.zip</b> directly below — Parchments automatically extracts all 66 books, strips footnotes, and preserves words of Jesus and poetry.</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-light-text-primary dark:text-dark-text-primary">2. From GitHub JSON Repositories</p>
+                                                            <p>Supports raw <b>.json</b> files from <b>thiagobodruk/bible</b> (e.g. <code>en_kjv.json</code>, <code>es_rvr.json</code>), <b>scrollmapper/bible_databases</b>, and <b>HelloAO</b> complete JSON exports.</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-light-text-primary dark:text-dark-text-primary">3. Individual USFM / SFM Books</p>
+                                                            <p>Select one or multiple <b>.usfm</b> / <b>.sfm</b> files at once to import single books or a full custom translation.</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="p-5 sm:p-6 border-2 border-dashed border-light-border dark:border-dark-border rounded-2xl flex flex-col items-center justify-center gap-4 text-center group hover:border-primary/50 transition-all bg-light-background/20">
+                                                    <div className="w-full max-w-md grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-left">
+                                                        <div className="sm:col-span-2">
+                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-light-text-secondary block mb-1">
+                                                                Translation Name (Optional)
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                data-testid="custom-bible-name-input"
+                                                                value={customImportName}
+                                                                onChange={(e) => setCustomImportName(e.target.value)}
+                                                                placeholder="Auto-detected from file"
+                                                                className="w-full px-3 py-1.5 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-xs text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-light-text-secondary block mb-1">
+                                                                Code (Optional)
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                data-testid="custom-bible-abbrev-input"
+                                                                maxLength={8}
+                                                                value={customImportAbbrev}
+                                                                onChange={(e) => setCustomImportAbbrev(e.target.value)}
+                                                                placeholder="e.g. RVR"
+                                                                className="w-full px-3 py-1.5 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-xs uppercase text-light-text-primary dark:text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="w-12 h-12 bg-light-background dark:bg-dark-background rounded-2xl flex items-center justify-center text-primary shadow-sm">
+                                                            <FileArchive size={24} />
+                                                        </div>
+                                                        <div className="px-2">
+                                                            <p className="text-sm font-bold text-light-text-primary dark:text-dark-text-primary">
+                                                                Upload .ZIP, .USFM/.SFM, or .JSON
+                                                            </p>
+                                                            <p className="text-xs text-light-text-secondary mt-0.5 max-w-sm mx-auto">
+                                                                Supports eBible.org USFM <b>.zip</b> archives, multi-select <b>.usfm/.sfm</b> files, and GitHub Bible <b>.json</b> formats.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <label className={`px-6 py-2.5 bg-primary text-[#121212] rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2 ${importingState ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                        <Upload size={15} />
+                                                        Choose File(s)
+                                                        <input
+                                                            type="file"
+                                                            multiple
+                                                            data-testid="custom-bible-file-input"
+                                                            className="hidden"
+                                                            disabled={importingState !== null}
+                                                            accept=".zip,.json,.usfm,.sfm"
+                                                            onChange={(e) => {
+                                                                if (e.target.files && e.target.files.length > 0) {
+                                                                    handleManualImport(e.target.files);
+                                                                }
+                                                                e.target.value = '';
+                                                            }}
+                                                        />
+                                                    </label>
                                                 </div>
                                             </section>
 
@@ -832,7 +1388,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     </div>
                                                     <button
                                                         onClick={() => toggleVerseHoverPreviews()}
-                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center ${verseHoverPreviews ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                                        className={`w-12 h-6 rounded-full p-1 transition-all flex items-center shrink-0 ${verseHoverPreviews ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-gray-300 dark:bg-gray-700'}`}
                                                     >
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-all ${verseHoverPreviews ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>

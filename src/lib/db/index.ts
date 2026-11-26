@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
     Note,
     Folder,
+    TrashItem,
     User,
     BibleVersion,
     BibleVerse,
@@ -20,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class ParchmentsDatabase extends Dexie {
     notes!: Table<Note>;
     folders!: Table<Folder>;
+    trash!: Table<TrashItem>;
     users!: Table<User>;
     bibleVersions!: Table<BibleVersion>;
     bibleVerses!: Table<BibleVerse>;
@@ -98,6 +100,28 @@ export class ParchmentsDatabase extends Dexie {
         this.version(11).stores({
             notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
             folders: 'id, name, parentId, order, [parentId+order]',
+            users: 'id, email, fullName',
+            bibleVersions: 'id, abbreviation, isDownloaded',
+            bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',
+            chapterSummaries: 'id, book, [book+chapter]',
+            strongsEntries: 'id',
+            strongsConcordance: 'verseId, *strongsNumbers',
+            crossReferences: 'id, sourceVerseId, targetType, [sourceVerseId+targetType]',
+            vectors: 'id, noteId, lastIndexed',
+            bibleVectors: 'id, versionId, [versionId+book+chapter]',
+            readingPlans: 'id, name, status, startDate, endDate',
+            readingPlanHistory: 'id, planId, completedAt',
+            tskRefs: 'verseId',
+            commentaries: 'id, source, book, [book+chapter], [source+book+chapter]',
+            dictionary: 'id, term',
+            topicalIndex: 'id, topic'
+        });
+
+        // Version 12: Add recoverable Trash safety net table (30-day recovery for notes & folders)
+        this.version(12).stores({
+            notes: 'id, title, folderId, type, createdAt, updatedAt, [folderId+createdAt]',
+            folders: 'id, name, parentId, order, [parentId+order]',
+            trash: 'id, storageMode, kind, deletedAt, expiresAt',
             users: 'id, email, fullName',
             bibleVersions: 'id, abbreviation, isDownloaded',
             bibleVerses: 'id, versionId, book, [versionId+book+chapter], [versionId+book+chapter+verse], [book+chapter]',

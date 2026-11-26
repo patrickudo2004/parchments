@@ -722,6 +722,56 @@ export class FileSystemService {
     }
 
     /**
+     * Moves a file or directory from `srcParent` into `destParent`, resolving naming collisions cleanly.
+     * Works uniformly across Tauri, Capacitor, and Web File System Access API.
+     */
+    async moveEntry(
+        handle: FileSystemHandle,
+        srcParent: FileSystemDirectoryHandle,
+        destParent: FileSystemDirectoryHandle,
+        desiredName?: string
+    ): Promise<FileSystemHandle> {
+        const targetName = await this.getUniqueFileName(destParent, desiredName || handle.name);
+
+        if (checkIsTauri() && handle.path && destParent.path) {
+            const { rename } = await import('@tauri-apps/plugin-fs');
+            const newPath = `${destParent.path}/${targetName}`;
+            await rename(handle.path, newPath);
+            return { kind: handle.kind, name: targetName, path: newPath };
+        }
+
+        if (checkIsCapacitor() && handle.path && destParent.path) {
+            const { Filesystem, Directory } = await import('@capacitor/filesystem');
+            const toPath = `${destParent.path}/${targetName}`;
+            await Filesystem.rename({
+                from: handle.path,
+                to: toPath,
+                directory: getActiveCapacitorDirectory(Directory)
+            });
+            return { kind: handle.kind, name: targetName, path: toPath };
+        }
+
+        if (handle.rawHandle && srcParent.rawHandle && destParent.rawHandle) {
+            if (handle.kind === 'file') {
+                const fileBlob = await handle.rawHandle.getFile();
+                const newRawFile = await destParent.rawHandle.getFileHandle(targetName, { create: true });
+                const writable = await newRawFile.createWritable();
+                await writable.write(fileBlob);
+                await writable.close();
+                await srcParent.rawHandle.removeEntry(handle.name);
+                return { kind: 'file', name: targetName, rawHandle: newRawFile };
+            } else {
+                const newRawDir = await destParent.rawHandle.getDirectoryHandle(targetName, { create: true });
+                await this.copyRawDirectoryContents(handle.rawHandle, newRawDir);
+                await srcParent.rawHandle.removeEntry(handle.name, { recursive: true });
+                return { kind: 'directory', name: targetName, rawHandle: newRawDir };
+            }
+        }
+
+        throw new Error('Move not supported or directory handles unavailable');
+    }
+
+    /**
      * Reads a directory recursively, skipping hidden dotfiles/system folders (`.assets`, `.git`, `node_modules`, etc.).
      */
     async readDirectoryRecursive(

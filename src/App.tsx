@@ -33,10 +33,11 @@ const App: React.FC = () => {
         
         // Initialize local folder reconnection, E2EE sync identity, and initial DB notes/folders
         useSyncStore.getState().initializeIdentity().catch(err => console.error('Failed to init sync identity:', err));
-        const { loadNotes, loadFolders, initStorageFoundation } = useNoteStore.getState();
+        const { loadNotes, loadFolders, loadTrash, initStorageFoundation } = useNoteStore.getState();
         initStorageFoundation().catch(err => console.error('Failed to init local folder:', err));
         loadNotes().catch(err => console.error('Failed to load notes:', err));
         loadFolders().catch(err => console.error('Failed to load folders:', err));
+        loadTrash().catch(err => console.error('Failed to load trash:', err));
     }, []);
 
     const isNativeApp = !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__ || Capacitor.isNativePlatform();

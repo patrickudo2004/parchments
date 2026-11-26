@@ -26,6 +26,24 @@ export interface Folder {
     order: number;
 }
 
+export interface TrashItem {
+    id: string;
+    storageMode: 'browser' | 'local';
+    kind: 'file' | 'folder';
+    name: string;
+    originalParentId: string | null;
+    deletedAt: number;
+    expiresAt: number;
+    noteSnapshot?: Note;
+    folderSnapshot?: Folder;
+    childFolders?: Folder[];
+    childNotes?: Note[];
+    localTrashName?: string;
+    localOriginalRelPath?: string;
+    localParentRelPath?: string | null;
+    itemCount?: number;
+}
+
 export interface User {
     id: string;
     email: string;

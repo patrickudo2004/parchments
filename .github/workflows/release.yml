@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+
 jobs:
   publish:
     permissions:
